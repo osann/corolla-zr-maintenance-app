@@ -1,0 +1,15 @@
+name: Daily price scrape
+
+on:
+  schedule:
+    - cron: '0 23 * * *'  # 9 AM AEST (UTC+10)
+  workflow_dispatch:       # allow manual trigger from GitHub Actions tab
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scrape
+        run: |
+          curl -sf -X POST ${{ secrets.BACKEND_URL }}/api/scrape \
+            -w "\nHTTP %{http_code}\n"
