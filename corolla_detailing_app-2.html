@@ -1,0 +1,3647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corolla ZR Detailing — Kit & Technique Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #faf8f3;
+    --bg-elev: #ffffff;
+    --bg-muted: #f0ede5;
+    --ink: #1a1d1a;
+    --ink-mid: #4a4d47;
+    --ink-low: #8a8d87;
+    --rule: rgba(0,0,0,0.08);
+    --rule-strong: rgba(0,0,0,0.18);
+    --accent: #2d7d5a;
+    --accent-dark: #1f5a40;
+    --accent-tint: #e8f2ec;
+    --warn: #a8570a;
+    --warn-tint: #fcf0e0;
+    --danger: #a32a2a;
+    --danger-tint: #fbeaea;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171a;
+      --bg-elev: #1c1f23;
+      --bg-muted: #22262b;
+      --ink: #ebe8e0;
+      --ink-mid: #a8a8a0;
+      --ink-low: #70736e;
+      --rule: rgba(255,255,255,0.08);
+      --rule-strong: rgba(255,255,255,0.16);
+      --accent: #4caa82;
+      --accent-dark: #2d7d5a;
+      --accent-tint: rgba(76,170,130,0.12);
+      --warn: #d49050;
+      --warn-tint: rgba(212,144,80,0.12);
+      --danger: #d46060;
+      --danger-tint: rgba(212,96,96,0.12);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ─── Layout ───────────────────────────────────────── */
+  .app {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  /* ─── Header ───────────────────────────────────────── */
+  header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 0;
+  }
+  .eyebrow {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 400;
+    font-size: 42px;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin-bottom: 10px;
+    font-variation-settings: 'opsz' 144;
+  }
+  h1 em {
+    font-style: italic;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100;
+    color: var(--accent-dark);
+  }
+  .tagline {
+    font-size: 15px;
+    color: var(--ink-mid);
+    max-width: 560px;
+    line-height: 1.5;
+  }
+
+  /* ─── Tab Navigation ───────────────────────────────── */
+  .tabs {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    padding: 16px 0;
+    margin: 0 -20px;
+    padding-left: 20px;
+    padding-right: 20px;
+    z-index: 50;
+    border-bottom: 1px solid var(--rule);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background: rgba(250, 248, 243, 0.92);
+  }
+  @media (prefers-color-scheme: dark) {
+    .tabs { background: rgba(21, 23, 26, 0.92); }
+  }
+  .tabs-inner {
+    display: flex;
+    gap: 4px;
+    max-width: 880px;
+    margin: 0 auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs-inner::-webkit-scrollbar { display: none; }
+  .tab {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-mid);
+    background: transparent;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 180ms ease;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--ink); background: var(--bg-muted); }
+  .tab.active {
+    color: var(--bg-elev);
+    background: var(--ink);
+  }
+  @media (prefers-color-scheme: dark) {
+    .tab.active { background: var(--ink); color: var(--bg); }
+  }
+
+  /* ─── Panels ───────────────────────────────────────── */
+  .panel { display: none; padding: 32px 0; }
+  .panel.active { display: block; animation: fadeIn 240ms ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── Stats Card ───────────────────────────────────── */
+  .stats-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 28px;
+    box-shadow: var(--shadow);
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-low);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .stat-value {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 28px;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1;
+    font-variation-settings: 'opsz' 144;
+  }
+  .stat-value .subtle { color: var(--ink-low); font-size: 18px; }
+  .progress {
+    height: 4px;
+    background: var(--bg-muted);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 100px;
+    transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ─── Phase ─────────────────────────────────────── */
+  .phase {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .phase-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .phase-tag {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .phase-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--ink);
+    margin-top: 2px;
+    line-height: 1.2;
+    font-variation-settings: 'opsz' 144;
+  }
+  .phase-status {
+    font-size: 12px;
+    color: var(--ink-low);
+    padding: 4px 10px;
+    background: var(--bg-muted);
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .phase-status.done {
+    color: var(--accent-dark);
+    background: var(--accent-tint);
+    font-weight: 500;
+  }
+
+  /* ─── Items ─────────────────────────────────────── */
+  .item {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .item:first-of-type { border-top: none; padding-top: 4px; }
+  .item:hover { background: var(--bg-muted); margin: 0 -12px; padding-left: 12px; padding-right: 12px; border-radius: 8px; }
+  .item input[type="checkbox"] {
+    width: 18px; height: 18px;
+    margin-top: 2px;
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
+  .item-name {
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .item-desc {
+    font-size: 13px;
+    color: var(--ink-mid);
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+  .item-price {
+    font-size: 13px;
+    color: var(--ink-mid);
+    font-weight: 500;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .item.done .item-name { color: var(--ink-low); text-decoration: line-through; }
+  .item.done .item-desc { color: var(--ink-low); }
+  .item.done .item-price { color: var(--ink-low); }
+
+  /* ─── Guide Panel ───────────────────────────────── */
+  .guide-intro {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--ink-mid);
+    font-style: italic;
+    margin-bottom: 36px;
+    padding-left: 20px;
+    border-left: 2px solid var(--accent);
+    font-variation-settings: 'opsz' 144;
+  }
+  .toc {
+    background: var(--bg-muted);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 32px;
+  }
+  .toc-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-low);
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .toc-list {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 4px 16px;
+  }
+  .toc-list a {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 13.5px;
+    transition: color 120ms ease;
+  }
+  .toc-list a:hover { color: var(--accent); }
+  .toc-list .num {
+    font-family: 'Fraunces', Georgia, serif;
+    color: var(--accent);
+    font-weight: 500;
+    min-width: 20px;
+    font-variation-settings: 'opsz' 144;
+  }
+
+  .product-section {
+    padding: 36px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .product-section:first-of-type { border-top: none; padding-top: 12px; }
+  .product-num {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 13px;
+    color: var(--accent);
+    font-variation-settings: 'opsz' 144;
+    font-style: italic;
+    margin-bottom: 4px;
+  }
+  h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 10px;
+    scroll-margin-top: 80px;
+    font-variation-settings: 'opsz' 144;
+  }
+  h2 .product-short {
+    color: var(--ink-low);
+    font-size: 20px;
+    font-style: italic;
+  }
+  .product-intro {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink-mid);
+    margin-bottom: 24px;
+  }
+  h3 {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-low);
+    margin-top: 28px;
+    margin-bottom: 12px;
+  }
+  .surfaces-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 600px) {
+    .surfaces-grid { grid-template-columns: 1fr; }
+  }
+  .surfaces-box {
+    padding: 16px 18px;
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .surfaces-box.safe { background: var(--accent-tint); border-left: 3px solid var(--accent); }
+  .surfaces-box.avoid { background: var(--danger-tint); border-left: 3px solid var(--danger); }
+  .surfaces-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .surfaces-box.safe .surfaces-label { color: var(--accent-dark); }
+  .surfaces-box.avoid .surfaces-label { color: var(--danger); }
+  .surfaces-box ul { list-style: none; padding: 0; }
+  .surfaces-box li {
+    padding: 3px 0 3px 16px;
+    position: relative;
+    color: var(--ink);
+  }
+  .surfaces-box.safe li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .surfaces-box.avoid li::before {
+    content: "✕";
+    position: absolute;
+    left: 0;
+    color: var(--danger);
+    font-weight: 600;
+  }
+
+  ol.steps { list-style: none; counter-reset: step; margin-bottom: 20px; }
+  ol.steps li {
+    counter-increment: step;
+    padding: 12px 0 12px 44px;
+    position: relative;
+    border-top: 1px solid var(--rule);
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  ol.steps li:first-child { border-top: none; }
+  ol.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 12px;
+    width: 28px;
+    height: 28px;
+    background: var(--accent-tint);
+    color: var(--accent-dark);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Fraunces', Georgia, serif;
+  }
+  ul.plain { list-style: none; margin-bottom: 16px; }
+  ul.plain li {
+    padding: 4px 0 4px 16px;
+    position: relative;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  ul.plain li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    color: var(--ink-low);
+  }
+
+  .callout {
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    margin: 20px 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .callout.tip { background: var(--accent-tint); border-left: 3px solid var(--accent); color: var(--ink); }
+  .callout.warn { background: var(--warn-tint); border-left: 3px solid var(--warn); color: var(--ink); }
+  .callout-label {
+    display: inline-block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    margin-right: 8px;
+  }
+  .callout.tip .callout-label { color: var(--accent-dark); }
+  .callout.warn .callout-label { color: var(--warn); }
+
+  /* ─── Routine Tables ────────────────────────────── */
+  .routine-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 13.5px;
+  }
+  .routine-table th, .routine-table td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .routine-table th {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-low);
+    font-weight: 600;
+    background: var(--bg-muted);
+  }
+  .routine-table th:first-child, .routine-table td:first-child {
+    font-family: 'Fraunces', Georgia, serif;
+    color: var(--accent);
+    font-weight: 500;
+    width: 40px;
+    font-variation-settings: 'opsz' 144;
+  }
+  .routine-table th:nth-child(2), .routine-table td:nth-child(2) {
+    font-weight: 500;
+    width: 32%;
+  }
+  .routine-table td { color: var(--ink-mid); vertical-align: top; }
+  .routine-table td:nth-child(2) { color: var(--ink); }
+
+  /* Compatibility matrix */
+  .matrix-wrap { overflow-x: auto; margin: 20px 0; }
+  .matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 500px;
+  }
+  .matrix th, .matrix td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    text-align: center;
+  }
+  .matrix th:first-child, .matrix td:first-child {
+    text-align: left;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .matrix th {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-low);
+    font-weight: 600;
+  }
+  .matrix .yes { color: var(--accent); font-weight: 600; }
+  .matrix .no  { color: var(--danger); font-weight: 600; }
+
+  /* ─── References Panel ─────────────────────────── */
+  .ref-group { margin-bottom: 36px; }
+  .ref-group-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 22px;
+    margin-bottom: 8px;
+    color: var(--ink);
+    font-variation-settings: 'opsz' 144;
+  }
+  .ref-group-desc {
+    font-size: 14px;
+    color: var(--ink-mid);
+    margin-bottom: 16px;
+  }
+  .ref-item {
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .ref-item:first-of-type { border-top: none; }
+  .ref-item a {
+    color: var(--ink);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14.5px;
+    display: block;
+    margin-bottom: 3px;
+    transition: color 120ms ease;
+  }
+  .ref-item a:hover { color: var(--accent); }
+  .ref-item a::after {
+    content: " ↗";
+    color: var(--ink-low);
+    font-size: 12px;
+  }
+  .ref-meta {
+    font-size: 12.5px;
+    color: var(--ink-low);
+    margin-bottom: 4px;
+  }
+  .ref-desc {
+    font-size: 13.5px;
+    color: var(--ink-mid);
+    line-height: 1.5;
+  }
+
+  /* ─── Footer ────────────────────────────────────── */
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-size: 12px;
+    color: var(--ink-low);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .reset-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    color: var(--ink-mid);
+    cursor: pointer;
+    margin-top: 12px;
+    transition: all 180ms ease;
+  }
+  .reset-btn:hover { background: var(--bg-muted); color: var(--ink); }
+
+  /* ─── Wash Log ──────────────────────────────────── */
+  .log-form-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .log-form-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 19px;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: 18px;
+    font-variation-settings: 'opsz' 144;
+  }
+  .log-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 600px) { .log-form-grid { grid-template-columns: 1fr; } }
+  .log-field { display: flex; flex-direction: column; gap: 6px; }
+  .log-field.full { grid-column: 1 / -1; }
+  .log-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-low);
+  }
+  .log-input, .log-select, .log-textarea {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    background: var(--bg-muted);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 160ms ease;
+    width: 100%;
+  }
+  .log-input:focus, .log-select:focus, .log-textarea:focus {
+    border-color: var(--accent);
+    background: var(--bg-elev);
+  }
+  .log-textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+  .log-select { appearance: none; cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a8d87' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+  .steps-checklist {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .step-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-muted);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--ink-mid);
+    cursor: pointer;
+    transition: all 140ms ease;
+    user-select: none;
+  }
+  .step-chip input { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+  .step-chip.checked { background: var(--accent-tint); border-color: var(--accent); color: var(--ink); }
+  .log-submit {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 11px 24px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 160ms ease;
+    margin-top: 4px;
+  }
+  .log-submit:hover { background: var(--accent-dark); }
+  .streak-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 18px 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .streak-icon { font-size: 28px; line-height: 1; }
+  .streak-label { font-size: 12px; color: var(--ink-low); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 500; }
+  .streak-value { font-family: 'Fraunces', Georgia, serif; font-size: 26px; color: var(--ink); font-variation-settings: 'opsz' 144; }
+  .streak-divider { width: 1px; height: 40px; background: var(--rule-strong); margin: 0 4px; }
+  .log-empty {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--ink-low);
+    font-size: 14px;
+    border: 1px dashed var(--rule-strong);
+    border-radius: var(--radius-lg);
+  }
+  .log-empty-icon { font-size: 32px; margin-bottom: 12px; }
+  .log-entry {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    animation: fadeIn 240ms ease;
+    position: relative;
+  }
+  .log-entry-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .log-entry-date {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--ink);
+    font-variation-settings: 'opsz' 144;
+  }
+  .log-entry-type {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .log-entry-type.full { background: var(--accent-tint); color: var(--accent-dark); }
+  .log-entry-type.quick { background: var(--bg-muted); color: var(--ink-mid); }
+  .log-entry-type.interior { background: var(--warn-tint); color: var(--warn); }
+  .log-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .log-chip { font-size: 11.5px; padding: 3px 9px; background: var(--bg-muted); border-radius: 100px; color: var(--ink-mid); }
+  .log-entry-notes {
+    font-size: 13.5px;
+    color: var(--ink-mid);
+    line-height: 1.5;
+    font-style: italic;
+    border-top: 1px solid var(--rule);
+    padding-top: 10px;
+    margin-top: 4px;
+  }
+  .log-delete {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    color: var(--ink-low);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: all 140ms ease;
+    line-height: 1;
+  }
+  .log-delete:hover { background: var(--danger-tint); color: var(--danger); }
+  .log-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-low);
+    margin-bottom: 14px;
+    margin-top: 8px;
+  }
+
+  /* ─── Spend Panel ───────────────────────────────── */
+  .spend-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 600px) { .spend-summary { grid-template-columns: 1fr 1fr; } }
+  .spend-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .spend-card.accent { border-color: var(--accent); background: var(--accent-tint); }
+  .spend-card .stat-label { margin-bottom: 8px; }
+  .budget-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .budget-input-wrap {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-muted);
+  }
+  .budget-prefix { padding: 9px 10px 9px 12px; font-size: 14px; color: var(--ink-low); background: var(--bg-muted); line-height: 1; }
+  .budget-field {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    border: none;
+    background: transparent;
+    padding: 9px 12px 9px 2px;
+    color: var(--ink);
+    outline: none;
+    width: 80px;
+  }
+  .budget-save {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 16px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 160ms ease;
+  }
+  .budget-save:hover { background: var(--accent-dark); }
+  .budget-label { font-size: 13px; color: var(--ink-mid); }
+  .phase-spend-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .phase-spend-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .phase-spend-name { font-family: 'Fraunces', Georgia, serif; font-size: 18px; font-weight: 400; color: var(--ink); font-variation-settings: 'opsz' 144; }
+  .phase-spend-amounts { font-size: 13px; color: var(--ink-mid); font-variant-numeric: tabular-nums; }
+  .phase-spend-amounts strong { color: var(--ink); }
+  .phase-spend-bar { height: 6px; background: var(--bg-muted); border-radius: 100px; overflow: hidden; margin-bottom: 14px; }
+  .phase-spend-fill { height: 100%; background: var(--accent); border-radius: 100px; transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1); }
+  .phase-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 0;
+    border-top: 1px solid var(--rule);
+    font-size: 13.5px;
+  }
+  .phase-item-row:first-of-type { border-top: none; }
+  .phase-item-name { color: var(--ink); flex: 1; }
+  .phase-item-name.bought { color: var(--ink-low); }
+  .phase-item-price { color: var(--ink-mid); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .phase-item-badge { font-size: 10.5px; padding: 2px 7px; border-radius: 100px; font-weight: 500; white-space: nowrap; }
+  .phase-item-badge.bought { background: var(--accent-tint); color: var(--accent-dark); }
+  .phase-item-badge.pending { background: var(--bg-muted); color: var(--ink-low); }
+  .sale-section { margin-top: 32px; }
+  .sale-section-title { font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 400; color: var(--ink); margin-bottom: 6px; font-variation-settings: 'opsz' 144; }
+  .sale-section-desc { font-size: 14px; color: var(--ink-mid); margin-bottom: 20px; line-height: 1.55; }
+  .sale-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .sale-icon { font-size: 26px; margin-top: 2px; }
+  .sale-retailer { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); margin-bottom: 3px; }
+  .sale-title { font-size: 15px; font-weight: 500; color: var(--ink); margin-bottom: 5px; }
+  .sale-desc { font-size: 13.5px; color: var(--ink-mid); line-height: 1.55; }
+  .sale-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 100px; margin-top: 8px; }
+  .sale-badge.big { background: var(--warn-tint); color: var(--warn); }
+  .sale-badge.reg { background: var(--accent-tint); color: var(--accent-dark); }
+
+  /* ─── Settings Panel ───────────────────────────── */
+  .settings-section {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .settings-section-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--ink);
+    margin-bottom: 4px;
+    font-variation-settings: 'opsz' 144;
+  }
+  .settings-section-desc {
+    font-size: 13.5px;
+    color: var(--ink-mid);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-top: 1px solid var(--rule);
+    flex-wrap: wrap;
+  }
+  .settings-row:first-of-type { border-top: none; padding-top: 0; }
+  .settings-row-label { flex: 1; min-width: 160px; }
+  .settings-row-label strong { font-size: 14px; font-weight: 500; color: var(--ink); display: block; margin-bottom: 2px; }
+  .settings-row-label span { font-size: 12.5px; color: var(--ink-low); line-height: 1.4; display: block; }
+  .settings-control { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+  /* Toggle switch */
+  .toggle-wrap { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+  .toggle-wrap input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: var(--bg-muted);
+    border: 1px solid var(--rule-strong);
+    border-radius: 100px;
+    cursor: pointer;
+    transition: background 200ms ease, border-color 200ms ease;
+  }
+  .toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 18px; height: 18px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 200ms ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle-wrap input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+  .toggle-wrap input:checked + .toggle-track::after { transform: translateX(18px); }
+
+  /* Frequency stepper */
+  .freq-stepper { display: flex; align-items: center; gap: 0; border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
+  .freq-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 18px;
+    font-weight: 400;
+    width: 36px; height: 36px;
+    background: var(--bg-muted);
+    border: none;
+    color: var(--ink-mid);
+    cursor: pointer;
+    transition: background 140ms ease, color 140ms ease;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .freq-btn:hover { background: var(--bg-muted); color: var(--ink); }
+  .freq-display {
+    min-width: 80px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--bg-elev);
+    padding: 0 8px;
+    height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-left: 1px solid var(--rule-strong);
+    border-right: 1px solid var(--rule-strong);
+  }
+
+  /* Routine step editor */
+  .routine-step-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .routine-step-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-muted);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    color: var(--ink);
+    cursor: grab;
+    user-select: none;
+    transition: background 120ms ease, box-shadow 120ms ease;
+  }
+  .routine-step-item:active { cursor: grabbing; box-shadow: 0 4px 12px rgba(0,0,0,0.12); background: var(--bg-elev); }
+  .routine-step-item.dragging { opacity: 0.4; }
+  .routine-step-item.drag-over { border-color: var(--accent); background: var(--accent-tint); }
+  .drag-handle { color: var(--ink-low); font-size: 15px; flex-shrink: 0; cursor: grab; }
+  .step-toggle { margin-left: auto; flex-shrink: 0; }
+  .step-name-display { flex: 1; line-height: 1.4; }
+  .step-name-input {
+    flex: 1;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--accent);
+    color: var(--ink);
+    outline: none;
+    padding: 2px 0;
+    display: none;
+  }
+  .step-edit-btn {
+    background: transparent;
+    border: none;
+    color: var(--ink-low);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: all 140ms ease;
+    flex-shrink: 0;
+  }
+  .step-edit-btn:hover { background: var(--bg-muted); color: var(--ink); }
+  .step-remove-btn {
+    background: transparent;
+    border: none;
+    color: var(--ink-low);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: all 140ms ease;
+    flex-shrink: 0;
+  }
+  .step-remove-btn:hover { background: var(--danger-tint); color: var(--danger); }
+  .add-step-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .add-step-input {
+    flex: 1;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    background: var(--bg-muted);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 160ms ease;
+  }
+  .add-step-input:focus { border-color: var(--accent); background: var(--bg-elev); }
+  .add-step-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 16px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 160ms ease;
+    white-space: nowrap;
+  }
+  .add-step-btn:hover { background: var(--accent-dark); }
+
+  /* Routine tabs within settings */
+  .routine-tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+  .routine-tab {
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--rule-strong);
+    background: transparent;
+    color: var(--ink-mid);
+    cursor: pointer;
+    transition: all 160ms ease;
+  }
+  .routine-tab:hover { background: var(--bg-muted); color: var(--ink); }
+  .routine-tab.active { background: var(--ink); color: var(--bg-elev); border-color: var(--ink); }
+  .routine-editor { display: none; }
+  .routine-editor.active { display: block; }
+
+  .settings-save-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    flex-wrap: wrap;
+  }
+  .settings-save-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 10px 22px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 160ms ease;
+  }
+  .settings-save-btn:hover { background: var(--accent-dark); }
+  .settings-reset-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 10px 16px;
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    color: var(--ink-mid);
+    cursor: pointer;
+    transition: all 160ms ease;
+  }
+  .settings-reset-btn:hover { background: var(--bg-muted); color: var(--ink); }
+  .settings-saved-msg { font-size: 13px; color: var(--accent); font-weight: 500; opacity: 0; transition: opacity 300ms ease; }
+  .settings-saved-msg.visible { opacity: 1; }
+
+  .color-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    border-radius: 100px;
+    font-size: 12.5px;
+    font-weight: 500;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 140ms ease;
+  }
+  .color-chip.active { border-color: var(--ink); }
+
+  /* ─── Print ─────────────────────────────────────── */
+  @media print {
+    .tabs, .reset-btn { display: none; }
+    .panel { display: block !important; }
+    .phase, .stats-card { box-shadow: none; border: 1px solid #ddd; }
+    body { background: white; color: black; }
+  }
+
+  /* ─── Responsive ────────────────────────────────── */
+  @media (max-width: 600px) {
+    h1 { font-size: 32px; }
+    h2 { font-size: 24px; }
+    .stats-grid { grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .stat-value { font-size: 22px; }
+    .phase, .stats-card { padding: 18px; }
+    .app { padding: 0 16px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ═══ HEADER ═══════════════════════════════════ -->
+  <header>
+    <div class="eyebrow">Detailing kit + technique</div>
+    <h1>Corolla <em>ZR</em> Hybrid<br>care guide</h1>
+    <p class="tagline">A phased kit plan, per-product technique reference, and surface compatibility guide for the 2025 Corolla ZR Hybrid in Bowden's Own.</p>
+  </header>
+
+  <!-- ═══ TABS ═════════════════════════════════════ -->
+  <nav class="tabs">
+    <div class="tabs-inner">
+      <button class="tab active" data-tab="checklist">Kit Checklist</button>
+      <button class="tab" data-tab="guide">Technique Guide</button>
+      <button class="tab" data-tab="routine">Wash Routines</button>
+      <button class="tab" data-tab="log">Wash Log</button>
+      <button class="tab" data-tab="spend">Spend</button>
+      <button class="tab" data-tab="refs">References</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </div>
+  </nav>
+
+  <!-- ═══ CHECKLIST PANEL ══════════════════════════ -->
+  <div class="panel active" id="checklist">
+    <div class="stats-card">
+      <div class="stats-grid">
+        <div>
+          <div class="stat-label">Purchased</div>
+          <div class="stat-value"><span id="cnt-done">0</span><span class="subtle"> / <span id="cnt-total">24</span></span></div>
+        </div>
+        <div>
+          <div class="stat-label">Spent</div>
+          <div class="stat-value">$<span id="cnt-spent">0</span></div>
+        </div>
+        <div>
+          <div class="stat-label">Remaining</div>
+          <div class="stat-value">$<span id="cnt-remain">0</span></div>
+        </div>
+      </div>
+      <div class="progress"><div class="progress-fill" id="bar" style="width: 0%;"></div></div>
+      <button class="reset-btn" onclick="resetAll()">Reset all</button>
+    </div>
+
+    <div class="phase" data-phase="1">
+      <div class="phase-head">
+        <div>
+          <div class="phase-tag">Phase 1 · foundation</div>
+          <h2 class="phase-title" style="font-size:22px;">Wash, dry, glass, sealant, pre-wash</h2>
+        </div>
+        <span class="phase-status" data-phase-status="1">0 of 10</span>
+      </div>
+
+      <label class="item" data-price="95">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Nanolicious Wash Pack Ultimate</div>
+          <div class="item-desc">Includes Nanolicious, Wash Pad for Shags, Big Green Sucker, Boss Gloss 125ml</div>
+        </div>
+        <div class="item-price">~$95</div>
+      </label>
+
+      <label class="item" data-price="54">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Wet Dreams Pack</div>
+          <div class="item-desc">Hydrophobic spray sealant — apply to wet car post-rinse every wash</div>
+        </div>
+        <div class="item-price">~$54</div>
+      </label>
+
+      <label class="item" data-price="55">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">2 Bucket Wash Kit</div>
+          <div class="item-desc">Two 15L buckets + Great Barrier Thingy grit guards</div>
+        </div>
+        <div class="item-price">~$55</div>
+      </label>
+
+      <label class="item" data-price="23">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Boss Gloss 770ml</div>
+          <div class="item-desc">Drying aid, quick detailer, clay bar lubricant</div>
+        </div>
+        <div class="item-price">$23</div>
+      </label>
+
+      <label class="item" data-price="17">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Naked Glass 500ml</div>
+          <div class="item-desc">Ammonia-free, tint-safe glass cleaner</div>
+        </div>
+        <div class="item-price">$17</div>
+      </label>
+
+      <label class="item" data-price="22">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Inta-Mitt</div>
+          <div class="item-desc">Purpose-built dual-sided glass cleaning mitt with flat profile for windscreen corners</div>
+        </div>
+        <div class="item-price">~$22</div>
+      </label>
+
+      <label class="item" data-price="189">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Kärcher K2 Premium Pressure Washer</div>
+          <div class="item-desc">1750 PSI · 6.2L/min · Kärcher K-series adapter compatible out-of-box with Snow Blow Cannon</div>
+        </div>
+        <div class="item-price">~$189</div>
+      </label>
+
+      <label class="item" data-price="99">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Bowden's Own Snow Blow Cannon</div>
+          <div class="item-desc">Brass fittings, 1L anti-tip bottle, top air adjustment knob</div>
+        </div>
+        <div class="item-price">~$99</div>
+      </label>
+
+      <label class="item" data-price="25">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Snow Job 500ml</div>
+          <div class="item-desc">Pre-wash snow foam — use before every contact wash</div>
+        </div>
+        <div class="item-price">$25</div>
+      </label>
+
+      <label class="item" data-price="32">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Happy Ending Finishing Foam 500ml</div>
+          <div class="item-desc">Foam-based drying aid + gloss enhancer — applied after Wet Dreams, before drying</div>
+        </div>
+        <div class="item-price">~$32</div>
+      </label>
+    </div>
+
+    <div class="phase" data-phase="2">
+      <div class="phase-head">
+        <div>
+          <div class="phase-tag">Phase 2 · complete exterior + interior</div>
+          <h2 class="phase-title" style="font-size:22px;">Wheels, tyres, leather, Ultrasuede</h2>
+        </div>
+        <span class="phase-status" data-phase-status="2">0 of 7</span>
+      </div>
+
+      <label class="item" data-price="22">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Wheely Clean V2 500ml</div>
+          <div class="item-desc">pH-neutral wheel cleaner — protects alloys from brake dust corrosion</div>
+        </div>
+        <div class="item-price">$22</div>
+      </label>
+
+      <label class="item" data-price="15">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">The Little Stiffy</div>
+          <div class="item-desc">Tyre brush — stiff bristles for sidewall texture</div>
+        </div>
+        <div class="item-price">$15</div>
+      </label>
+
+      <label class="item" data-price="30">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">The Flat Head</div>
+          <div class="item-desc">Wheel brush for ZR's 18" alloy barrels. Non-slip handle, knuckle protector</div>
+        </div>
+        <div class="item-price">$30</div>
+      </label>
+
+      <label class="item" data-price="23">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Fabra Cadabra 500ml</div>
+          <div class="item-desc">Solvent-free Ultrasuede cleaner — non-negotiable for ZR seat inserts</div>
+        </div>
+        <div class="item-price">$23</div>
+      </label>
+
+      <label class="item" data-price="78">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">BOLP — Leather Care Pack</div>
+          <div class="item-desc">Leather Love + Leather Guard + Square Bear + Plush Daddy</div>
+        </div>
+        <div class="item-price">$78</div>
+      </label>
+
+      <label class="item" data-price="47">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Fabratection</div>
+          <div class="item-desc">Water-based protector for Ultrasuede seats, carpet floor mats, fabric headlining — apply while new</div>
+        </div>
+        <div class="item-price">$47</div>
+      </label>
+
+      <label class="item" data-price="30">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">303 Aerospace Protectant 473ml</div>
+          <div class="item-desc">UV protection for interior plastics, dashboard, rubber/all-weather floor mats — SPF 40 equivalent. From BCF, Detailing Shed</div>
+        </div>
+        <div class="item-price">~$30</div>
+      </label>
+    </div>
+
+    <div class="phase" data-phase="3">
+      <div class="phase-head">
+        <div>
+          <div class="phase-tag">Phase 3 · daily-use bulk</div>
+          <h2 class="phase-title" style="font-size:22px;">Cheaper washes, microfibre care</h2>
+        </div>
+        <span class="phase-status" data-phase-status="3">0 of 3</span>
+      </div>
+
+      <label class="item" data-price="14">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Pumpy Pump</div>
+          <div class="item-desc">Screws into any Bowden's 5L bottle — 25ml per pump</div>
+        </div>
+        <div class="item-price">$14</div>
+      </label>
+
+      <label class="item" data-price="68">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Nanolicious Wash 5L</div>
+          <div class="item-desc">Wait for 30% off sale at Supercheap/Repco before buying</div>
+        </div>
+        <div class="item-price">$55–80</div>
+      </label>
+
+      <label class="item" data-price="28">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Microfibre Wash 1L</div>
+          <div class="item-desc">Keeps Big Green Sucker and Inta-Mitt absorbent — never fabric softener</div>
+        </div>
+        <div class="item-price">$28</div>
+      </label>
+    </div>
+
+    <div class="phase" data-phase="4">
+      <div class="phase-head">
+        <div>
+          <div class="phase-tag">Phase 4 · full bulk + base sealant</div>
+          <h2 class="phase-title" style="font-size:22px;">Long-term preservation</h2>
+        </div>
+        <span class="phase-status" data-phase-status="4">0 of 6</span>
+      </div>
+
+      <label class="item" data-price="18">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Plush Brush</div>
+          <div class="item-desc">Soft-bristle brush for Ultrasuede pile and piano black trim</div>
+        </div>
+        <div class="item-price">$18</div>
+      </label>
+
+      <label class="item" data-price="25">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Flash Prep 500ml</div>
+          <div class="item-desc">Required prep before Bead Machine — strips waxes, sealants, oils for proper bonding</div>
+        </div>
+        <div class="item-price">~$25</div>
+      </label>
+
+      <label class="item" data-price="50">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Bead Machine 500ml</div>
+          <div class="item-desc">Most protective product in Bowden's range — synthetic sealant lasting 3–6 months</div>
+        </div>
+        <div class="item-price">~$50</div>
+      </label>
+
+      <label class="item" data-price="32">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Big Softie pair (blue + orange)</div>
+          <div class="item-desc">Two cloths required for Bead Machine application + buffing. Useful as dedicated paint cloths</div>
+        </div>
+        <div class="item-price">~$32</div>
+      </label>
+
+      <label class="item" data-price="78">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Snow Job 5L</div>
+          <div class="item-desc">Bulk pre-wash refill — wait for 30% off sale</div>
+        </div>
+        <div class="item-price">$60–95</div>
+      </label>
+
+      <label class="item" data-price="83">
+        <input type="checkbox">
+        <div>
+          <div class="item-name">Wheely Clean V2 5L</div>
+          <div class="item-desc">Bulk wheel cleaner refill — wait for 30% off sale</div>
+        </div>
+        <div class="item-price">$70–96</div>
+      </label>
+    </div>
+  </div>
+
+  <!-- ═══ GUIDE PANEL ═══════════════════════════════ -->
+  <div class="panel" id="guide">
+    <p class="guide-intro">Product-by-product technique, compatible surfaces, and surfaces to avoid. Work through in order — each section covers both what to do and what will damage a surface if misused.</p>
+
+    <div class="toc">
+      <div class="toc-title">Contents</div>
+      <ul class="toc-list">
+        <li><a href="#p1"><span class="num">01</span> Snow Job</a></li>
+        <li><a href="#p2"><span class="num">02</span> Wheely Clean V2</a></li>
+        <li><a href="#p3"><span class="num">03</span> Nanolicious Wash</a></li>
+        <li><a href="#p4"><span class="num">04</span> Drying + Boss Gloss</a></li>
+        <li><a href="#p5"><span class="num">05</span> Naked Glass</a></li>
+        <li><a href="#p6"><span class="num">06</span> Wet Dreams</a></li>
+        <li><a href="#p7"><span class="num">07</span> Happy Ending</a></li>
+        <li><a href="#p8"><span class="num">08</span> Boss Gloss quick detail</a></li>
+        <li><a href="#p9"><span class="num">09</span> Fabra Cadabra</a></li>
+        <li><a href="#p10"><span class="num">10</span> Leather Love V2</a></li>
+        <li><a href="#p11"><span class="num">11</span> Fabratection</a></li>
+        <li><a href="#p12"><span class="num">12</span> 303 Aerospace Protectant</a></li>
+        <li><a href="#p13"><span class="num">13</span> Leather Guard</a></li>
+        <li><a href="#p14"><span class="num">14</span> Microfibre Wash</a></li>
+        <li><a href="#p15"><span class="num">15</span> Bead Machine + Flash Prep</a></li>
+      </ul>
+    </div>
+
+    <!-- PRODUCT 1 — Snow Job -->
+    <div class="product-section" id="p1">
+      <div class="product-num">01 — Pre-wash</div>
+      <h2>Snow Job <span class="product-short">· snow foam</span></h2>
+      <p class="product-intro">Thick, pH-neutral pre-wash foam. Applied before any contact wash to soften and lift heavy dirt, road grime, and organic debris so they rinse away without being dragged across the paint.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>All painted panels, clear coat</li>
+            <li>Glass, rubber seals, plastic trim</li>
+            <li>Alloy wheels, chrome</li>
+            <li>Ceramic-coated surfaces</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Hot panels in direct sun</li>
+            <li>Interior surfaces</li>
+            <li>Bare uncoated metal (prolonged)</li>
+            <li>Open stone chips (avoid soak)</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Equipment</h3>
+      <ul class="plain">
+        <li>Foam cannon attached to pressure washer</li>
+        <li>Two buckets with grit guards</li>
+      </ul>
+
+      <h3>Technique</h3>
+      <ol class="steps">
+        <li>Rinse the car with plain water at low pressure to remove loose debris.</li>
+        <li>Fill foam cannon reservoir at roughly 1:10 dilution — 4 pumps of Pumpy Pump per litre of water.</li>
+        <li>Apply in overlapping passes from bottom to top for full coverage.</li>
+        <li>Dwell for 2 to 4 minutes. Do not let it dry — work in the shade.</li>
+        <li>Rinse top to bottom with moderate pressure. Do not scrub.</li>
+      </ol>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>Snow Job is a pre-wash only — it does not replace the contact wash with Nanolicious. Its job is to reduce the load of abrasive grit before the mitt touches paint.</div>
+    </div>
+
+    <!-- PRODUCT 2 — Wheely Clean -->
+    <div class="product-section" id="p2">
+      <div class="product-num">02 — Wheel cleaning</div>
+      <h2>Wheely Clean V2</h2>
+      <p class="product-intro">pH-neutral, non-acid wheel cleaner safe for all wheel types. Dissolves brake dust, road grime, and iron contamination without attacking protective finishes.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>Painted and clear-coated alloys</li>
+            <li>Chrome, polished alloys</li>
+            <li>Ceramic-coated wheels</li>
+            <li>Plastic wheel covers, wheel arches</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Hot wheels fresh from driving</li>
+            <li>Bare uncoated magnesium wheels</li>
+            <li>Heavily oxidised bare aluminium</li>
+            <li>Peeling painted brake callipers</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Technique</h3>
+      <ol class="steps">
+        <li>Clean wheels <strong>before</strong> the paint wash — overspray will contaminate panels you've already cleaned.</li>
+        <li>Rinse each wheel with plain water first.</li>
+        <li>Spray generously across the face, spokes, and into the barrel. Dwell 30 to 60 seconds.</li>
+        <li>Agitate the barrel with The Flat Head brush first.</li>
+        <li>Work the face with a small detailing brush, then The Little Stiffy on tyre sidewall.</li>
+        <li>Rinse thoroughly. Check the barrel — residue here will fling onto clean paint.</li>
+        <li>Repeat on all four wheels before starting the paint wash.</li>
+      </ol>
+
+      <div class="callout warn"><span class="callout-label">Important</span>Never apply to hot wheels. Wait at least 20 minutes after parking to avoid thermal shock of cold water on hot rotors.</div>
+    </div>
+
+    <!-- PRODUCT 3 — Nanolicious -->
+    <div class="product-section" id="p3">
+      <div class="product-num">03 — Contact wash</div>
+      <h2>Nanolicious Wash</h2>
+      <p class="product-intro">pH-neutral, highly lubricating car shampoo producing thick, encapsulating suds that hold grit away from the paint. Safe on all paint protection including ceramic coatings.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>All painted panels, clear coat</li>
+            <li>Ceramic-coated, waxed surfaces</li>
+            <li>Glass, chrome, rubber seals, plastic trim</li>
+            <li>Alloy wheels as secondary clean</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not</span>
+          <ul>
+            <li>Use as a pre-wash substitute</li>
+            <li>Dilute further than recommended</li>
+            <li>Apply to hot panels in direct sun</li>
+            <li>Use with a sponge — mitt only</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Bucket setup</h3>
+      <ol class="steps">
+        <li>Wash bucket: 8L warm water + 1 capful of Nanolicious (~25ml / 1 Pumpy Pump).</li>
+        <li>Rinse bucket: plain water only, for rinsing grit from the mitt.</li>
+      </ol>
+
+      <h3>Wash sequence</h3>
+      <ol class="steps">
+        <li>Always top to bottom — roof, screen, bonnet, doors, then sills and bumpers.</li>
+        <li>Load the mitt from the wash bucket.</li>
+        <li>Use straight front-to-back strokes — never circular.</li>
+        <li>After each panel, rinse the mitt in the rinse bucket before reloading.</li>
+        <li>Rinse each panel with water before the suds dry.</li>
+        <li>Final rinse: free-flow water (no nozzle) to sheet off, minimising water spots.</li>
+      </ol>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>Change the wash water if it looks visibly dirty. Fresh suds are cheap — a scratch from grit-laden water is permanent.</div>
+    </div>
+
+    <!-- PRODUCT 4 — Drying -->
+    <div class="product-section" id="p4">
+      <div class="product-num">04 — Drying</div>
+      <h2>Big Green Sucker <span class="product-short">+ Boss Gloss</span></h2>
+      <p class="product-intro">Drying is where most wash-inflicted scratches actually occur. Boss Gloss acts as a drying aid — its hygroscopic formula attracts water into the towel fibres while adding lubrication.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>All painted panels</li>
+            <li>Glass, chrome, plastic trim, mirrors</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not</span>
+          <ul>
+            <li>Drag a towel across a dusty surface</li>
+            <li>Use a bath towel, chamois, or paper towel</li>
+            <li>Use fabric-softener-washed cloths</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Technique</h3>
+      <ol class="steps">
+        <li>Mist 2 to 3 sprays of Boss Gloss onto the damp drying towel before starting.</li>
+        <li>Lay the towel flat onto the panel and drag gently in one direction. Never scrub back and forth.</li>
+        <li>Use a separate dedicated microfibre for glass to avoid product transfer.</li>
+        <li>Wring the towel when heavy with water, re-mist Boss Gloss, continue.</li>
+        <li>Absorb pooled water from door jambs, mirror housings, fuel cap, antenna base.</li>
+        <li>Finish door jambs with a separate dirtier cloth.</li>
+      </ol>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>Do door jambs before opening doors fully. Water sitting in the seal channel will drain down your freshly dried paint when you open the door.</div>
+    </div>
+
+    <!-- PRODUCT 5 — Naked Glass -->
+    <div class="product-section" id="p5">
+      <div class="product-num">05 — Glass cleaning</div>
+      <h2>Naked Glass <span class="product-short">+ Inta-Mitt</span></h2>
+      <p class="product-intro">Ammonia-free, streak-free glass cleaner safe for tinted glass and screen coatings. The Inta-Mitt's dual-sided design makes streaking significantly less likely — green twist-pile side cleans, purple low-pile buffs.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>Exterior windscreen and rear glass</li>
+            <li>Side windows (including tinted)</li>
+            <li>Interior windscreen, side mirrors</li>
+            <li>Home glass and mirrors</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Touchscreens (digital cluster, infotainment)</li>
+            <li>Ultrasuede surfaces</li>
+            <li>Any cloth contaminated with wax or dressing</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Exterior glass</h3>
+      <ol class="steps">
+        <li>Spray Naked Glass onto the green twist-pile side — never directly on glass in sun.</li>
+        <li>Wipe in overlapping horizontal strokes.</li>
+        <li>Flip to the purple low-pile side and buff vertically. Cross-direction reveals streaks.</li>
+        <li>Check from multiple angles in raking light.</li>
+      </ol>
+
+      <h3>Interior windscreen</h3>
+      <ol class="steps">
+        <li>Tilt the Inta-Mitt flat — the profile is designed for lower dashboard corners.</li>
+        <li>Work from passenger side to driver side in sections.</li>
+        <li>A second dry cloth pass removes haze from plastic outgassing.</li>
+      </ol>
+
+      <div class="callout warn"><span class="callout-label">Important</span>Do not use on the 12.3-inch driver display or 10.5-inch infotainment screen. Use a barely-damp microfibre with distilled water only for fingerprints.</div>
+    </div>
+
+    <!-- PRODUCT 6 — Wet Dreams -->
+    <div class="product-section" id="p6">
+      <div class="product-num">06 — Hydrophobic sealant</div>
+      <h2>Wet Dreams</h2>
+      <p class="product-intro">Spray-on, rinse-off hydrophobic paint sealant that deposits a ceramic-style water-beading layer. Applied to a wet car during the rinse phase — no buffing required.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>All painted panels, clear coat</li>
+            <li>Glass (adds beading)</li>
+            <li>Chrome, plastic trim, alloy wheels</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Dry or hot surfaces</li>
+            <li>Before fully rinsing suds off</li>
+            <li>Interior surfaces</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Technique</h3>
+      <ol class="steps">
+        <li>After the final rinse, while the car is <strong>fully wet</strong>, spray Wet Dreams over all painted panels, glass, and trim from approximately 30cm.</li>
+        <li>Dwell 20 to 30 seconds — it sheets across the water film.</li>
+        <li>Rinse off with <strong>low-pressure</strong> water. The sealant bonds as water carries the carrier away.</li>
+        <li>Proceed to drying as normal.</li>
+        <li>Reapply every wash. Consistent use builds more durable hydrophobic protection.</li>
+      </ol>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>Do not rinse aggressively after application — you'll wash the product away before it bonds. A gentle low-pressure rinse is all that's needed.</div>
+    </div>
+
+    <!-- PRODUCT 7 — Happy Ending -->
+    <div class="product-section" id="p7">
+      <div class="product-num">07 — Finishing foam</div>
+      <h2>Happy Ending <span class="product-short">· drying aid + gloss</span></h2>
+      <p class="product-intro">Foam-based post-wash drying aid and gloss enhancer. Applied to the wet car after Wet Dreams and before drying, it adds slickness for safer drying, boosts gloss, softens water spots, and provides a light hydrophobic top-up. Designed to layer with Wet Dreams — Wet Dreams handles the durable bonded protection, Happy Ending sits on top for an easier dry and a more impressive finish.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>All painted panels, clear coat</li>
+            <li>Glass</li>
+            <li>Chrome, plastic trim, alloy wheels</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Dry surfaces — apply to wet car only</li>
+            <li>Hot panels in direct sun</li>
+            <li>Interior surfaces</li>
+            <li>Cloth convertible roofs</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Technique</h3>
+      <ol class="steps">
+        <li>Complete the wash through Snow Job, Nanolicious, and final rinse.</li>
+        <li>Apply Wet Dreams to the wet car and rinse off gently as normal.</li>
+        <li>While the car is <strong>still fully wet</strong>, fill the foam cannon with Happy Ending at recommended dilution.</li>
+        <li>Apply foam over all painted panels and trim — bottom to top, like Snow Job.</li>
+        <li>Dwell 30 seconds. The foam clings and slowly sheets.</li>
+        <li>Rinse off with <strong>low-pressure</strong> water. Aggressive rinse strips product before it bonds.</li>
+        <li>Proceed straight to drying with the Big Green Sucker — paint will be noticeably slicker.</li>
+      </ol>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>You can use the same Snow Blow Cannon for both Snow Job and Happy Ending in the same wash. Rinse the cannon's bottle between uses to avoid mixing residues.</div>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>When you start using Happy Ending, you can drop Boss Gloss as a drying aid — Happy Ending does the same job better. Keep Boss Gloss for between-wash quick details and clay bar lubricant.</div>
+    </div>
+
+    <!-- PRODUCT 8 — Boss Gloss -->
+    <div class="product-section" id="p8">
+      <div class="product-num">08 — Quick detailer</div>
+      <h2>Boss Gloss</h2>
+      <p class="product-intro">Slick, fast-acting detailing spray for use between washes to remove light dust, fingerprints, and water spots. Also functions as a drying aid, gloss enhancer, and clay bar lubricant.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>All painted panels</li>
+            <li>Glass, alloys, chrome</li>
+            <li>Plastic trim, mirrors</li>
+            <li>Drying towels as drying aid</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Heavily soiled surfaces</li>
+            <li>Ultrasuede seat inserts</li>
+            <li>Touchscreens</li>
+            <li>Genuinely dirty cars (wash first)</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Between-wash quick detail</h3>
+      <ol class="steps">
+        <li>Blow or brush off heavy dust before touching the paint with any cloth.</li>
+        <li>Mist 2 sprays onto a clean Big Softie — never directly onto paint in windy conditions.</li>
+        <li>Wipe with the plush side, flip and buff with the low-pile side.</li>
+        <li>Use one clean section per panel — never carry dust across panels.</li>
+      </ol>
+
+      <h3>As drying aid</h3>
+      <ol class="steps">
+        <li>Mist 2 to 3 sprays onto the damp drying towel before starting.</li>
+        <li>Drag across wet panels — the hygroscopic formula pulls water into the fibres.</li>
+      </ol>
+    </div>
+
+    <!-- PRODUCT 9 — Fabra Cadabra -->
+    <div class="product-section" id="p9">
+      <div class="product-num">09 — Ultrasuede cleaning</div>
+      <h2>Fabra Cadabra</h2>
+      <p class="product-intro">Solvent-free, water-based cleaner formulated for Ultrasuede, Alcantara, and microsuede. The ZR's seat centre inserts and bolsters are Ultrasuede — standard fabric cleaners, alcohol, and steam will permanently damage the material.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>Ultrasuede seat inserts and bolsters</li>
+            <li>Alcantara, microsuede</li>
+            <li>Synthetic suede headlining</li>
+            <li>Fabric floor mats, cloth door inserts</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do NOT</span>
+          <ul>
+            <li>Use on leather or PU leather</li>
+            <li>Use alcohol-based cleaners — ever</li>
+            <li>Use steam cleaners — permanent damage</li>
+            <li>Oversaturate — causes staining and mildew</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Routine cleaning</h3>
+      <ol class="steps">
+        <li><strong>Vacuum first</strong> with upholstery attachment. Rubbing grit into Ultrasuede permanently abrades fibres.</li>
+        <li>Mist Fabra Cadabra lightly onto the Plush Brush, not directly onto the seat.</li>
+        <li>Work in small sections with gentle circular motions, finish with straight strokes to align pile.</li>
+        <li>Blot (don't rub) with dry Plush Daddy to lift moisture and dissolved grime.</li>
+        <li>Allow to dry fully — 15 to 20 minutes with windows down on a warm day.</li>
+        <li>Use Plush Brush lightly in one direction to restore nap once dry.</li>
+      </ol>
+
+      <div class="callout warn"><span class="callout-label">Critical</span>Never use steam on Ultrasuede. It permanently converts the soft velvet texture into a hard, stiff surface that cannot be recovered.</div>
+    </div>
+
+    <!-- PRODUCT 10 — Leather Love -->
+    <div class="product-section" id="p10">
+      <div class="product-num">10 — Leather cleaning</div>
+      <h2>Leather Love V2</h2>
+      <p class="product-intro">pH-neutral, water-based leather cleaner formulated for modern PU-coated automotive leather — which is what the ZR uses. Leaves a matte, non-greasy finish that doesn't make seats slippery.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>PU-coated leather seats</li>
+            <li>Leather-wrapped steering wheel</li>
+            <li>Leather gear knob, door panels</li>
+            <li>Vinyl surfaces</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Ultrasuede inserts — use Fabra Cadabra</li>
+            <li>Aniline/naked leather (very absorbent)</li>
+            <li>Fabric or suede</li>
+            <li>Touchscreens</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Technique</h3>
+      <ol class="steps">
+        <li>Vacuum first to remove grit from perforations and seams.</li>
+        <li>Apply 20-cent-sized amount to Square Bear per section.</li>
+        <li>Work in 30 × 30cm sections with gentle circular motions to lift grime from pores.</li>
+        <li>For perforated leather, use a soft detailing brush — residue in holes dries white.</li>
+        <li>Work stitching with the same brush — seams accumulate grime that flat cloths miss.</li>
+        <li>Wipe off with low-pile side of Plush Daddy in straight strokes. Buff with plush side.</li>
+        <li>Apply Leather Guard while leather is still slightly damp for best bonding.</li>
+      </ol>
+    </div>
+
+    <!-- PRODUCT 11 — Fabratection -->
+    <div class="product-section" id="p11">
+      <div class="product-num">11 — Ultrasuede + fabric protection</div>
+      <h2>Fabratection</h2>
+      <p class="product-intro">Water-based fabric protector for Ultrasuede, Alcantara, microsuede, and absorbent fabric surfaces including carpet floor mats and headlining. Most commercial fabric protectors are solvent-based and will permanently damage delicate materials. Fabratection deposits an invisible spill-repelling barrier without affecting texture.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>Ultrasuede seat inserts</li>
+            <li>Alcantara, microsuede</li>
+            <li>Fabric headlining, door inserts</li>
+            <li>Fabric floor mats</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do NOT</span>
+          <ul>
+            <li>Use on leather surfaces</li>
+            <li>Apply over dirty Ultrasuede</li>
+            <li>Apply to wet Ultrasuede</li>
+            <li>Use solvent-based protectors on Ultrasuede</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>First application — Ultrasuede seats</h3>
+      <ol class="steps">
+        <li>Clean thoroughly with Fabra Cadabra and allow to dry fully. This is not optional.</li>
+        <li>Shake the bottle well.</li>
+        <li>Mist evenly at 20 to 25cm. Two light coats better than one heavy.</li>
+        <li>Work product into pile with Plush Brush, restore nap direction.</li>
+        <li>Dry fully — 20 to 30 minutes in warm conditions.</li>
+        <li>Apply second coat once first is dry.</li>
+        <li>Allow 4 hours before normal use.</li>
+      </ol>
+
+      <h3>Application — carpet floor mats</h3>
+      <ol class="steps">
+        <li>Remove mats from the car and take them to a well-ventilated area.</li>
+        <li>Vacuum thoroughly with a brush attachment in multiple directions to lift fibres and reach trapped grit.</li>
+        <li>Spot-clean any existing stains with Fabra Cadabra first — protector seals stains in if applied over them.</li>
+        <li>Allow mats to dry completely. Damp carpet causes patchy bonding.</li>
+        <li>Apply Fabratection in light, even passes at 25 to 30cm. Don't saturate.</li>
+        <li>Use the Plush Brush to work product into the carpet pile in the direction of the nap.</li>
+        <li>Allow at least 30 minutes drying in warm conditions.</li>
+        <li>Apply a second coat — the driver's mat especially benefits from this.</li>
+        <li>Cure 4 hours before walking on or reinstalling.</li>
+      </ol>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>Water bead test — drip water onto Ultrasuede or carpet. Should bead immediately. If absorbs, reapply. Expect annual reapplication for seats, every 6 months for floor mats.</div>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>The single most impactful thing you can do for carpet mats is mechanical, not chemical: place rubber/all-weather mats on top during winter, wet days, and trips with muddy footwear. Carpet mats stay pristine underneath.</div>
+    </div>
+
+    <!-- PRODUCT 12 — 303 Aerospace Protectant -->
+    <div class="product-section" id="p12">
+      <div class="product-num">12 — Plastic + rubber UV protection</div>
+      <h2>303 Aerospace Protectant <span class="product-short">· interior + rubber mats</span></h2>
+      <p class="product-intro">Originally formulated for aircraft and marine applications, 303 provides UV-A and UV-B protection equivalent to SPF 40 sunscreen. Water-based, no silicone, dries to a natural matte finish that looks like clean factory plastic — not greasy or shiny. The right product for interior plastic surfaces and rubber/all-weather floor mats. Not a Bowden's Own product but the gold standard for this category in Australia.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>Interior soft-touch and hard plastics</li>
+            <li>Dashboard, vents, console, door panels</li>
+            <li>Rubber/all-weather floor mats</li>
+            <li>Vinyl door cards, A-pillar trim</li>
+            <li>Engine bay plastics</li>
+            <li>Rubber door and window seals</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Touchscreens — distilled water only</li>
+            <li>Leather seats — use Leather Guard</li>
+            <li>Ultrasuede — use Fabratection</li>
+            <li>Glass interior — use Naked Glass</li>
+            <li>Painted exterior surfaces</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Application — interior plastics</h3>
+      <ol class="steps">
+        <li>Vacuum first with a brush attachment across all plastic surfaces. Pay attention to vent slats and button recesses.</li>
+        <li>Use the Plush Brush or a small detailing brush to lift dust from textured areas — vent grilles, climate controls, gear shift surround.</li>
+        <li>Wipe with a damp Plush Daddy for routine cleaning. For sticky residue, a small amount of mild APC or diluted Leather Love V2 on the cloth.</li>
+        <li>Dry buff with a clean section of cloth or a separate dry microfibre.</li>
+        <li>Mist 4 to 5 sprays of 303 onto a clean Plush Daddy — never directly onto the dashboard. Overspray gets onto glass, electronics, and Ultrasuede.</li>
+        <li>Wipe in straight strokes across each panel. Buff lightly to remove any excess.</li>
+        <li>Reapply every 4 to 8 weeks for ongoing UV protection.</li>
+      </ol>
+
+      <h3>Application — rubber/all-weather floor mats</h3>
+      <ol class="steps">
+        <li>Remove mats from the car and hose down to remove loose debris.</li>
+        <li>Wash with diluted Nanolicious and a stiff brush. Rinse thoroughly.</li>
+        <li>Allow to dry completely in shade — direct sun while wet creates water spots.</li>
+        <li>Mist onto a clean microfibre cloth, not directly on the mat.</li>
+        <li>Wipe over the entire surface in even strokes, including the underside for maximum protection.</li>
+        <li>Buff lightly with a clean dry microfibre to remove any excess.</li>
+        <li>Allow 1 hour to fully cure before reinstalling.</li>
+        <li>Reapply every 4 to 6 weeks during summer, every 2 to 3 months during cooler months.</li>
+      </ol>
+
+      <h3>Piano black trim</h3>
+      <p style="font-size: 14px; color: var(--ink-mid); line-height: 1.6;">303 also works on piano black trim using a single-direction wipe technique. <strong>Critical:</strong> always blow or brush dust off piano black before any cloth contact — silica dust scratches piano black if wiped before being lifted off. Use a dedicated piano black microfibre, never one that has touched any other product.</p>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>Available from BCF (marine supplies), Whitworths Marine, Detailing Shed, and most camping/4WD stores. Often cheaper at marine retailers than detailing-specific stores.</div>
+
+      <div class="callout warn"><span class="callout-label">Important</span>Apply onto the cloth, not directly to the surface. Direct spraying causes overspray onto glass, electronics, and adjacent materials where it shouldn't go.</div>
+    </div>
+
+    <!-- PRODUCT 13 — Leather Guard -->
+    <div class="product-section" id="p13">
+      <div class="product-num">13 — Leather protection</div>
+      <h2>Leather Guard</h2>
+      <p class="product-intro">Clear, water-based leather protector that seals the pores of PU-coated leather against UV fading, dye transfer from dark clothing, and everyday wear. Dries to a non-greasy, non-slippery finish.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>PU-coated leather seats</li>
+            <li>Leather-wrapped steering wheel</li>
+            <li>Leather gear knob, door panels</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not</span>
+          <ul>
+            <li>Apply over dirty leather</li>
+            <li>Use on Ultrasuede or fabric</li>
+            <li>Apply to soaking wet leather</li>
+            <li>Apply in direct sunlight</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Technique</h3>
+      <ol class="steps">
+        <li>Clean leather with Leather Love V2 first. Apply while slightly damp.</li>
+        <li>Apply thin, even layer to Square Bear.</li>
+        <li>Work in overlapping straight strokes — don't go over wet areas repeatedly (streaks).</li>
+        <li>Focus on bolsters and seat base where contact wear is highest.</li>
+        <li>Apply to steering wheel rim in sections.</li>
+        <li>Cure for 1 hour before use.</li>
+        <li>Second coat after first has cured for best protection.</li>
+      </ol>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>Reapply every 3 to 4 months on seat base and bolsters — these contact-wear areas need more frequent topping up than the backrest.</div>
+    </div>
+
+    <!-- PRODUCT 14 — Microfibre Wash -->
+    <div class="product-section" id="p14">
+      <div class="product-num">14 — Cloth care</div>
+      <h2>Microfibre Wash</h2>
+      <p class="product-intro">Specialist detergent that removes product residue without coating fibres. Your cloths are an investment — the Big Green Sucker, Inta-Mitt, Plush Daddy, and Big Softie all use premium split or twist-pile microfibre that degrades quickly if washed incorrectly.</p>
+
+      <h3>What destroys microfibre</h3>
+      <ul class="plain">
+        <li><strong>Fabric softener</strong> — permanently destroys absorbency</li>
+        <li><strong>Bleach</strong> — degrades polyester/polyamide structure</li>
+        <li><strong>Hot dryer cycles</strong> — melts fine fibres</li>
+        <li><strong>Washing with cotton</strong> — lint transfers permanently</li>
+        <li><strong>Leaving dirty cloths to dry</strong> — residue hardens in fibres</li>
+      </ul>
+
+      <h3>Washing correctly</h3>
+      <ol class="steps">
+        <li>Wash after every use, while still damp.</li>
+        <li>Separate from all other laundry. Twist pile (Big Green Sucker) only with other twist pile.</li>
+        <li>Microfibre Wash at recommended dilution. No fabric softener, ever.</li>
+        <li>Warm cycle at 40°C max — never hot.</li>
+        <li>Tumble dry on low to medium. Hot air shortens fibre life.</li>
+        <li>If air drying, run hands over pile to keep it standing — flat-dried twist pile loses loft permanently.</li>
+      </ol>
+    </div>
+
+    <!-- PRODUCT 15 — Bead Machine + Flash Prep -->
+    <div class="product-section" id="p15">
+      <div class="product-num">15 — Twice-yearly base sealant</div>
+      <h2>Bead Machine <span class="product-short">+ Flash Prep</span></h2>
+      <p class="product-intro">Bead Machine is the most protective product in the Bowden's Own range — a synthetic sealant that bonds to clear coat for 3 to 6 months of base-layer protection. Wet Dreams and Happy Ending then maintain and refresh that base at every wash. Flash Prep is the required preparation step that strips waxes, sealants, and oils so Bead Machine can bond properly. Together they replace the need for an annual professional ceramic coating service.</p>
+
+      <div class="surfaces-grid">
+        <div class="surfaces-box safe">
+          <span class="surfaces-label">Safe on</span>
+          <ul>
+            <li>All painted panels, clear coat</li>
+            <li>Glass, headlights, chrome</li>
+            <li>Smooth plastic trim, piano black</li>
+            <li>PPF (paint protection film) and vinyl wraps</li>
+            <li>Ceramic-coated surfaces (boost layer)</li>
+          </ul>
+        </div>
+        <div class="surfaces-box avoid">
+          <span class="surfaces-label">Do not use on</span>
+          <ul>
+            <li>Single-stage paint — use Fully Slick or Lazy Wax instead</li>
+            <li>Older or oxidised paint — needs correction first</li>
+            <li>Textured or matte plastic trim</li>
+            <li>Interior surfaces, leather, Ultrasuede</li>
+            <li>Rubber seals</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>When to apply</h3>
+      <ul class="plain">
+        <li>First application: ideally within 6 months of new car purchase, while clear coat is at its best</li>
+        <li>Reapply every 3 to 6 months — water beading behaviour tells you when it's fading</li>
+        <li>Apply after a full wash and decontamination, on a dry car</li>
+        <li>Indoors or out of direct sun. Cooler conditions are better.</li>
+        <li>Allow 4 hours cure time before any water exposure — plan for an overnight cure if possible</li>
+      </ul>
+
+      <h3>Equipment needed</h3>
+      <ul class="plain">
+        <li>Flash Prep 500ml</li>
+        <li>Bead Machine 500ml</li>
+        <li>Two Big Softie cloths — one for application, one for buffing</li>
+        <li>Optional: clay bar with Boss Gloss as lubricant for full decontamination</li>
+        <li>Optional: Paint Cleanse and Restore for deeper preparation on older paint</li>
+      </ul>
+
+      <h3>Step-by-step — first application</h3>
+      <ol class="steps">
+        <li>Wash the car thoroughly with the full routine — Snow Job, Nanolicious, final rinse, dry. <strong>Do not</strong> apply Wet Dreams or Happy Ending in this wash — they would interfere with bonding.</li>
+        <li>Optional but recommended on a brand new car: clay bar each panel using Boss Gloss as lubricant to remove any embedded contaminants the wash didn't capture.</li>
+        <li>Spray Flash Prep onto a clean Big Softie and wipe each panel in straight strokes. Flip the cloth and buff dry. This strips any residual oils or waxes and leaves bare clear coat ready for bonding.</li>
+        <li>Spray 2 to 3 mists of Bead Machine directly onto the second clean Big Softie — never directly onto the panel.</li>
+        <li>Apply to one panel at a time in straight overlapping strokes, working in a section roughly half a panel at a time.</li>
+        <li>Within 30 to 60 seconds, buff off the residue with a third clean dry cloth or a clean section of the application cloth. Use a light touch — the product wipes off easily when fresh.</li>
+        <li>Move to the next panel and repeat. Do not let the product sit on the panel longer than 60 seconds before buffing or it becomes difficult to remove.</li>
+        <li>Allow 4 hours cure time before exposing the car to water. Overnight is ideal.</li>
+        <li>Optional: apply a second coat after the first has cured for at least 4 hours, for maximum durability.</li>
+      </ol>
+
+      <h3>Maintenance after Bead Machine</h3>
+      <ol class="steps">
+        <li>Continue using your standard wash routine — Snow Job, Nanolicious, Wet Dreams, Happy Ending.</li>
+        <li>Wet Dreams and Happy Ending now refresh the Bead Machine layer rather than provide standalone protection.</li>
+        <li>The base layer means you can use slightly less Wet Dreams and Happy Ending per wash — the protection underneath is doing the heavy lifting.</li>
+        <li>Watch the water beading behaviour over months. When beads start sheeting flatter and water no longer rolls off easily, time to reapply.</li>
+      </ol>
+
+      <div class="callout tip"><span class="callout-label">Tip</span>Apply now while your ZR's clear coat is in factory-fresh condition. Bead Machine bonds significantly better to undamaged clear coat than to older paint with surface contamination.</div>
+
+      <div class="callout warn"><span class="callout-label">Critical</span>Always use Flash Prep before first application of Bead Machine. Skipping this step means the product won't bond properly and your 3 to 6 month durability becomes 3 to 6 weeks.</div>
+
+      <div class="callout warn"><span class="callout-label">Important</span>Do not apply Wet Dreams or Happy Ending in the same wash as the Bead Machine prep. They leave a hydrophobic film that prevents Bead Machine from bonding to the paint.</div>
+    </div>
+
+    <!-- COMPATIBILITY MATRIX -->
+    <div class="product-section">
+      <div class="product-num">Reference</div>
+      <h2>Surface compatibility matrix</h2>
+      <p class="product-intro">Quick check before reaching for a bottle. When in doubt — don't.</p>
+      <div class="matrix-wrap">
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Paint</th>
+              <th>Glass</th>
+              <th>Leather</th>
+              <th>Ultrasuede</th>
+              <th>Wheels</th>
+              <th>Plastic</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Snow Job</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Nanolicious Wash</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Wheely Clean V2</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Wet Dreams</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Happy Ending</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Bead Machine</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Flash Prep</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Boss Gloss</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+            <tr><td>Naked Glass</td><td class="no">✕</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+            <tr><td>Leather Love V2</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+            <tr><td>Leather Guard</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td></tr>
+            <tr><td>Fabra Cadabra</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td></tr>
+            <tr><td>Fabratection</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td><td class="no">✕</td><td class="no">✕</td></tr>
+            <tr><td>303 Aerospace</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="no">✕</td><td class="yes">✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ROUTINES PANEL ═══════════════════════════ -->
+  <div class="panel" id="routine">
+    <div class="product-section">
+      <div class="product-num">Exterior</div>
+      <h2>Full wash routine</h2>
+      <p class="product-intro">Follow this sequence every wash. Order matters — steps done out of sequence re-contaminate surfaces already cleaned.</p>
+      <table class="routine-table">
+        <thead>
+          <tr><th>Step</th><th>Product</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Plain water rinse</td><td>Dislodge loose grit before any product contact</td></tr>
+          <tr><td>2</td><td>Wheely Clean V2</td><td>Spray wheels, agitate with Flat Head + Little Stiffy, rinse</td></tr>
+          <tr><td>3</td><td>Snow Job (foam cannon)</td><td>Apply pre-wash foam, dwell 2–4 min, rinse top to bottom</td></tr>
+          <tr><td>4</td><td>Nanolicious Wash</td><td>Two-bucket contact wash, top to bottom, straight strokes</td></tr>
+          <tr><td>5</td><td>Final rinse</td><td>Free-flow sheet rinse, no nozzle, top to bottom</td></tr>
+          <tr><td>6</td><td>Wet Dreams</td><td>Spray onto wet car, dwell 20–30 sec, gentle rinse</td></tr>
+          <tr><td>7</td><td>Happy Ending (foam cannon)</td><td>Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse</td></tr>
+          <tr><td>8</td><td>Big Green Sucker</td><td>Dry with towel — paint will be noticeably slicker</td></tr>
+          <tr><td>9</td><td>Naked Glass + Inta-Mitt</td><td>Exterior glass first, then interior windscreen</td></tr>
+          <tr><td>10</td><td>Boss Gloss (optional)</td><td>Quick detail any remaining water spots or fingerprints</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="product-section">
+      <div class="product-num">Interior</div>
+      <h2>Interior routine</h2>
+      <p class="product-intro">Separate from the wash. Monthly, or whenever visibly soiled.</p>
+      <table class="routine-table">
+        <thead>
+          <tr><th>Step</th><th>Product</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Vacuum</td><td>Remove all grit before any liquid application — including floor mats</td></tr>
+          <tr><td>2</td><td>Fabra Cadabra + Plush Brush</td><td>Clean Ultrasuede inserts in sections, blot with Plush Daddy</td></tr>
+          <tr><td>3</td><td>Leather Love V2 + Square Bear</td><td>Clean leather seats, steering wheel, gear knob, doors</td></tr>
+          <tr><td>4</td><td>Plush Daddy (damp)</td><td>Wipe hard plastics, console, door pulls, climate controls</td></tr>
+          <tr><td>5</td><td>Naked Glass + Inta-Mitt</td><td>Interior windscreen and all windows</td></tr>
+          <tr><td>6</td><td>Leather Guard + Square Bear</td><td>Apply protectant to leather surfaces (monthly)</td></tr>
+          <tr><td>7</td><td>303 Aerospace Protectant</td><td>UV protection on dashboard, plastic trim, rubber mats (every 4–8 weeks)</td></tr>
+          <tr><td>8</td><td>Fabratection</td><td>Reapply to Ultrasuede annually, carpet mats every 6 months</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn"><span class="callout-label">Critical</span>Never use the same cloth on Ultrasuede that has touched leather product. Cross-contamination is the most common cause of interior damage.</div>
+    </div>
+
+    <div class="product-section">
+      <div class="product-num">Maintenance</div>
+      <h2>Ongoing schedule</h2>
+      <table class="routine-table">
+        <thead>
+          <tr><th>Freq.</th><th>Task</th><th>Details</th></tr>
+        </thead>
+        <tbody id="schedule-tbody">
+          <tr><td data-sched="fullWash">Weekly</td><td>Full wash</td><td>Nanolicious + Wet Dreams + dry with Boss Gloss aid</td></tr>
+          <tr><td>Weekly</td><td>Interior wipe-down</td><td>Plush Daddy on high-touch surfaces (wheel, shifter, door pulls, screen)</td></tr>
+          <tr><td>Monthly</td><td>Deep wheel clean</td><td>Iron remover check, full tyre brush clean, dress tyres</td></tr>
+          <tr><td data-sched="interiorDetail">Monthly</td><td>Full interior detail</td><td>Fabra Cadabra + Leather Love + Leather Guard</td></tr>
+          <tr><td data-sched="aerospace">Every 6 weeks</td><td>Apply 303 Aerospace</td><td>Interior plastics + rubber mats. More frequent in summer</td></tr>
+          <tr><td>Quarterly</td><td>Tyre pressure check</td><td>More critical for tyre life than any cleaning product</td></tr>
+          <tr><td data-sched="beadMachine">Every 3 months</td><td>Reapply Bead Machine</td><td>Use Flash Prep first. When water beading flattens, time to reapply</td></tr>
+          <tr><td>6 months</td><td>Reapply Fabratection on carpet mats</td><td>Driver's mat especially — gets the most wear</td></tr>
+          <tr><td>Annually</td><td>Reapply Fabratection on Ultrasuede</td><td>After bead test fails</td></tr>
+          <tr><td data-sched="leatherGuard">Every 3 months</td><td>Reapply Leather Guard</td><td>Focus on bolsters and seat base — highest contact wear areas</td></tr>
+          <tr><td>Annually</td><td>Replace mitts</td><td>If matted, stiff, or discoloured</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ REFERENCES PANEL ═════════════════════════ -->
+  <div class="panel" id="refs">
+    <p class="guide-intro">Source links for the product information, techniques, and comparisons in this guide. Use these for deeper reading or to verify current pricing and specifications.</p>
+
+    <div class="ref-group">
+      <h3 class="ref-group-title">Bowden's Own — Official</h3>
+      <p class="ref-group-desc">Manufacturer product pages, technical specifications, and application guides.</p>
+
+      <div class="ref-item">
+        <a href="https://www.bowdensown.com.au" target="_blank" rel="noopener noreferrer">Bowden's Own — Main Site</a>
+        <div class="ref-meta">bowdensown.com.au</div>
+        <div class="ref-desc">Full product catalogue, application guides, and the adapter reference guide for the Snow Blow Cannon.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.bowdensown.com.au/snow-blow-cannon" target="_blank" rel="noopener noreferrer">Snow Blow Cannon product page</a>
+        <div class="ref-meta">bowdensown.com.au/snow-blow-cannon</div>
+        <div class="ref-desc">Official specs — handles up to 3200 PSI, brass fittings, includes Kärcher K-series and Gerni/Nilfisk Pro adapters.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.bowdensown.com.au/nanolicious-wash" target="_blank" rel="noopener noreferrer">Nanolicious Wash product page</a>
+        <div class="ref-meta">bowdensown.com.au</div>
+        <div class="ref-desc">Product details and technical information for the pH-neutral shampoo.</div>
+      </div>
+    </div>
+
+    <div class="ref-group">
+      <h3 class="ref-group-title">Australian Retailers</h3>
+      <p class="ref-group-desc">Current pricing, availability, and bundle contents. Regular 30% off sales to watch for.</p>
+
+      <div class="ref-item">
+        <a href="https://www.supercheapauto.com.au/search?q=bowdens+own" target="_blank" rel="noopener noreferrer">Supercheap Auto — Bowden's Own range</a>
+        <div class="ref-meta">supercheapauto.com.au</div>
+        <div class="ref-desc">Major Australian stockist. Super Saver Tuesdays (5pm–11:59pm) regularly discount Bowden's Own by 30–40%.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.repco.com.au/en/browse/c/chemicals-lubricants/car-care/c/3E_01_03" target="_blank" rel="noopener noreferrer">Repco — Car Care</a>
+        <div class="ref-meta">repco.com.au</div>
+        <div class="ref-desc">Alternative Australian retailer. Historically runs deep discounts on 5L refills — Orange Agent has hit $39 from $83 RRP.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://autopro.com.au/ap/Autopro-Category/Brands/Bowdens-Own/Bowden's-Own-Hitachi-Vyking-Force-Electric-PW/p/CC07906" target="_blank" rel="noopener noreferrer">Autopro — BOADAPTER10 (Vyking Force / Hitachi adapter)</a>
+        <div class="ref-meta">autopro.com.au</div>
+        <div class="ref-desc">The adapter for non-Kärcher compatible electric pressure washers in the Vyking Force/Hitachi range. $12.99 RRP.</div>
+      </div>
+    </div>
+
+    <div class="ref-group">
+      <h3 class="ref-group-title">Review & Community</h3>
+      <p class="ref-group-desc">Consumer reviews, forum discussions, and long-term reliability data.</p>
+
+      <div class="ref-item">
+        <a href="https://www.productreview.com.au/listings/bowdens-own" target="_blank" rel="noopener noreferrer">ProductReview.com.au — Bowden's Own</a>
+        <div class="ref-meta">productreview.com.au</div>
+        <div class="ref-desc">4.3/5 average across thousands of Australian consumer reviews. Honest critical feedback on both strong and weaker products.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.productreview.com.au/listings/bowden-s-snow-blow-cannon" target="_blank" rel="noopener noreferrer">ProductReview.com.au — Snow Blow Cannon reviews</a>
+        <div class="ref-meta">productreview.com.au</div>
+        <div class="ref-desc">User reviews including real-world testing on Gerni and Kärcher pressure washers.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://forums.whirlpool.net.au/archive/9yzy8w83" target="_blank" rel="noopener noreferrer">Whirlpool Forums — Snow Cannon + Pressure Washer thread</a>
+        <div class="ref-meta">forums.whirlpool.net.au</div>
+        <div class="ref-desc">Australian enthusiast discussion covering Snow Blow Cannon compatibility, PSI requirements, and pressure washer recommendations.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.ozbargain.com.au/wiki/bowdens_own" target="_blank" rel="noopener noreferrer">OzBargain — Bowden's Own deal tracker</a>
+        <div class="ref-meta">ozbargain.com.au</div>
+        <div class="ref-desc">Community-tracked sale alerts. Set an email alert for "Bowden's Own" to catch 30–40% off cycles.</div>
+      </div>
+    </div>
+
+    <div class="ref-group">
+      <h3 class="ref-group-title">Detailing Technique</h3>
+      <p class="ref-group-desc">Technique references and detailed product comparisons from independent sources.</p>
+
+      <div class="ref-item">
+        <a href="https://autocarehq.com/karcher-foam-spray-nozzle-review/" target="_blank" rel="noopener noreferrer">Auto Care HQ — Kärcher Foam Spray Nozzle Review</a>
+        <div class="ref-meta">autocarehq.com</div>
+        <div class="ref-desc">Independent review comparing Kärcher's bundled nozzle against aftermarket foam cannons.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.whatcar.com/news/best-snow-foam-lances/n26765" target="_blank" rel="noopener noreferrer">What Car? — Best Snow-Foam Cannons 2026</a>
+        <div class="ref-meta">whatcar.com</div>
+        <div class="ref-desc">2026 roundup testing multiple foam cannons side-by-side with identical snow foam solution.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.detailingworld.co.uk/threads/the-foam-cannon-conundrum.435425/" target="_blank" rel="noopener noreferrer">Detailing World — Foam Cannon Comparison Thread</a>
+        <div class="ref-meta">detailingworld.co.uk</div>
+        <div class="ref-desc">Detailed enthusiast review of multiple foam cannons including AutoGlym, MJJC, eBay generics.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://mjjc.com.au/" target="_blank" rel="noopener noreferrer">MJJC Australia</a>
+        <div class="ref-meta">mjjc.com.au</div>
+        <div class="ref-desc">Alternative premium foam cannon brand with Australia-based support and adapters for most pressure washers.</div>
+      </div>
+    </div>
+
+    <div class="ref-group">
+      <h3 class="ref-group-title">Specialist Detailing Retailers</h3>
+      <p class="ref-group-desc">Where to source specialist products if stepping beyond the Bowden's Own ecosystem.</p>
+
+      <div class="ref-item">
+        <a href="https://detailingshed.com.au" target="_blank" rel="noopener noreferrer">Detailing Shed</a>
+        <div class="ref-meta">detailingshed.com.au</div>
+        <div class="ref-desc">Australian specialist retailer stocking P&S Detailing, 3D, Gyeon, Gtechniq, ARMOUR, and Maxshine products.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://thedetailstore.com.au" target="_blank" rel="noopener noreferrer">The Detail Store (Nunawading, VIC)</a>
+        <div class="ref-meta">thedetailstore.com.au</div>
+        <div class="ref-desc">Victoria-based specialist carrying P&S, Gyeon, Apex Customs, and a range of professional-grade tools.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://armourdetailsupply.com.au" target="_blank" rel="noopener noreferrer">ARMOUR Detail Supply</a>
+        <div class="ref-meta">armourdetailsupply.com.au</div>
+        <div class="ref-desc">Australian-made detailing brand. Their Shampoo+ and Wheel Cleaner RIMS are highly regarded.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.303products.com/automotive/" target="_blank" rel="noopener noreferrer">303 Products — Aerospace Protectant</a>
+        <div class="ref-meta">303products.com</div>
+        <div class="ref-desc">Manufacturer site for 303 Aerospace Protectant. Originally formulated for aircraft, now widely used for interior plastic and rubber UV protection. Available in Australia from BCF, Whitworths Marine, and Detailing Shed.</div>
+      </div>
+    </div>
+
+    <div class="ref-group">
+      <h3 class="ref-group-title">Vehicle & Material Reference</h3>
+      <p class="ref-group-desc">Manufacturer information on the Corolla ZR's interior materials.</p>
+
+      <div class="ref-item">
+        <a href="https://www.toyota.com.au/corolla-hatch/features" target="_blank" rel="noopener noreferrer">Toyota Australia — Corolla Hatch</a>
+        <div class="ref-meta">toyota.com.au</div>
+        <div class="ref-desc">Official specification page confirming ZR grade features including Ultrasuede-accented sports seats and 12.3" digital instrument cluster.</div>
+      </div>
+
+      <div class="ref-item">
+        <a href="https://www.ultrasuede.com/automotive/" target="_blank" rel="noopener noreferrer">Ultrasuede — Automotive applications</a>
+        <div class="ref-meta">ultrasuede.com</div>
+        <div class="ref-desc">Official material reference from the manufacturer. Ultrasuede is a trademarked synthetic microfibre (polyester/polyurethane blend) used in the ZR's seat centres.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ WASH LOG PANEL ══════════════════════════════ -->
+  <div class="panel" id="log">
+
+    <!-- Streak bar -->
+    <div class="streak-bar">
+      <div class="streak-icon">🚿</div>
+      <div>
+        <div class="streak-label">Current streak</div>
+        <div class="streak-value" id="streak-val">—</div>
+      </div>
+      <div class="streak-divider"></div>
+      <div>
+        <div class="streak-label">Total sessions</div>
+        <div class="streak-value" id="log-total-sessions">0</div>
+      </div>
+      <div class="streak-divider"></div>
+      <div>
+        <div class="streak-label">Last wash</div>
+        <div class="streak-value" id="log-last-wash" style="font-size:16px;margin-top:4px;">—</div>
+      </div>
+    </div>
+
+    <!-- Log entry form -->
+    <div class="log-form-card">
+      <div class="log-form-title">Log a wash session</div>
+      <div class="log-form-grid">
+        <div class="log-field">
+          <label class="log-label" for="log-date">Date</label>
+          <input class="log-input" type="date" id="log-date">
+        </div>
+        <div class="log-field">
+          <label class="log-label" for="log-type">Wash type</label>
+          <select class="log-select" id="log-type">
+            <option value="full">Full wash</option>
+            <option value="quick">Quick wash (no foam)</option>
+            <option value="interior">Interior only</option>
+            <option value="both">Full wash + interior</option>
+          </select>
+        </div>
+        <div class="log-field full">
+          <label class="log-label">Steps completed</label>
+          <div class="steps-checklist" id="steps-checklist">
+            <label class="step-chip"><input type="checkbox" value="Snow Job pre-wash"> Snow Job pre-wash</label>
+            <label class="step-chip"><input type="checkbox" value="Wheely Clean wheels"> Wheely Clean wheels</label>
+            <label class="step-chip"><input type="checkbox" value="Nanolicious contact wash"> Nanolicious wash</label>
+            <label class="step-chip"><input type="checkbox" value="Wet Dreams sealant"> Wet Dreams sealant</label>
+            <label class="step-chip"><input type="checkbox" value="Happy Ending foam"> Happy Ending foam</label>
+            <label class="step-chip"><input type="checkbox" value="Naked Glass"> Naked Glass</label>
+            <label class="step-chip"><input type="checkbox" value="Fabra Cadabra seats"> Fabra Cadabra seats</label>
+            <label class="step-chip"><input type="checkbox" value="Leather Love + Guard"> Leather Love + Guard</label>
+            <label class="step-chip"><input type="checkbox" value="303 Aerospace plastics"> 303 Aerospace</label>
+            <label class="step-chip"><input type="checkbox" value="Bead Machine"> Bead Machine</label>
+          </div>
+        </div>
+        <div class="log-field full">
+          <label class="log-label" for="log-notes">Notes (optional)</label>
+          <textarea class="log-textarea" id="log-notes" placeholder="Products used, condition, issues noticed, anything unusual…"></textarea>
+        </div>
+      </div>
+      <button class="log-submit" onclick="addLogEntry()">Save session</button>
+    </div>
+
+    <!-- History -->
+    <div class="log-section-title" id="log-history-label">History</div>
+    <div id="log-entries"></div>
+
+  </div>
+
+  <!-- ═══ SPEND PANEL ══════════════════════════════════ -->
+  <div class="panel" id="spend">
+
+    <!-- Summary cards -->
+    <div class="spend-summary">
+      <div class="spend-card accent">
+        <div class="stat-label">Spent so far</div>
+        <div class="stat-value">$<span id="sp-spent">0</span></div>
+      </div>
+      <div class="spend-card">
+        <div class="stat-label">Still to buy</div>
+        <div class="stat-value">$<span id="sp-remain">0</span></div>
+      </div>
+      <div class="spend-card">
+        <div class="stat-label">Full kit cost</div>
+        <div class="stat-value">$<span id="sp-total">0</span></div>
+      </div>
+    </div>
+
+    <!-- Budget setter -->
+    <div class="phase-spend-card" style="margin-bottom:24px;">
+      <div class="phase-spend-name" style="margin-bottom:6px;">Budget target</div>
+      <div style="font-size:13.5px;color:var(--ink-mid);margin-bottom:10px;">Set a target to track how you're tracking across phases.</div>
+      <div class="budget-row">
+        <div class="budget-input-wrap">
+          <span class="budget-prefix">$</span>
+          <input class="budget-field" type="number" id="budget-target" placeholder="500" min="0" max="9999">
+        </div>
+        <button class="budget-save" onclick="saveBudget()">Set budget</button>
+        <span class="budget-label" id="budget-status"></span>
+      </div>
+      <div style="margin-top:14px;">
+        <div class="phase-spend-bar"><div class="phase-spend-fill" id="budget-bar" style="width:0%"></div></div>
+        <div style="font-size:12px;color:var(--ink-low);margin-top:4px;" id="budget-bar-label"></div>
+      </div>
+    </div>
+
+    <!-- Per-phase breakdown -->
+    <div class="log-section-title">Phase breakdown</div>
+    <div id="spend-phases"></div>
+
+    <!-- Sale alerts -->
+    <div class="sale-section">
+      <div class="sale-section-title">Sale alert guide</div>
+      <div class="sale-section-desc">Bowden's Own moves through regular discount cycles at Australian retailers. Buying bulk products (5L washes, Snow Job, Wheely Clean) at 30%+ off saves $60–$80 vs full price. Here's when and where to watch.</div>
+
+      <div class="sale-card">
+        <div class="sale-icon">🟡</div>
+        <div>
+          <div class="sale-retailer">Supercheap Auto</div>
+          <div class="sale-title">Super Saver Tuesdays — 5pm to 11:59pm</div>
+          <div class="sale-desc">Weekly discount window every Tuesday evening, members only (free to join). Bowden's Own regularly appears at 30–40% off, including 5L refills. Best time to stock up on Nanolicious 5L, Snow Job 5L, and Wheely Clean 5L. Set a reminder for Tuesday 5pm.</div>
+          <span class="sale-badge big">30–40% off · weekly</span>
+        </div>
+      </div>
+
+      <div class="sale-card">
+        <div class="sale-icon">🔴</div>
+        <div>
+          <div class="sale-retailer">Repco</div>
+          <div class="sale-title">Periodic deep discounts on 5L refills</div>
+          <div class="sale-desc">Repco runs less predictable but often deeper promotions. Orange Agent has historically dropped from $83 RRP to $39. Check the Repco app weekly and enable price drop notifications. Useful for products Supercheap doesn't stock.</div>
+          <span class="sale-badge big">Up to 50% off · irregular</span>
+        </div>
+      </div>
+
+      <div class="sale-card">
+        <div class="sale-icon">🟠</div>
+        <div>
+          <div class="sale-retailer">OzBargain</div>
+          <div class="sale-title">Community deal tracker — set an email alert</div>
+          <div class="sale-desc">Go to ozbargain.com.au and search "Bowden's Own", then click "Alert me" to get emailed when any deal is posted. The community reliably catches every Supercheap and Repco sale within minutes of it going live. Free, no account needed.</div>
+          <span class="sale-badge reg">Free alerts · community-tracked</span>
+        </div>
+      </div>
+
+      <div class="sale-card">
+        <div class="sale-icon">🟢</div>
+        <div>
+          <div class="sale-retailer">Bowden's Own Direct</div>
+          <div class="sale-title">Newsletter + flash sales</div>
+          <div class="sale-desc">Subscribe to the Bowden's Own email list at bowdensown.com.au for direct flash sales, which sometimes beat retail discounts. Their packs (Nanolicious Wash Pack Ultimate, BOLP Leather Care Pack) are typically only discounted through their own site, not retailers.</div>
+          <span class="sale-badge reg">Irregular · packs + bundles</span>
+        </div>
+      </div>
+
+      <div class="sale-card">
+        <div class="sale-icon">📋</div>
+        <div>
+          <div class="sale-retailer">Buying strategy</div>
+          <div class="sale-title">What to buy at full price vs wait</div>
+          <div class="sale-desc"><strong>Buy now at full price:</strong> Phase 1 essentials — Nanolicious Wash Pack, Wet Dreams Pack, 2 Bucket Kit, Snow Blow Cannon, Kärcher K2. You need these immediately and they don't go on sale as often as bulk products.<br><br><strong>Wait for 30%+ off:</strong> Nanolicious 5L, Snow Job 5L, Wheely Clean 5L. These are where the real savings are — buying bulk at a discount vs repeated 500ml at full price saves ~$120 per year.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══ SETTINGS PANEL ══════════════════════════════ -->
+  <div class="panel" id="settings">
+
+    <!-- ── Wash Frequency ── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Wash frequency</div>
+      <div class="settings-section-desc">Set your target schedule. Used in the wash log streak counter and upcoming reminder labels.</div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Full wash target</strong>
+          <span>How often you aim to do a full foam + contact wash</span>
+        </div>
+        <div class="settings-control">
+          <div class="freq-stepper">
+            <button class="freq-btn" onclick="adjustFreq('fullWash', -1)">−</button>
+            <div class="freq-display" id="fullWash-display">Weekly</div>
+            <button class="freq-btn" onclick="adjustFreq('fullWash', 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Interior detail target</strong>
+          <span>Fabra Cadabra, Leather Love, plastics wipe-down</span>
+        </div>
+        <div class="settings-control">
+          <div class="freq-stepper">
+            <button class="freq-btn" onclick="adjustFreq('interiorDetail', -1)">−</button>
+            <div class="freq-display" id="interiorDetail-display">Monthly</div>
+            <button class="freq-btn" onclick="adjustFreq('interiorDetail', 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Bead Machine reapplication</strong>
+          <span>Reminder interval for your synthetic sealant base coat</span>
+        </div>
+        <div class="settings-control">
+          <div class="freq-stepper">
+            <button class="freq-btn" onclick="adjustFreq('beadMachine', -1)">−</button>
+            <div class="freq-display" id="beadMachine-display">Every 3 months</div>
+            <button class="freq-btn" onclick="adjustFreq('beadMachine', 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>303 Aerospace UV protection</strong>
+          <span>Reapplication on interior plastics and rubber mats</span>
+        </div>
+        <div class="settings-control">
+          <div class="freq-stepper">
+            <button class="freq-btn" onclick="adjustFreq('aerospace', -1)">−</button>
+            <div class="freq-display" id="aerospace-display">Every 6 weeks</div>
+            <button class="freq-btn" onclick="adjustFreq('aerospace', 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Leather Guard reapplication</strong>
+          <span>Bolsters and seat base wear faster than backrest</span>
+        </div>
+        <div class="settings-control">
+          <div class="freq-stepper">
+            <button class="freq-btn" onclick="adjustFreq('leatherGuard', -1)">−</button>
+            <div class="freq-display" id="leatherGuard-display">Every 3 months</div>
+            <button class="freq-btn" onclick="adjustFreq('leatherGuard', 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-save-bar">
+        <button class="settings-save-btn" onclick="saveSettings('freq')">Save</button>
+        <button class="settings-reset-btn" onclick="resetFreq()">Reset to defaults</button>
+        <span class="settings-saved-msg" id="freq-saved">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- ── Routine Steps ── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Routine steps</div>
+      <div class="settings-section-desc">Customise what steps appear in each routine. Drag to reorder, toggle to enable/disable, click the pencil to rename. Changes apply to the Wash Log step checklist and the Routines tab display.</div>
+
+      <div class="routine-tabs">
+        <button class="routine-tab active" onclick="switchRoutineTab('exterior', this)">Exterior wash</button>
+        <button class="routine-tab" onclick="switchRoutineTab('interior', this)">Interior detail</button>
+        <button class="routine-tab" onclick="switchRoutineTab('log', this)">Log step chips</button>
+      </div>
+
+      <div class="routine-editor active" id="routine-editor-exterior">
+        <div class="routine-step-list" id="steps-exterior"></div>
+        <div class="add-step-row">
+          <input class="add-step-input" id="add-step-exterior" placeholder="Add a step…" onkeydown="if(event.key==='Enter') addStep('exterior')">
+          <button class="add-step-btn" onclick="addStep('exterior')">Add</button>
+        </div>
+      </div>
+
+      <div class="routine-editor" id="routine-editor-interior">
+        <div class="routine-step-list" id="steps-interior"></div>
+        <div class="add-step-row">
+          <input class="add-step-input" id="add-step-interior" placeholder="Add a step…" onkeydown="if(event.key==='Enter') addStep('interior')">
+          <button class="add-step-btn" onclick="addStep('interior')">Add</button>
+        </div>
+      </div>
+
+      <div class="routine-editor" id="routine-editor-log">
+        <div class="settings-section-desc" style="margin-bottom:14px;margin-top:-8px;">These are the checkboxes that appear when logging a wash session.</div>
+        <div class="routine-step-list" id="steps-log"></div>
+        <div class="add-step-row">
+          <input class="add-step-input" id="add-step-log" placeholder="Add a step chip…" onkeydown="if(event.key==='Enter') addStep('log')">
+          <button class="add-step-btn" onclick="addStep('log')">Add</button>
+        </div>
+      </div>
+
+      <div class="settings-save-bar">
+        <button class="settings-save-btn" onclick="saveSettings('routines')">Save routines</button>
+        <button class="settings-reset-btn" onclick="resetRoutines()">Reset to defaults</button>
+        <span class="settings-saved-msg" id="routines-saved">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- ── Notifications & Reminders ── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Display preferences</div>
+      <div class="settings-section-desc">Control what's shown across the app.</div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Show item prices in checklist</strong>
+          <span>Display the ~$ price next to each kit item</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-show-prices" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Show phase progress badges</strong>
+          <span>"3 of 10" counters on each phase header</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-show-badges" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Show item descriptions</strong>
+          <span>The secondary line of text under each product name</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-show-desc" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Confirm before deleting log entries</strong>
+          <span>Show a confirmation prompt when deleting a wash session</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-confirm-delete" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Streak counts weekly</strong>
+          <span>On: streak = consecutive weeks with a wash. Off: streak = consecutive days.</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-weekly-streak" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-save-bar">
+        <button class="settings-save-btn" onclick="saveSettings('prefs')">Save preferences</button>
+        <button class="settings-reset-btn" onclick="resetPrefs()">Reset to defaults</button>
+        <span class="settings-saved-msg" id="prefs-saved">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- ── Car info ── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Vehicle details</div>
+      <div class="settings-section-desc">Personalise the guide header and help contextualise notes in the wash log.</div>
+
+      <div class="log-form-grid" style="margin-bottom:0;">
+        <div class="log-field">
+          <label class="log-label" for="car-model">Model</label>
+          <input class="log-input" type="text" id="car-model" placeholder="Corolla ZR Hybrid">
+        </div>
+        <div class="log-field">
+          <label class="log-label" for="car-year">Year</label>
+          <input class="log-input" type="number" id="car-year" placeholder="2025" min="2000" max="2099">
+        </div>
+        <div class="log-field">
+          <label class="log-label" for="car-colour">Colour</label>
+          <input class="log-input" type="text" id="car-colour" placeholder="e.g. Oxide Bronze">
+        </div>
+        <div class="log-field">
+          <label class="log-label" for="car-rego">Rego / nickname</label>
+          <input class="log-input" type="text" id="car-rego" placeholder="e.g. ABC123 or The Corolla">
+        </div>
+      </div>
+
+      <div class="settings-save-bar">
+        <button class="settings-save-btn" onclick="saveSettings('car')">Save</button>
+        <span class="settings-saved-msg" id="car-saved">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- ── Data management ── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Data management</div>
+      <div class="settings-section-desc">All data is stored in this browser only — nothing is sent anywhere. Export a backup or clear individual data stores.</div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Export all data</strong>
+          <span>Download a JSON backup of checklist, log, and settings</span>
+        </div>
+        <div class="settings-control">
+          <button class="settings-save-btn" onclick="exportData()">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Clear wash log</strong>
+          <span>Delete all logged wash sessions. Cannot be undone.</span>
+        </div>
+        <div class="settings-control">
+          <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="clearLog()">Clear log</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Reset everything</strong>
+          <span>Clear all data including checklist, log, and settings</span>
+        </div>
+        <div class="settings-control">
+          <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="resetEverything()">Reset all data</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══ FOOTER ═══════════════════════════════════ -->
+  <footer>
+    <div>Kit & technique reference for the 2025 Toyota Corolla ZR Hybrid</div>
+    <div style="margin-top: 6px;">Progress is saved locally in this browser</div>
+  </footer>
+
+</div>
+
+<script>
+  // ─── Storage helpers ─────────────────────────────
+  const hasStorage = typeof window.storage !== 'undefined';
+
+  async function storageGet(key) {
+    if (hasStorage) {
+      try { const r = await window.storage.get(key); return r && r.value ? JSON.parse(r.value) : null; }
+      catch(e) { return null; }
+    } else {
+      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
+      catch(e) { return null; }
+    }
+  }
+  async function storageSet(key, val) {
+    if (hasStorage) {
+      try { await window.storage.set(key, JSON.stringify(val)); } catch(e) {}
+    } else {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+    }
+  }
+
+  // ─── Checklist ───────────────────────────────────
+  const CHECKLIST_KEY = 'corolla-detailing-app-v4';
+  const items = document.querySelectorAll('.item');
+  const itemData = Array.from(items).map((el, i) => ({
+    id: 'item-' + i,
+    el,
+    input: el.querySelector('input'),
+    price: parseInt(el.dataset.price, 10),
+    phase: el.closest('.phase').dataset.phase,
+    name: el.querySelector('.item-name').textContent.trim()
+  }));
+
+  // Phase metadata
+  const phaseNames = {
+    '1': 'Phase 1 — Wash, dry, glass, sealant',
+    '2': 'Phase 2 — Wheels, tyres, leather, Ultrasuede',
+    '3': 'Phase 3 — Daily-use bulk',
+    '4': 'Phase 4 — Long-term preservation'
+  };
+
+  async function loadChecklist() {
+    const state = await storageGet(CHECKLIST_KEY) || {};
+    itemData.forEach(item => {
+      if (state[item.id] !== undefined) item.input.checked = state[item.id];
+    });
+    recompute();
+  }
+
+  async function saveChecklist() {
+    const state = {};
+    itemData.forEach(item => { state[item.id] = item.input.checked; });
+    await storageSet(CHECKLIST_KEY, state);
+  }
+
+  function recompute() {
+    let done = 0, spent = 0, total = 0;
+    const byPhase = {};
+    itemData.forEach(item => {
+      total += item.price;
+      if (!byPhase[item.phase]) byPhase[item.phase] = { done: 0, count: 0, spent: 0, total: 0 };
+      byPhase[item.phase].count++;
+      byPhase[item.phase].total += item.price;
+      if (item.input.checked) {
+        item.el.classList.add('done');
+        done++; spent += item.price;
+        byPhase[item.phase].done++;
+        byPhase[item.phase].spent += item.price;
+      } else {
+        item.el.classList.remove('done');
+      }
+    });
+    document.getElementById('cnt-done').textContent = done;
+    document.getElementById('cnt-total').textContent = itemData.length;
+    document.getElementById('cnt-spent').textContent = spent;
+    document.getElementById('cnt-remain').textContent = total - spent;
+    document.getElementById('bar').style.width = Math.round((spent / total) * 100) + '%';
+    Object.keys(byPhase).forEach(p => {
+      const el = document.querySelector(`[data-phase-status="${p}"]`);
+      if (!el) return;
+      const { done, count } = byPhase[p];
+      if (done === count) { el.textContent = 'Complete'; el.classList.add('done'); }
+      else { el.textContent = `${done} of ${count}`; el.classList.remove('done'); }
+    });
+    // Also refresh spend panel if visible
+    renderSpendPanel(byPhase, spent, total);
+  }
+
+  items.forEach(item => {
+    item.querySelector('input').addEventListener('change', () => { recompute(); saveChecklist(); });
+  });
+
+  function resetAll() {
+    if (!confirm('Reset all purchases?')) return;
+    itemData.forEach(item => { item.input.checked = false; });
+    recompute(); saveChecklist();
+  }
+
+  // ─── Spend panel ─────────────────────────────────
+  const BUDGET_KEY = 'corolla-budget-v1';
+  let budgetTarget = 0;
+
+  async function loadBudget() {
+    const b = await storageGet(BUDGET_KEY);
+    if (b && b.target) {
+      budgetTarget = b.target;
+      document.getElementById('budget-target').value = budgetTarget;
+    }
+  }
+
+  async function saveBudget() {
+    const val = parseInt(document.getElementById('budget-target').value, 10);
+    if (isNaN(val) || val < 0) return;
+    budgetTarget = val;
+    await storageSet(BUDGET_KEY, { target: val });
+    recompute();
+    document.getElementById('budget-status').textContent = 'Saved ✓';
+    setTimeout(() => { document.getElementById('budget-status').textContent = ''; }, 2000);
+  }
+
+  function renderSpendPanel(byPhase, spent, total) {
+    // Summary
+    document.getElementById('sp-spent').textContent = spent;
+    document.getElementById('sp-remain').textContent = total - spent;
+    document.getElementById('sp-total').textContent = total;
+
+    // Budget bar
+    if (budgetTarget > 0) {
+      const pct = Math.min(100, Math.round((spent / budgetTarget) * 100));
+      document.getElementById('budget-bar').style.width = pct + '%';
+      document.getElementById('budget-bar').style.background = pct >= 100 ? 'var(--danger)' : 'var(--accent)';
+      document.getElementById('budget-bar-label').textContent =
+        pct >= 100
+          ? `$${spent - budgetTarget} over budget`
+          : `$${spent} of $${budgetTarget} budget used (${pct}%)`;
+    } else {
+      document.getElementById('budget-bar').style.width = Math.round((spent / total) * 100) + '%';
+      document.getElementById('budget-bar-label').textContent = `$${spent} of $${total} total kit cost`;
+    }
+
+    // Phase breakdown
+    const container = document.getElementById('spend-phases');
+    if (!container) return;
+    container.innerHTML = '';
+    Object.keys(byPhase).sort().forEach(p => {
+      const { spent: ps, total: pt } = byPhase[p];
+      const pct = pt > 0 ? Math.round((ps / pt) * 100) : 0;
+      const phaseItems = itemData.filter(i => i.phase === p);
+      const card = document.createElement('div');
+      card.className = 'phase-spend-card';
+      card.innerHTML = `
+        <div class="phase-spend-head">
+          <div class="phase-spend-name">${phaseNames[p] || 'Phase ' + p}</div>
+          <div class="phase-spend-amounts"><strong>$${ps}</strong> of $${pt}</div>
+        </div>
+        <div class="phase-spend-bar"><div class="phase-spend-fill" style="width:${pct}%"></div></div>
+        ${phaseItems.map(item => `
+          <div class="phase-item-row">
+            <span class="phase-item-name ${item.input.checked ? 'bought' : ''}">${item.name}</span>
+            <span class="phase-item-price">$${item.price}</span>
+            <span class="phase-item-badge ${item.input.checked ? 'bought' : 'pending'}">${item.input.checked ? 'Bought' : 'Pending'}</span>
+          </div>`).join('')}
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // ─── Wash Log ────────────────────────────────────
+  const LOG_KEY = 'corolla-washlog-v1';
+  let washLog = [];
+
+  // Set today's date as default
+  (function() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    document.getElementById('log-date').value = `${yyyy}-${mm}-${dd}`;
+  })();
+
+  // Step chip interactions
+  document.querySelectorAll('.step-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const cb = chip.querySelector('input');
+      chip.classList.toggle('checked', cb.checked);
+    });
+    chip.querySelector('input').addEventListener('change', function() {
+      chip.classList.toggle('checked', this.checked);
+    });
+  });
+
+  async function loadLog() {
+    const saved = await storageGet(LOG_KEY);
+    washLog = Array.isArray(saved) ? saved : [];
+    renderLog();
+  }
+
+  async function saveLog() {
+    await storageSet(LOG_KEY, washLog);
+  }
+
+  function addLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const type = document.getElementById('log-type').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    const steps = Array.from(document.querySelectorAll('.step-chip input:checked')).map(cb => cb.value);
+
+    if (!date) { alert('Please select a date.'); return; }
+
+    const entry = {
+      id: Date.now(),
+      date,
+      type,
+      steps,
+      notes
+    };
+
+    // Prevent duplicate same-date entries (warn only)
+    const dupeIdx = washLog.findIndex(e => e.date === date);
+    if (dupeIdx >= 0) {
+      if (!confirm(`You already have a session logged for ${formatDate(date)}. Add another?`)) return;
+    }
+
+    washLog.unshift(entry);
+    saveLog();
+    renderLog();
+
+    // Reset form
+    document.getElementById('log-notes').value = '';
+    document.querySelectorAll('.step-chip input').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('.step-chip').forEach(c => c.classList.remove('checked'));
+  }
+
+  function deleteLogEntry(id) {
+    if (!confirm('Delete this session?')) return;
+    washLog = washLog.filter(e => e.id !== id);
+    saveLog();
+    renderLog();
+  }
+
+  function formatDate(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m-1, d);
+    return date.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function typeLabel(type) {
+    const map = { full: 'Full wash', quick: 'Quick wash', interior: 'Interior only', both: 'Full wash + interior' };
+    return map[type] || type;
+  }
+
+  function calcStreak() {
+    if (!washLog.length) return { streak: 0, lastWash: null };
+    const sorted = [...washLog].sort((a,b) => b.date.localeCompare(a.date));
+    const lastWash = sorted[0].date;
+    // Count how many of the last N consecutive weeks had at least one wash
+    const uniqueDates = [...new Set(sorted.map(e => e.date))].sort((a,b) => b.localeCompare(a));
+    // Weekly streak: count consecutive weeks (Mon-Sun) that have at least one wash
+    let streak = 0;
+    const today = new Date();
+    for (let week = 0; week < 52; week++) {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay()-1) - (week * 7));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      const fmt = d => d.toISOString().split('T')[0];
+      const hasWash = uniqueDates.some(d => d >= fmt(weekStart) && d <= fmt(weekEnd));
+      if (hasWash) streak++;
+      else if (week > 0) break; // Allow current week gap only at week 0
+    }
+    return { streak, lastWash };
+  }
+
+  function renderLog() {
+    const { streak, lastWash } = calcStreak();
+    document.getElementById('streak-val').textContent = streak > 0 ? `${streak} week${streak !== 1 ? 's' : ''}` : '—';
+    document.getElementById('log-total-sessions').textContent = washLog.length;
+    document.getElementById('log-last-wash').textContent = lastWash ? formatDate(lastWash).split(',')[0] + ' ' + lastWash.split('-').slice(1).reverse().join('/') : '—';
+
+    const label = document.getElementById('log-history-label');
+    label.textContent = washLog.length > 0 ? `History (${washLog.length} session${washLog.length !== 1 ? 's' : ''})` : 'History';
+
+    const container = document.getElementById('log-entries');
+    if (!washLog.length) {
+      container.innerHTML = `<div class="log-empty"><div class="log-empty-icon">🪣</div>No sessions logged yet.<br>Log your first wash above.</div>`;
+      return;
+    }
+
+    container.innerHTML = '';
+    // Sort newest first
+    const sorted = [...washLog].sort((a,b) => b.date.localeCompare(a.date));
+    sorted.forEach(entry => {
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      div.innerHTML = `
+        <button class="log-delete" onclick="deleteLogEntry(${entry.id})" title="Delete">✕</button>
+        <div class="log-entry-head">
+          <div class="log-entry-date">${formatDate(entry.date)}</div>
+          <div class="log-entry-type ${entry.type === 'full' || entry.type === 'both' ? 'full' : entry.type === 'interior' ? 'interior' : 'quick'}">${typeLabel(entry.type)}</div>
+        </div>
+        ${entry.steps.length ? `<div class="log-chips">${entry.steps.map(s => `<span class="log-chip">${s}</span>`).join('')}</div>` : ''}
+        ${entry.notes ? `<div class="log-entry-notes">${entry.notes}</div>` : ''}
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  // ─── Tab navigation ──────────────────────────────
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // ─── TOC smooth scroll handling ──────────────────
+  document.querySelectorAll('.toc-list a').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // ─── Settings ────────────────────────────────────
+  const SETTINGS_KEY = 'corolla-settings-v1';
+
+  // Frequency options per setting
+  const FREQ_OPTIONS = {
+    fullWash:      ['Every 3 days','Twice a week','Weekly','Fortnightly','Monthly'],
+    interiorDetail:['Weekly','Fortnightly','Monthly','Every 6 weeks','Every 3 months'],
+    beadMachine:   ['Every 6 weeks','Every 2 months','Every 3 months','Every 4 months','Every 6 months'],
+    aerospace:     ['Every 2 weeks','Every 4 weeks','Every 6 weeks','Every 2 months','Every 3 months'],
+    leatherGuard:  ['Monthly','Every 6 weeks','Every 2 months','Every 3 months','Every 6 months']
+  };
+  const FREQ_DEFAULTS = {
+    fullWash: 2, interiorDetail: 2, beadMachine: 2, aerospace: 2, leatherGuard: 3
+  };
+
+  // Default routine steps
+  const DEFAULT_STEPS = {
+    exterior: [
+      { name: 'Plain water rinse', enabled: true },
+      { name: 'Wheely Clean V2 — wheels', enabled: true },
+      { name: 'Snow Job pre-wash foam', enabled: true },
+      { name: 'Nanolicious contact wash', enabled: true },
+      { name: 'Final free-flow rinse', enabled: true },
+      { name: 'Wet Dreams sealant', enabled: true },
+      { name: 'Happy Ending finishing foam', enabled: true },
+      { name: 'Big Green Sucker dry', enabled: true },
+      { name: 'Naked Glass + Inta-Mitt', enabled: true },
+      { name: 'Boss Gloss quick detail', enabled: false }
+    ],
+    interior: [
+      { name: 'Vacuum all surfaces + mats', enabled: true },
+      { name: 'Fabra Cadabra — Ultrasuede seats', enabled: true },
+      { name: 'Leather Love V2 — leather seats', enabled: true },
+      { name: 'Leather Guard — leather protection', enabled: true },
+      { name: 'Plush Daddy — hard plastics wipe', enabled: true },
+      { name: 'Naked Glass — interior windows', enabled: true },
+      { name: '303 Aerospace — plastics + rubber mats', enabled: true },
+      { name: 'Fabratection — Ultrasuede (annually)', enabled: false }
+    ],
+    log: [
+      { name: 'Snow Job pre-wash', enabled: true },
+      { name: 'Wheely Clean wheels', enabled: true },
+      { name: 'Nanolicious wash', enabled: true },
+      { name: 'Wet Dreams sealant', enabled: true },
+      { name: 'Happy Ending foam', enabled: true },
+      { name: 'Naked Glass', enabled: true },
+      { name: 'Fabra Cadabra seats', enabled: true },
+      { name: 'Leather Love + Guard', enabled: true },
+      { name: '303 Aerospace', enabled: true },
+      { name: 'Bead Machine', enabled: true }
+    ]
+  };
+
+  const DEFAULT_PREFS = {
+    showPrices: true,
+    showBadges: true,
+    showDesc: true,
+    confirmDelete: true,
+    weeklyStreak: true
+  };
+
+  let settings = {
+    freq: { ...FREQ_DEFAULTS },
+    routines: JSON.parse(JSON.stringify(DEFAULT_STEPS)),
+    prefs: { ...DEFAULT_PREFS },
+    car: { model: '', year: '', colour: '', rego: '' }
+  };
+
+  // Frequency stepper
+  function adjustFreq(key, delta) {
+    const opts = FREQ_OPTIONS[key];
+    let idx = settings.freq[key] ?? FREQ_DEFAULTS[key];
+    idx = Math.max(0, Math.min(opts.length - 1, idx + delta));
+    settings.freq[key] = idx;
+    document.getElementById(`${key}-display`).textContent = opts[idx];
+  }
+
+  function renderFreqDisplays() {
+    Object.keys(FREQ_OPTIONS).forEach(key => {
+      const idx = settings.freq[key] ?? FREQ_DEFAULTS[key];
+      const el = document.getElementById(`${key}-display`);
+      if (el) el.textContent = FREQ_OPTIONS[key][idx];
+    });
+  }
+
+  // Routine step editor
+  let currentRoutineTab = 'exterior';
+  let dragSrc = null;
+
+  function switchRoutineTab(tab, btn) {
+    currentRoutineTab = tab;
+    document.querySelectorAll('.routine-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.routine-editor').forEach(e => e.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`routine-editor-${tab}`).classList.add('active');
+  }
+
+  function renderRoutineEditor(routineKey) {
+    const list = document.getElementById(`steps-${routineKey}`);
+    if (!list) return;
+    list.innerHTML = '';
+    const steps = settings.routines[routineKey] || [];
+    steps.forEach((step, idx) => {
+      const item = document.createElement('div');
+      item.className = 'routine-step-item' + (step.enabled ? '' : ' opacity-50');
+      item.draggable = true;
+      item.dataset.idx = idx;
+      item.style.opacity = step.enabled ? '1' : '0.5';
+      item.innerHTML = `
+        <span class="drag-handle">⠿</span>
+        <span class="step-name-display" id="snd-${routineKey}-${idx}">${step.name}</span>
+        <input class="step-name-input" id="sni-${routineKey}-${idx}" value="${step.name}" onblur="finishEditStep('${routineKey}',${idx})" onkeydown="if(event.key==='Enter')this.blur()">
+        <button class="step-edit-btn" onclick="startEditStep('${routineKey}',${idx})" title="Rename">✎</button>
+        <label class="toggle-wrap step-toggle" style="width:36px;height:22px;" title="${step.enabled ? 'Enabled' : 'Disabled'}">
+          <input type="checkbox" ${step.enabled ? 'checked' : ''} onchange="toggleStep('${routineKey}',${idx},this.checked)">
+          <span class="toggle-track" style="border-radius:100px;"></span>
+        </label>
+        <button class="step-remove-btn" onclick="removeStep('${routineKey}',${idx})" title="Remove">✕</button>
+      `;
+      // Drag events
+      item.addEventListener('dragstart', e => { dragSrc = idx; item.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+      item.addEventListener('dragend', () => { item.classList.remove('dragging'); list.querySelectorAll('.routine-step-item').forEach(i => i.classList.remove('drag-over')); });
+      item.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; item.classList.add('drag-over'); });
+      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        if (dragSrc === null || dragSrc === idx) return;
+        const arr = settings.routines[routineKey];
+        const moved = arr.splice(dragSrc, 1)[0];
+        arr.splice(idx, 0, moved);
+        renderRoutineEditor(routineKey);
+      });
+      list.appendChild(item);
+    });
+  }
+
+  function renderAllRoutineEditors() {
+    ['exterior','interior','log'].forEach(renderRoutineEditor);
+  }
+
+  function startEditStep(routineKey, idx) {
+    document.getElementById(`snd-${routineKey}-${idx}`).style.display = 'none';
+    const inp = document.getElementById(`sni-${routineKey}-${idx}`);
+    inp.style.display = 'block';
+    inp.focus();
+    inp.select();
+  }
+
+  function finishEditStep(routineKey, idx) {
+    const inp = document.getElementById(`sni-${routineKey}-${idx}`);
+    const val = inp.value.trim();
+    if (val) settings.routines[routineKey][idx].name = val;
+    renderRoutineEditor(routineKey);
+  }
+
+  function toggleStep(routineKey, idx, checked) {
+    settings.routines[routineKey][idx].enabled = checked;
+    const item = document.querySelector(`#steps-${routineKey} .routine-step-item[data-idx="${idx}"]`);
+    if (item) item.style.opacity = checked ? '1' : '0.5';
+  }
+
+  function removeStep(routineKey, idx) {
+    settings.routines[routineKey].splice(idx, 1);
+    renderRoutineEditor(routineKey);
+  }
+
+  function addStep(routineKey) {
+    const inp = document.getElementById(`add-step-${routineKey}`);
+    const val = inp.value.trim();
+    if (!val) return;
+    settings.routines[routineKey].push({ name: val, enabled: true });
+    inp.value = '';
+    renderRoutineEditor(routineKey);
+  }
+
+  // Preferences
+  function loadPrefsUI() {
+    document.getElementById('pref-show-prices').checked = settings.prefs.showPrices;
+    document.getElementById('pref-show-badges').checked = settings.prefs.showBadges;
+    document.getElementById('pref-show-desc').checked = settings.prefs.showDesc;
+    document.getElementById('pref-confirm-delete').checked = settings.prefs.confirmDelete;
+    document.getElementById('pref-weekly-streak').checked = settings.prefs.weeklyStreak;
+  }
+
+  function applyPrefs() {
+    // Prices
+    document.querySelectorAll('.item-price').forEach(el => {
+      el.style.display = settings.prefs.showPrices ? '' : 'none';
+    });
+    // Phase badges
+    document.querySelectorAll('[data-phase-status]').forEach(el => {
+      el.style.display = settings.prefs.showBadges ? '' : 'none';
+    });
+    // Item descriptions
+    document.querySelectorAll('.item-desc').forEach(el => {
+      el.style.display = settings.prefs.showDesc ? '' : 'none';
+    });
+  }
+
+  // Car info
+  function loadCarUI() {
+    document.getElementById('car-model').value = settings.car.model || '';
+    document.getElementById('car-year').value = settings.car.year || '';
+    document.getElementById('car-colour').value = settings.car.colour || '';
+    document.getElementById('car-rego').value = settings.car.rego || '';
+  }
+
+  function applyCarInfo() {
+    const { model, year, colour, rego } = settings.car;
+    const parts = [year, model, colour].filter(Boolean);
+    if (parts.length) {
+      const eyebrow = document.querySelector('.eyebrow');
+      if (eyebrow) eyebrow.textContent = rego ? `${rego} — Detailing kit + technique` : 'Detailing kit + technique';
+    }
+  }
+
+  // Rebuild log step chips from settings
+  function applySchedule() {
+    document.querySelectorAll('[data-sched]').forEach(cell => {
+      const key = cell.dataset.sched;
+      const idx = settings.freq[key] ?? FREQ_DEFAULTS[key];
+      const opts = FREQ_OPTIONS[key];
+      if (opts) cell.textContent = opts[idx];
+    });
+  }
+
+  // Rebuild log step chips from settings
+  function applyLogStepChips() {
+    const container = document.getElementById('steps-checklist');
+    if (!container) return;
+    const steps = (settings.routines.log || DEFAULT_STEPS.log).filter(s => s.enabled);
+    container.innerHTML = steps.map(s =>
+      `<label class="step-chip"><input type="checkbox" value="${s.name}"> ${s.name}</label>`
+    ).join('');
+    // Re-attach toggle listeners
+    container.querySelectorAll('.step-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const cb = chip.querySelector('input');
+        chip.classList.toggle('checked', cb.checked);
+      });
+      chip.querySelector('input').addEventListener('change', function() {
+        chip.classList.toggle('checked', this.checked);
+      });
+    });
+  }
+
+  // Save / load settings
+  async function saveSettings(section) {
+    if (section === 'freq') {
+      // freq already updated via adjustFreq
+    } else if (section === 'routines') {
+      // routines already updated in-place
+    } else if (section === 'prefs') {
+      settings.prefs.showPrices = document.getElementById('pref-show-prices').checked;
+      settings.prefs.showBadges = document.getElementById('pref-show-badges').checked;
+      settings.prefs.showDesc = document.getElementById('pref-show-desc').checked;
+      settings.prefs.confirmDelete = document.getElementById('pref-confirm-delete').checked;
+      settings.prefs.weeklyStreak = document.getElementById('pref-weekly-streak').checked;
+    } else if (section === 'car') {
+      settings.car.model = document.getElementById('car-model').value.trim();
+      settings.car.year = document.getElementById('car-year').value.trim();
+      settings.car.colour = document.getElementById('car-colour').value.trim();
+      settings.car.rego = document.getElementById('car-rego').value.trim();
+    }
+    await storageSet(SETTINGS_KEY, settings);
+    applyPrefs();
+    applyCarInfo();
+    applyLogStepChips();
+    applySchedule();
+    // Show saved message
+    const msgEl = document.getElementById(`${section}-saved`);
+    if (msgEl) {
+      msgEl.classList.add('visible');
+      setTimeout(() => msgEl.classList.remove('visible'), 2200);
+    }
+  }
+
+  async function loadSettings() {
+    const saved = await storageGet(SETTINGS_KEY);
+    if (saved) {
+      // Merge carefully to preserve defaults for any missing keys
+      if (saved.freq) settings.freq = { ...FREQ_DEFAULTS, ...saved.freq };
+      if (saved.routines) {
+        settings.routines = {
+          exterior: saved.routines.exterior || JSON.parse(JSON.stringify(DEFAULT_STEPS.exterior)),
+          interior: saved.routines.interior || JSON.parse(JSON.stringify(DEFAULT_STEPS.interior)),
+          log:      saved.routines.log      || JSON.parse(JSON.stringify(DEFAULT_STEPS.log))
+        };
+      }
+      if (saved.prefs) settings.prefs = { ...DEFAULT_PREFS, ...saved.prefs };
+      if (saved.car)  settings.car  = { model:'', year:'', colour:'', rego:'', ...saved.car };
+    }
+    renderFreqDisplays();
+    renderAllRoutineEditors();
+    loadPrefsUI();
+    loadCarUI();
+    applyPrefs();
+    applyCarInfo();
+    applyLogStepChips();
+    applySchedule();
+  }
+
+  // Reset helpers
+  async function resetFreq() {
+    if (!confirm('Reset frequency settings to defaults?')) return;
+    settings.freq = { ...FREQ_DEFAULTS };
+    renderFreqDisplays();
+    await storageSet(SETTINGS_KEY, settings);
+    applySchedule();
+    showSaved('freq-saved');
+  }
+
+  async function resetRoutines() {
+    if (!confirm('Reset all routine steps to defaults? Your customisations will be lost.')) return;
+    settings.routines = JSON.parse(JSON.stringify(DEFAULT_STEPS));
+    renderAllRoutineEditors();
+    applyLogStepChips();
+    await storageSet(SETTINGS_KEY, settings);
+    showSaved('routines-saved');
+  }
+
+  async function resetPrefs() {
+    if (!confirm('Reset display preferences to defaults?')) return;
+    settings.prefs = { ...DEFAULT_PREFS };
+    loadPrefsUI();
+    applyPrefs();
+    await storageSet(SETTINGS_KEY, settings);
+    showSaved('prefs-saved');
+  }
+
+  function showSaved(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('visible');
+    setTimeout(() => el.classList.remove('visible'), 2200);
+  }
+
+  // Data management
+  async function exportData() {
+    const checklistState = await storageGet(CHECKLIST_KEY) || {};
+    const logData = await storageGet(LOG_KEY) || [];
+    const budgetData = await storageGet(BUDGET_KEY) || {};
+    const exportObj = {
+      exported: new Date().toISOString(),
+      app: 'Corolla ZR Detailing Guide',
+      checklist: checklistState,
+      washLog: logData,
+      budget: budgetData,
+      settings
+    };
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `corolla-detailing-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function clearLog() {
+    if (!confirm('Delete all wash log sessions? This cannot be undone.')) return;
+    washLog = [];
+    await saveLog();
+    renderLog();
+  }
+
+  async function resetEverything() {
+    if (!confirm('This will clear ALL data — checklist, wash log, budget, and settings. Are you sure?')) return;
+    if (!confirm('Last chance — all your data will be deleted. Continue?')) return;
+    await storageSet(CHECKLIST_KEY, {});
+    await storageSet(LOG_KEY, []);
+    await storageSet(BUDGET_KEY, {});
+    await storageSet(SETTINGS_KEY, {});
+    location.reload();
+  }
+
+  // ─── Init ────────────────────────────────────────
+  async function init() {
+    await loadChecklist();
+    await loadLog();
+    await loadBudget();
+    await loadSettings();
+  }
+  init();
+</script>
+
+</body>
+</html>
