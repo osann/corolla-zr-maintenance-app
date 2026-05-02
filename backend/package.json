@@ -4,10 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "./node_modules/.bin/tsx src/index.ts",
-    "db:init": "./node_modules/.bin/tsx src/db/init.ts",
-    "seed": "./node_modules/.bin/tsx src/db/seed.ts",
-    "scrape": "./node_modules/.bin/tsx src/scrape.ts"
+    "start": "node --import tsx/esm src/index.ts",
+    "db:init": "node --import tsx/esm src/db/init.ts",
+    "seed": "node --import tsx/esm src/db/seed.ts",
+    "scrape": "node --import tsx/esm src/scrape.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
