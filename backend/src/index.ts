@@ -15,11 +15,7 @@ await seed();
 
 const app = new Hono();
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'http://127.0.0.1:5500'];
-
-app.use('*', cors({ origin: (origin) => allowedOrigins.includes(origin) ? origin : allowedOrigins[0] }));
+app.use('*', cors());
 
 app.get('/api/health', (c) => c.json({ status: 'ok', time: new Date().toISOString() }));
 

@@ -701,7 +701,7 @@
   }
 
   // ─── Price alerts ────────────────────────────────
-  const BACKEND_URL = 'http://localhost:3000';
+  const BACKEND_URL = '__BACKEND_URL__';
   let priceAlerts = [];
 
   async function loadPriceData() {
