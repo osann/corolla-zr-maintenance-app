@@ -700,11 +700,79 @@
     location.reload();
   }
 
+  // ─── Price alerts ────────────────────────────────
+  const BACKEND_URL = 'http://localhost:3000';
+  let priceAlerts = [];
+
+  async function loadPriceData() {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/alerts`);
+      if (!res.ok) return;
+      priceAlerts = await res.json();
+      applyPriceAlerts();
+    } catch {
+      // backend not running — degrade gracefully
+    }
+  }
+
+  function applyPriceAlerts() {
+    // 1. Flame icons on checklist items
+    document.querySelectorAll('[data-sale-icon]').forEach(el => el.remove());
+    priceAlerts.forEach(alert => {
+      const label = document.querySelector(`.item[data-slug="${alert.slug}"]`);
+      if (!label) return;
+      const priceEl = label.querySelector('.item-price');
+      if (!priceEl) return;
+      const icon = document.createElement('span');
+      icon.setAttribute('data-sale-icon', '');
+      icon.textContent = ' 🔥';
+      icon.title = `On sale at Bowden's Own`;
+      priceEl.appendChild(icon);
+    });
+
+    // 2. "Price drops right now" card at the top of the spend tab
+    const existing = document.getElementById('price-drops-section');
+    if (existing) existing.remove();
+    if (!priceAlerts.length) return;
+
+    const spendPanel = document.getElementById('spend');
+    if (!spendPanel) return;
+
+    const section = document.createElement('div');
+    section.id = 'price-drops-section';
+    section.className = 'sale-section';
+    section.innerHTML = `
+      <div class="sale-section-title">Price drops right now</div>
+      <div class="sale-section-desc">Live prices from Bowden's Own. Updated daily.</div>
+      ${priceAlerts.map(alert => {
+        const price = (alert.priceCents / 100).toFixed(2);
+        return `
+        <div class="sale-card">
+          <div class="sale-icon">🔥</div>
+          <div>
+            <div class="sale-retailer">Bowden's Own</div>
+            <div class="sale-title">${alert.name}</div>
+            <div class="sale-desc">Currently $${price} — on sale now.</div>
+            <span class="sale-badge reg">On sale</span>
+          </div>
+        </div>`;
+      }).join('')}
+    `;
+
+    const spendSummary = spendPanel.querySelector('.spend-summary');
+    if (spendSummary) {
+      spendPanel.insertBefore(section, spendSummary);
+    } else {
+      spendPanel.prepend(section);
+    }
+  }
+
   // ─── Init ────────────────────────────────────────
   async function init() {
     await loadChecklist();
     await loadLog();
     await loadBudget();
     await loadSettings();
+    loadPriceData();
   }
   init();
