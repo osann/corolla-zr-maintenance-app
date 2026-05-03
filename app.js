@@ -708,30 +708,29 @@
   }
 
   // ─── Price alerts ────────────────────────────────
-  const BACKEND_URL = '__BACKEND_URL__';
   let priceAlerts = [];
   let livePrices = {}; // slug → { priceCents, onSale }
 
   async function loadPriceData() {
     try {
-      const [alertsRes, productsRes] = await Promise.all([
-        fetch(`${BACKEND_URL}/api/alerts`),
-        fetch(`${BACKEND_URL}/api/products`),
-      ]);
-      if (alertsRes.ok) priceAlerts = await alertsRes.json();
-      if (productsRes.ok) {
-        const products = await productsRes.json();
-        livePrices = {};
-        products.forEach(p => {
-          if (p.latestPrice?.bowdens) {
-            livePrices[p.slug] = p.latestPrice.bowdens;
-          }
+      // prices.json is committed to the repo and served from GitHub Pages.
+      // It is written by the daily GitHub Actions scrape job, which runs on
+      // GitHub's IPs (not Render's datacenter IPs) to avoid 403 blocks.
+      const res = await fetch('prices.json');
+      if (!res.ok) return;
+      const data = await res.json();
+      livePrices = {};
+      priceAlerts = [];
+      if (data.products) {
+        Object.entries(data.products).forEach(([slug, entry]) => {
+          livePrices[slug] = entry;
+          if (entry.onSale) priceAlerts.push({ slug, ...entry });
         });
       }
       applyPriceAlerts();
       recompute(); // re-render spend tab with live prices
     } catch {
-      // backend not running — degrade gracefully
+      // prices.json not available — degrade gracefully
     }
   }
 
@@ -766,12 +765,14 @@
       <div class="sale-section-desc">Live prices from Bowden's Own. Updated daily.</div>
       ${priceAlerts.map(alert => {
         const price = (alert.priceCents / 100).toFixed(2);
+        const item = itemData.find(d => d.slug === alert.slug);
+        const name = item ? item.name : alert.slug;
         return `
         <div class="sale-card">
           <div class="sale-icon">🔥</div>
           <div>
             <div class="sale-retailer">Bowden's Own</div>
-            <div class="sale-title">${alert.name}</div>
+            <div class="sale-title">${name}</div>
             <div class="sale-desc">Currently $${price} — on sale now.</div>
             <span class="sale-badge reg">On sale</span>
           </div>
