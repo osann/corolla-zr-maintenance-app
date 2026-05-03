@@ -20,20 +20,20 @@ const KIT_ITEMS: {
   { name: 'Inta-Mitt',                      slug: 'inta-mitt',                      phase: 1, bowdensHandle: null },
   { name: 'Kärcher K2 Pressure Washer',     slug: 'karcher-k2',                     phase: 1, bowdensHandle: null },
   { name: 'Snow Blow Cannon',               slug: 'snow-blow-cannon',               phase: 1, bowdensHandle: 'snow-blow-cannon' },
-  { name: 'Snow Job 500ml',                 slug: 'snow-job-500ml',                 phase: 1, bowdensHandle: null },
+  { name: 'Snow Job 1L',                    slug: 'snow-job-1l',                    phase: 1, bowdensHandle: 'snow-job~3816' },
   { name: 'Happy Ending Finishing Foam 500ml', slug: 'happy-ending-500ml',          phase: 1, bowdensHandle: 'happy-ending' },
 
   // Phase 2 — Complete exterior + interior
-  { name: 'Wheely Clean V2 500ml',          slug: 'wheely-clean-v2-500ml',          phase: 2, bowdensHandle: null },
+  { name: 'Wheely Clean V2 500ml',          slug: 'wheely-clean-v2-500ml',          phase: 2, bowdensHandle: 'new-wheely-clean' },
   { name: 'The Little Stiffy',              slug: 'the-little-stiffy',              phase: 2, bowdensHandle: 'the-little-stiffy' },
-  { name: 'The Flat Head',                  slug: 'the-flat-head',                  phase: 2, bowdensHandle: null },
-  { name: 'Fabra Cadabra 500ml',            slug: 'fabra-cadabra-500ml',            phase: 2, bowdensHandle: null },
-  { name: 'BOLP Leather Care Pack',         slug: 'bolp-leather-care-pack',         phase: 2, bowdensHandle: null },
+  { name: 'The Flat Head',                  slug: 'the-flat-head',                  phase: 2, bowdensHandle: 'the-flat-head-brush' },
+  { name: 'Fabra Cadabra 500ml',            slug: 'fabra-cadabra-500ml',            phase: 2, bowdensHandle: 'fabra-cadabra~3826' },
+  { name: 'BOLP Leather Care Pack',         slug: 'bolp-leather-care-pack',         phase: 2, bowdensHandle: 'leather-care-pack' },
   { name: 'Fabratection',                   slug: 'fabratection',                   phase: 2, bowdensHandle: 'fabratection' },
   { name: '303 Aerospace Protectant',       slug: '303-aerospace',                  phase: 2, bowdensHandle: null },
 
   // Phase 3 — Daily-use bulk
-  { name: 'Pumpy Pump',                     slug: 'pumpy-pump',                     phase: 3, bowdensHandle: null },
+  { name: 'Pumpy Pump',                     slug: 'pumpy-pump',                     phase: 3, bowdensHandle: '5-litre-bottle-pump' },
   { name: 'Nanolicious Wash 5L',            slug: 'nanolicious-wash-5l',            phase: 3, bowdensHandle: 'nanolicious-wash' },
   { name: 'Microfibre Wash 1L',             slug: 'microfibre-wash-1l',             phase: 3, bowdensHandle: 'microfibre-wash' },
 
@@ -43,7 +43,7 @@ const KIT_ITEMS: {
   { name: 'Bead Machine 500ml',             slug: 'bead-machine-500ml',             phase: 4, bowdensHandle: 'bead-machine' },
   { name: 'Big Softie Pair',                slug: 'big-softie-pair',                phase: 4, bowdensHandle: 'big-softie' },
   { name: 'Snow Job 5L',                    slug: 'snow-job-5l',                    phase: 4, bowdensHandle: 'snow-job-5l' },
-  { name: 'Wheely Clean V2 5L',             slug: 'wheely-clean-v2-5l',             phase: 4, bowdensHandle: null },
+  { name: 'Wheely Clean V2 5L',             slug: 'wheely-clean-v2-5l',             phase: 4, bowdensHandle: 'new-wheely-clean' },
 ];
 
 export async function seed() {
