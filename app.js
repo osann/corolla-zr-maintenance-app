@@ -27,8 +27,7 @@
     input: el.querySelector('input'),
     price: parseInt(el.dataset.price, 10),
     phase: el.closest('.phase').dataset.phase,
-    name: el.querySelector('.item-name').textContent.trim(),
-    slug: el.dataset.slug || null
+    name: el.querySelector('.item-name').textContent.trim()
   }));
 
   // Phase metadata
@@ -154,18 +153,12 @@
           <div class="phase-spend-amounts"><strong>$${ps}</strong> of $${pt}</div>
         </div>
         <div class="phase-spend-bar"><div class="phase-spend-fill" style="width:${pct}%"></div></div>
-        ${phaseItems.map(item => {
-          const onSale = priceAlerts.some(a => a.slug === item.slug);
-          const priceDisplay = onSale
-            ? `<span class="phase-item-price on-sale">~$${item.price}<span class="live-badge">🔥 sale</span></span>`
-            : `<span class="phase-item-price">~$${item.price}</span>`;
-          return `
+        ${phaseItems.map(item => `
           <div class="phase-item-row">
             <span class="phase-item-name ${item.input.checked ? 'bought' : ''}">${item.name}</span>
-            ${priceDisplay}
+            <span class="phase-item-price">$${item.price}</span>
             <span class="phase-item-badge ${item.input.checked ? 'bought' : 'pending'}">${item.input.checked ? 'Bought' : 'Pending'}</span>
-          </div>`;
-        }).join('')}
+          </div>`).join('')}
       `;
       container.appendChild(card);
     });
@@ -707,103 +700,11 @@
     location.reload();
   }
 
-  // ─── Price alerts ────────────────────────────────
-  // Sale data comes from prices.json (committed to repo by the daily GitHub Actions job).
-  // The job scrapes OzBargain — Bowden's Own blocks all cloud/datacenter IPs at the CDN
-  // level, so scraping their site directly from GitHub Actions or Render is not possible.
-  let priceAlerts = [];
-
-  async function loadPriceData() {
-    try {
-      const res = await fetch('prices.json');
-      if (!res.ok) return;
-      const data = await res.json();
-      priceAlerts = [];
-      if (data.products) {
-        Object.entries(data.products).forEach(([slug, entry]) => {
-          if (entry.onSale) priceAlerts.push({ slug, ...entry });
-        });
-      }
-      applyPriceAlerts();
-    } catch {
-      // prices.json not available — degrade gracefully
-    }
-  }
-
-  function applyPriceAlerts() {
-    // 1. Flame icons on checklist items
-    document.querySelectorAll('[data-sale-icon]').forEach(el => el.remove());
-    priceAlerts.forEach(alert => {
-      const label = document.querySelector(`.item[data-slug="${alert.slug}"]`);
-      if (!label) return;
-      const priceEl = label.querySelector('.item-price');
-      if (!priceEl) return;
-      const icon = document.createElement('span');
-      icon.setAttribute('data-sale-icon', '');
-      icon.textContent = ' 🔥';
-      icon.title = `On sale at Bowden's Own — deal on OzBargain`;
-      priceEl.appendChild(icon);
-    });
-
-    // 2. "On sale right now" card at the top of the spend tab
-    const existing = document.getElementById('price-drops-section');
-    if (existing) existing.remove();
-    if (!priceAlerts.length) return;
-
-    const spendPanel = document.getElementById('spend');
-    if (!spendPanel) return;
-
-    // Deduplicate: if it's a storewide sale all products share the same dealTitle/dealUrl
-    const uniqueDeals = [];
-    const seenTitles = new Set();
-    priceAlerts.forEach(alert => {
-      const key = alert.dealTitle || alert.slug;
-      if (!seenTitles.has(key)) {
-        seenTitles.add(key);
-        uniqueDeals.push(alert);
-      }
-    });
-
-    const section = document.createElement('div');
-    section.id = 'price-drops-section';
-    section.className = 'sale-section';
-    section.innerHTML = `
-      <div class="sale-section-title">On sale right now</div>
-      <div class="sale-section-desc">Deals detected on OzBargain. Updated daily.</div>
-      ${uniqueDeals.map(alert => {
-        const item = itemData.find(d => d.slug === alert.slug);
-        const name = item ? item.name : alert.slug;
-        const linkHtml = alert.dealUrl
-          ? `<a href="${alert.dealUrl}" target="_blank" rel="noopener" class="sale-link">View deal on OzBargain →</a>`
-          : '';
-        return `
-        <div class="sale-card">
-          <div class="sale-icon">🔥</div>
-          <div>
-            <div class="sale-retailer">Bowden's Own via OzBargain</div>
-            <div class="sale-title">${alert.dealTitle || name}</div>
-            <div class="sale-desc">${alert.dealTitle ? `Includes ${name} and other products.` : 'Product on sale.'}</div>
-            ${linkHtml}
-            <span class="sale-badge reg">On sale</span>
-          </div>
-        </div>`;
-      }).join('')}
-    `;
-
-    const spendSummary = spendPanel.querySelector('.spend-summary');
-    if (spendSummary) {
-      spendPanel.insertBefore(section, spendSummary);
-    } else {
-      spendPanel.prepend(section);
-    }
-  }
-
   // ─── Init ────────────────────────────────────────
   async function init() {
     await loadChecklist();
     await loadLog();
     await loadBudget();
     await loadSettings();
-    loadPriceData();
   }
   init();

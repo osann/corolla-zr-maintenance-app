@@ -895,10 +895,6 @@
   .phase-item-name { color: var(--ink); flex: 1; }
   .phase-item-name.bought { color: var(--ink-low); }
   .phase-item-price { color: var(--ink-mid); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .phase-item-price.live { color: var(--ink); }
-  .phase-item-price.on-sale { color: var(--accent); font-weight: 500; }
-  .live-badge { font-size: 10px; font-weight: 500; margin-left: 5px; padding: 1px 5px; border-radius: 100px; background: var(--bg-muted); color: var(--ink-low); vertical-align: middle; }
-  .phase-item-price.on-sale .live-badge { background: var(--accent-tint); color: var(--accent-dark); }
   .phase-item-badge { font-size: 10.5px; padding: 2px 7px; border-radius: 100px; font-weight: 500; white-space: nowrap; }
   .phase-item-badge.bought { background: var(--accent-tint); color: var(--accent-dark); }
   .phase-item-badge.pending { background: var(--bg-muted); color: var(--ink-low); }
@@ -924,8 +920,6 @@
   .sale-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 100px; margin-top: 8px; }
   .sale-badge.big { background: var(--warn-tint); color: var(--warn); }
   .sale-badge.reg { background: var(--accent-tint); color: var(--accent-dark); }
-  .sale-link { display: block; font-size: 12px; color: var(--accent); text-decoration: none; margin-top: 6px; margin-bottom: 2px; }
-  .sale-link:hover { text-decoration: underline; }
 
   /* ─── Settings Panel ───────────────────────────── */
   .settings-section {
