@@ -27,7 +27,8 @@
     input: el.querySelector('input'),
     price: parseInt(el.dataset.price, 10),
     phase: el.closest('.phase').dataset.phase,
-    name: el.querySelector('.item-name').textContent.trim()
+    name: el.querySelector('.item-name').textContent.trim(),
+    slug: el.dataset.slug || null
   }));
 
   // Phase metadata
@@ -153,12 +154,18 @@
           <div class="phase-spend-amounts"><strong>$${ps}</strong> of $${pt}</div>
         </div>
         <div class="phase-spend-bar"><div class="phase-spend-fill" style="width:${pct}%"></div></div>
-        ${phaseItems.map(item => `
+        ${phaseItems.map(item => {
+          const live = item.slug ? livePrices[item.slug] : null;
+          const priceDisplay = live
+            ? `<span class="phase-item-price live${live.onSale ? ' on-sale' : ''}">$${(live.priceCents / 100).toFixed(2)}<span class="live-badge">${live.onSale ? '🔥 sale' : 'live'}</span></span>`
+            : `<span class="phase-item-price">~$${item.price}</span>`;
+          return `
           <div class="phase-item-row">
             <span class="phase-item-name ${item.input.checked ? 'bought' : ''}">${item.name}</span>
-            <span class="phase-item-price">$${item.price}</span>
+            ${priceDisplay}
             <span class="phase-item-badge ${item.input.checked ? 'bought' : 'pending'}">${item.input.checked ? 'Bought' : 'Pending'}</span>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       `;
       container.appendChild(card);
     });
@@ -703,13 +710,26 @@
   // ─── Price alerts ────────────────────────────────
   const BACKEND_URL = '__BACKEND_URL__';
   let priceAlerts = [];
+  let livePrices = {}; // slug → { priceCents, onSale }
 
   async function loadPriceData() {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/alerts`);
-      if (!res.ok) return;
-      priceAlerts = await res.json();
+      const [alertsRes, productsRes] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/alerts`),
+        fetch(`${BACKEND_URL}/api/products`),
+      ]);
+      if (alertsRes.ok) priceAlerts = await alertsRes.json();
+      if (productsRes.ok) {
+        const products = await productsRes.json();
+        livePrices = {};
+        products.forEach(p => {
+          if (p.latestPrice?.bowdens) {
+            livePrices[p.slug] = p.latestPrice.bowdens;
+          }
+        });
+      }
       applyPriceAlerts();
+      recompute(); // re-render spend tab with live prices
     } catch {
       // backend not running — degrade gracefully
     }
