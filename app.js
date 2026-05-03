@@ -1,3 +1,6 @@
+  // ─── Backend ─────────────────────────────────────
+  const BACKEND_URL = '__BACKEND_URL__';
+
   // ─── Storage helpers ─────────────────────────────
   const hasStorage = typeof window.storage !== 'undefined';
 
@@ -98,6 +101,7 @@
   // ─── Spend panel ─────────────────────────────────
   const BUDGET_KEY = 'corolla-budget-v1';
   let budgetTarget = 0;
+  let priceAlerts = [];
 
   async function loadBudget() {
     const b = await storageGet(BUDGET_KEY);
@@ -700,11 +704,88 @@
     location.reload();
   }
 
+  // ─── Price alerts ────────────────────────────────
+  const RETAILER_NAMES = {
+    bowdens: "Bowden's Own",
+    autobarn: 'Auto Barn',
+    repco: 'Repco',
+    supercheap: 'Supercheap Auto',
+    autopro: 'Autopro',
+  };
+
+  async function loadPriceData() {
+    if (!BACKEND_URL || BACKEND_URL === '__BACKEND_URL__') return;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(`${BACKEND_URL}/api/alerts`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) return;
+      priceAlerts = await res.json();
+      applyPriceAlerts();
+    } catch {
+      // backend unavailable or cold-starting — app works without prices
+    }
+  }
+
+  function applyPriceAlerts() {
+    // Flame icons on checklist items that are on sale
+    document.querySelectorAll('.item').forEach(label => {
+      const slug = label.dataset.slug;
+      if (!slug) return;
+      const alert = priceAlerts.find(a => a.slug === slug);
+      const priceEl = label.querySelector('.item-price');
+      if (!priceEl) return;
+      const existing = priceEl.querySelector('[data-sale]');
+      if (alert) {
+        if (!existing) {
+          const icon = document.createElement('span');
+          icon.setAttribute('data-sale', '1');
+          icon.title = `On sale at ${RETAILER_NAMES[alert.retailer] || alert.retailer}`;
+          icon.textContent = ' 🔥';
+          priceEl.appendChild(icon);
+        }
+      } else if (existing) {
+        existing.remove();
+      }
+    });
+
+    // "Price drops right now" card in the spend tab
+    const spend = document.getElementById('spend');
+    if (!spend) return;
+    let section = document.getElementById('price-drops-section');
+
+    if (priceAlerts.length === 0) {
+      section?.remove();
+      return;
+    }
+
+    if (!section) {
+      section = document.createElement('div');
+      section.id = 'price-drops-section';
+      section.className = 'sale-section';
+      const summary = spend.querySelector('.spend-summary');
+      spend.insertBefore(section, summary);
+    }
+
+    section.innerHTML = `
+      <div class="sale-section-title">Price drops right now</div>
+      <div class="sale-section-desc">Live prices from Australian retailers.</div>
+      ${priceAlerts.map(a => `
+        <div class="sale-card">
+          <div class="sale-card-name">${a.name}</div>
+          <div class="sale-card-detail">$${(a.priceCents / 100).toFixed(2)} at ${RETAILER_NAMES[a.retailer] || a.retailer}</div>
+        </div>
+      `).join('')}
+    `;
+  }
+
   // ─── Init ────────────────────────────────────────
   async function init() {
     await loadChecklist();
     await loadLog();
     await loadBudget();
     await loadSettings();
+    loadPriceData();
   }
   init();
