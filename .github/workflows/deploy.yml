@@ -25,10 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject backend URL
-        run: |
-          sed -i "s|__BACKEND_URL__|${{ secrets.BACKEND_URL }}|g" app.js
-
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
