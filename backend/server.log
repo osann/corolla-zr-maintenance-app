@@ -17,3 +17,8 @@ Server running on port 3000
 Done. 0 products inserted, 26 already existed.
 15 products have a Bowden's URL.
 Server running on port 3000
+12:26:34 am [tsx] change in ./src\index.ts Restarting...
+cSeeding products...
+Done. 0 products inserted, 26 already existed.
+15 products have a Bowden's URL.
+Server running on port 3000
