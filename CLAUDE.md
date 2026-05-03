@@ -1,10 +1,6 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 # Corolla ZR Detailing — Project Context for Claude Code
 
-A personal detailing kit-and-technique guide app being progressively ported from a single HTML file to a full-stack web app with a backend for price scraping, notifications, and multi-device sync.
+This is a single-file HTML application that has outgrown its environment. It's being ported to a Git repo to enable features that need a backend (price scraping, notifications, multi-device sync). This document is the handoff: architecture, conventions, and a feature backlog with implementation hints.
 
 ## What this app is
 
@@ -22,19 +18,13 @@ The car is in Australia, so all retailer references are Australian (Supercheap A
 
 ## Current state
 
-The frontend has been split into three files — no build step yet, no framework, no package.json:
-
-- `index.html` — HTML structure only (~1,744 lines)
-- `styles.css` — all CSS (~1,193 lines, extracted from the original inline `<style>` block)
-- `app.js` — all JavaScript (~711 lines, extracted from the original inline `<script>` block)
-
-Open `index.html` directly in a browser to run the app. There is no dev server, no compile step, and no `npm install`.
+Single HTML file: `corolla_detailing_app.html` — roughly 3,600 lines. Self-contained: inline CSS, inline JS, no build step, no external dependencies except Google Fonts (Fraunces + Inter).
 
 It runs in two environments:
 - **Claude.ai artifact runtime** — uses `window.storage` (a key-value persistence API exposed to Claude artifacts)
 - **Standalone browser** — falls back to `localStorage`
 
-The storage abstraction is in `storageGet()` / `storageSet()` in `app.js`. When porting to a real web app, replace these with `fetch` calls to the backend but keep the function signatures so the rest of the code doesn't need to change.
+The storage abstraction is in `storageGet()` / `storageSet()`. When porting to a real web app, replace these with actual fetch calls to a backend, but keep the function signatures so the rest of the code doesn't need to change.
 
 ## Architecture overview
 
@@ -271,24 +261,23 @@ These are intentional design choices that should survive a port:
 
 ## Files in the repo
 
-- `index.html` — HTML structure, tab panels, all static content
-- `styles.css` — all CSS; edit this for any visual changes
-- `app.js` — all JavaScript; edit this for any behaviour changes
+When you start, the repo will have:
+- `corolla_detailing_app.html` — the existing single-file app
 - `CLAUDE.md` — this document
-- `TASKS.md` — feature backlog with per-task checklists
 
-The next milestones in order:
+Suggested first commits, in order:
 
-1. **Add tooling** — ESLint, Prettier, TypeScript config, Husky pre-commit hook.
-2. **Stand up the backend skeleton** — `/api/health` endpoint, database connection, prove the architecture.
-3. **Build the price tracker end-to-end for one retailer** — Bowden's direct is the easiest starting point. Get the full pipeline working (scrape → store → display in spend tab) before scaling out to other retailers.
-4. **Iterate** — each TASKS.md item is its own milestone.
+1. **Reorganise into a proper structure** without changing behaviour. Split CSS, JS, and HTML into separate files. Add a basic build step (Vite is good).
+2. **Add tooling.** ESLint, Prettier, TypeScript config, Husky pre-commit hook.
+3. **Stand up the database and a single endpoint.** Just enough to prove the architecture — `/api/health` and a `users` table are fine.
+4. **Build the price tracker scraper for one retailer.** Bowden's direct site is the easiest. Get the full pipeline working (scrape → store → display) for one product before scaling out.
+5. **Iterate.** Each backlog feature above is its own milestone.
 
-Don't try to build everything at once. The HTML file is genuinely useful as it stands; each backend feature should ship independently.
+Don't try to build everything at once. The current single-file app is genuinely useful as it stands; each backend feature should ship independently and be useful on its own.
 
 ## Conventions for working on this codebase
 
-- **Don't break the standalone HTML file** until the new architecture is genuinely better. `index.html` must continue to work when opened directly from disk during the transition.
+- **Don't break the standalone HTML file** until the new architecture is genuinely better. Keep the original `corolla_detailing_app.html` as a fallback during the transition.
 - **Real numbers, real retailers, real product names.** No placeholder data, no "Lorem ipsum products." This is a real personal tool.
 - **Australian English spelling** in user-facing copy: colour, optimise, behaviour. American spellings in code identifiers are fine.
 - **No analytics, no tracking, no third-party scripts** without an explicit opt-in toggle in settings. The original app's privacy posture (everything local, nothing leaves the browser) is part of what makes it pleasant to use.
