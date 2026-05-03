@@ -22,10 +22,6 @@ jobs:
         working-directory: backend
         run: npm ci
 
-      - name: Install Playwright browsers
-        working-directory: backend
-        run: npx playwright install chromium --with-deps
-
       - name: Run price scraper
         working-directory: backend
         run: node --import tsx/esm src/scrapers/export-prices.ts

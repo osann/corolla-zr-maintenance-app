@@ -155,9 +155,9 @@
         </div>
         <div class="phase-spend-bar"><div class="phase-spend-fill" style="width:${pct}%"></div></div>
         ${phaseItems.map(item => {
-          const live = item.slug ? livePrices[item.slug] : null;
-          const priceDisplay = live
-            ? `<span class="phase-item-price live${live.onSale ? ' on-sale' : ''}">$${(live.priceCents / 100).toFixed(2)}<span class="live-badge">${live.onSale ? '🔥 sale' : 'live'}</span></span>`
+          const onSale = priceAlerts.some(a => a.slug === item.slug);
+          const priceDisplay = onSale
+            ? `<span class="phase-item-price on-sale">~$${item.price}<span class="live-badge">🔥 sale</span></span>`
             : `<span class="phase-item-price">~$${item.price}</span>`;
           return `
           <div class="phase-item-row">
@@ -708,27 +708,23 @@
   }
 
   // ─── Price alerts ────────────────────────────────
+  // Sale data comes from prices.json (committed to repo by the daily GitHub Actions job).
+  // The job scrapes OzBargain — Bowden's Own blocks all cloud/datacenter IPs at the CDN
+  // level, so scraping their site directly from GitHub Actions or Render is not possible.
   let priceAlerts = [];
-  let livePrices = {}; // slug → { priceCents, onSale }
 
   async function loadPriceData() {
     try {
-      // prices.json is committed to the repo and served from GitHub Pages.
-      // It is written by the daily GitHub Actions scrape job, which runs on
-      // GitHub's IPs (not Render's datacenter IPs) to avoid 403 blocks.
       const res = await fetch('prices.json');
       if (!res.ok) return;
       const data = await res.json();
-      livePrices = {};
       priceAlerts = [];
       if (data.products) {
         Object.entries(data.products).forEach(([slug, entry]) => {
-          livePrices[slug] = entry;
           if (entry.onSale) priceAlerts.push({ slug, ...entry });
         });
       }
       applyPriceAlerts();
-      recompute(); // re-render spend tab with live prices
     } catch {
       // prices.json not available — degrade gracefully
     }
@@ -745,11 +741,11 @@
       const icon = document.createElement('span');
       icon.setAttribute('data-sale-icon', '');
       icon.textContent = ' 🔥';
-      icon.title = `On sale at Bowden's Own`;
+      icon.title = `On sale at Bowden's Own — deal on OzBargain`;
       priceEl.appendChild(icon);
     });
 
-    // 2. "Price drops right now" card at the top of the spend tab
+    // 2. "On sale right now" card at the top of the spend tab
     const existing = document.getElementById('price-drops-section');
     if (existing) existing.remove();
     if (!priceAlerts.length) return;
@@ -757,23 +753,37 @@
     const spendPanel = document.getElementById('spend');
     if (!spendPanel) return;
 
+    // Deduplicate: if it's a storewide sale all products share the same dealTitle/dealUrl
+    const uniqueDeals = [];
+    const seenTitles = new Set();
+    priceAlerts.forEach(alert => {
+      const key = alert.dealTitle || alert.slug;
+      if (!seenTitles.has(key)) {
+        seenTitles.add(key);
+        uniqueDeals.push(alert);
+      }
+    });
+
     const section = document.createElement('div');
     section.id = 'price-drops-section';
     section.className = 'sale-section';
     section.innerHTML = `
-      <div class="sale-section-title">Price drops right now</div>
-      <div class="sale-section-desc">Live prices from Bowden's Own. Updated daily.</div>
-      ${priceAlerts.map(alert => {
-        const price = (alert.priceCents / 100).toFixed(2);
+      <div class="sale-section-title">On sale right now</div>
+      <div class="sale-section-desc">Deals detected on OzBargain. Updated daily.</div>
+      ${uniqueDeals.map(alert => {
         const item = itemData.find(d => d.slug === alert.slug);
         const name = item ? item.name : alert.slug;
+        const linkHtml = alert.dealUrl
+          ? `<a href="${alert.dealUrl}" target="_blank" rel="noopener" class="sale-link">View deal on OzBargain →</a>`
+          : '';
         return `
         <div class="sale-card">
           <div class="sale-icon">🔥</div>
           <div>
-            <div class="sale-retailer">Bowden's Own</div>
-            <div class="sale-title">${name}</div>
-            <div class="sale-desc">Currently $${price} — on sale now.</div>
+            <div class="sale-retailer">Bowden's Own via OzBargain</div>
+            <div class="sale-title">${alert.dealTitle || name}</div>
+            <div class="sale-desc">${alert.dealTitle ? `Includes ${name} and other products.` : 'Product on sale.'}</div>
+            ${linkHtml}
             <span class="sale-badge reg">On sale</span>
           </div>
         </div>`;
