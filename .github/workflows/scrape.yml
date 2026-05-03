@@ -1,0 +1,34 @@
+name: Daily price scrape
+
+on:
+  schedule:
+    - cron: '0 23 * * *'  # 9 AM AEST (UTC+10)
+  workflow_dispatch:       # allow manual trigger from GitHub Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: backend
+        run: npx playwright install chromium --with-deps
+
+      - name: Run scrapers and push to Render
+        working-directory: backend
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
+        run: node --import tsx/esm src/scrapers/run-and-push.ts
