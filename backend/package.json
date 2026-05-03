@@ -1,0 +1,29 @@
+{
+  "name": "corolla-detailing-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node --import tsx/esm src/index.ts",
+    "db:init": "node --import tsx/esm src/db/init.ts",
+    "seed": "node --import tsx/esm src/db/seed.ts",
+    "scrape": "node --import tsx/esm src/scrapers/index.ts",
+    "scrape:push": "node --import tsx/esm src/scrapers/run-and-push.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "drizzle-orm": "^0.41.0",
+    "hono": "^4.7.10",
+    "node-cron": "^3.0.3",
+    "playwright": "^1.49.0",
+    "tsx": "^4.19.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.8.3"
+  }
+}
