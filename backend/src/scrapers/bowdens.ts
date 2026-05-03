@@ -5,8 +5,25 @@ import { products, retailerUrls, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
 
 const CACHE_HOURS = 6;
-const RATE_LIMIT_MS = 2000;
-const USER_AGENT = 'corolla-detailing-price-tracker/1.0 (personal project; joh.10@pm.me)';
+const RATE_LIMIT_MS = 3000;
+
+// Bowden's Own blocks datacenter IPs with minimal headers. Use a realistic browser fingerprint.
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+  'Accept-Language': 'en-AU,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"Windows"',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
+};
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -16,12 +33,7 @@ function sleep(ms: number) {
 //   <span itemprop="price">22.99</span>
 // Compare-at (was) prices appear as strikethrough in <s> or <del> tags near the price block.
 async function fetchProductPrice(url: string): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      'Accept': 'text/html',
-    },
-  });
+  const res = await fetch(url, { headers: BROWSER_HEADERS });
 
   if (res.status === 404) {
     console.warn(`  404 — product not found at ${url}`);
