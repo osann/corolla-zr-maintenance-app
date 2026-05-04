@@ -26,6 +26,12 @@ jobs:
         working-directory: backend
         run: npx playwright install chromium --with-deps
 
+      - name: Initialise local database
+        working-directory: backend
+        run: |
+          node --import tsx/esm src/db/init.ts
+          node --import tsx/esm src/db/seed.ts
+
       - name: Run scrapers and push to Render
         working-directory: backend
         env:
