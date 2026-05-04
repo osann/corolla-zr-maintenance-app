@@ -13,11 +13,11 @@ export async function scrapeAllRetailers(): Promise<void> {
   console.log('=== Auto Barn ===');
   await scrapeAutobarn();
 
-  console.log('=== Repco ===');
-  await scrapeRepco();
-
   console.log('=== Supercheap Auto ===');
   await scrapeSupercheap();
+
+  console.log('=== Repco ===');
+  await scrapeRepco();
 }
 
 // Allow running directly: npm run scrape
