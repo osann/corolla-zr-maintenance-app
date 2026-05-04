@@ -73,11 +73,6 @@
         item.el.classList.remove('done');
       }
     });
-    document.getElementById('cnt-done').textContent = done;
-    document.getElementById('cnt-total').textContent = itemData.length;
-    document.getElementById('cnt-spent').textContent = spent;
-    document.getElementById('cnt-remain').textContent = total - spent;
-    document.getElementById('bar').style.width = Math.round((spent / total) * 100) + '%';
     Object.keys(byPhase).forEach(p => {
       const el = document.querySelector(`[data-phase-status="${p}"]`);
       if (!el) return;
