@@ -9,14 +9,14 @@ import type { PriceObservation } from '../routes/prices.js';
 const CACHE_HOURS = 6;
 const RATE_LIMIT_MS = 5_000;
 
-// Repco product code is extracted from the URL path (last segment before /p/)
+// Repco product code is extracted from the URL path — /p/{code} at the end
 function productCodeFromUrl(url: string): string {
-  // URL format: https://www.repco.com.au/en/car-care/car-cleaning/{code}/p/{code}
   const match = url.match(/\/p\/([^/?]+)/);
   return match?.[1] ?? '';
 }
 
-// Approach A: Repco's SAP Hybris OCC REST API (no Playwright needed if accessible)
+// Approach A: Repco's SAP Hybris OCC REST API (no Playwright needed if accessible).
+// The API returns `potentialPromotions` with the member/lowest price when applicable.
 async function fetchRepcoOCC(productCode: string): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
   const url = `https://www.repco.com.au/repcocommercewebservices/v2/repco/products/${productCode}?fields=FULL`;
   const res = await fetch(url, {
@@ -36,44 +36,71 @@ async function fetchRepcoOCC(productCode: string): Promise<{ priceCents: number;
     return null;
   }
 
-  const price = (data.price as { value?: number } | undefined)?.value;
-  if (typeof price !== 'number') return null;
-  const priceCents = Math.round(price * 100);
+  const regularPrice = (data.price as { value?: number } | undefined)?.value;
+  if (typeof regularPrice !== 'number') return null;
 
-  const basePrice = (data.basePrice as { value?: number } | undefined)?.value;
-  const compareAtCents = typeof basePrice === 'number' && basePrice > price
-    ? Math.round(basePrice * 100)
-    : null;
+  // Member/promotion price surfaces in potentialPromotions[].promotionDiscount.value
+  // or as a separate promotionPrice field — check both shapes
+  const promotions = data.potentialPromotions as Array<{ promotionDiscount?: { value?: number } }> | undefined;
+  const promotionDiscount = promotions?.[0]?.promotionDiscount?.value ?? 0;
+  const memberPrice = (data.promotionPrice as { value?: number } | undefined)?.value;
+
+  let priceCents: number;
+  let compareAtCents: number | null = null;
+
+  if (typeof memberPrice === 'number' && memberPrice < regularPrice) {
+    priceCents = Math.round(memberPrice * 100);
+    compareAtCents = Math.round(regularPrice * 100);
+  } else if (promotionDiscount > 0) {
+    priceCents = Math.round((regularPrice - promotionDiscount) * 100);
+    compareAtCents = Math.round(regularPrice * 100);
+  } else {
+    priceCents = Math.round(regularPrice * 100);
+  }
 
   return { priceCents, compareAtCents };
 }
 
-// Approach B: Playwright page scrape fallback
+// Approach B: Playwright page scrape fallback.
+// Repco shows a member/promotion price in .promotion-price alongside the regular price.
+// Multiple products with prices appear on the page (related items below the fold) —
+// scope selection to cx-product-intro which wraps only the main product's price block.
 async function fetchRepcoPlaywright(pageUrl: string): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
   const { context, close } = await createStealthContext();
   const page = await context.newPage();
   try {
     await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 30_000 });
-    await page.waitForSelector('cx-item-price, [itemprop="price"]', { timeout: 10_000 });
+    // Wait for either the member price or the standard itemprop price
+    await page.waitForSelector('cx-product-intro .promotion-price, cx-product-intro [itemprop="price"]', { timeout: 10_000 });
 
-    const priceText = await page.evaluate(() => {
-      const el = document.querySelector('[itemprop="price"]') ?? document.querySelector('.cx-item-price');
-      return el?.getAttribute('content') ?? el?.textContent;
+    const prices = await page.evaluate(() => {
+      // Scope to the main product intro to avoid related-product price elements
+      const intro = document.querySelector('cx-product-intro') ?? document.body;
+
+      // Member/promotion price is the lowest — use it when present
+      const promoEl = intro.querySelector('.promotion-price');
+      const promoText = promoEl?.textContent;
+
+      // Regular (non-member) price — becomes compareAt when a promo price exists
+      const regularEl = intro.querySelector('[itemprop="price"]');
+      const regularText = regularEl?.getAttribute('content') ?? regularEl?.textContent;
+
+      return { promoText: promoText ?? null, regularText: regularText ?? null };
     });
 
-    if (!priceText) return null;
-    const priceCents = Math.round(parseFloat(priceText.replace(/[^0-9.]/g, '')) * 100);
+    const parsePrice = (text: string | null) =>
+      text ? Math.round(parseFloat(text.replace(/[^0-9.]/g, '')) * 100) : null;
 
-    const compareText = await page.evaluate(() => {
-      const el = document.querySelector('.cx-original-price .value, .price-original .value');
-      return el?.getAttribute('content') ?? el?.textContent;
-    });
+    const promoCents = parsePrice(prices.promoText);
+    const regularCents = parsePrice(prices.regularText);
 
-    const compareAtCents = compareText
-      ? Math.round(parseFloat(compareText.replace(/[^0-9.]/g, '')) * 100)
-      : null;
+    if (!promoCents && !regularCents) return null;
 
-    return { priceCents, compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null };
+    // Prefer the member price as the actual price; regular becomes compareAt
+    const priceCents = promoCents ?? regularCents!;
+    const compareAtCents = promoCents && regularCents && regularCents > promoCents ? regularCents : null;
+
+    return { priceCents, compareAtCents };
   } catch {
     return null;
   } finally {
