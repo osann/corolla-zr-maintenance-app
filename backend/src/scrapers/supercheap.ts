@@ -45,15 +45,22 @@ async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number;
       const clubEl = document.querySelector('#product-content > .product-price.has-club .text-club-price');
       const sellEl = document.querySelector('#product-content > .product-price .price-sales .promo-price');
       const retailEl = document.querySelector('#product-content > .product-price .price-standard .stroke-content');
+      const wrapperEl = document.querySelector('#product-content .product-price');
 
       return {
         clubCents: parsePrice(clubEl?.textContent),
         sellCents: parsePrice(sellEl?.textContent),
         retailCents: parsePrice(retailEl?.textContent),
+        wrapperHtml: wrapperEl?.outerHTML?.slice(0, 1000) ?? null,
+        wrapperClass: wrapperEl?.className ?? null,
       };
     });
 
-    const { clubCents, sellCents, retailCents } = prices;
+    const { clubCents, sellCents, retailCents, wrapperHtml, wrapperClass } = prices;
+    console.log(`    club=${clubCents} sell=${sellCents} retail=${retailCents} wrapperClass="${wrapperClass}"`);
+    if (wrapperHtml && !clubCents && !sellCents) {
+      console.warn(`    price wrapper HTML: ${wrapperHtml}`);
+    }
 
     // Determine the price we actually pay
     const priceCents = clubCents ?? sellCents;
