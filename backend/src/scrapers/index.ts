@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { scrapeAll as scrapeBowdens } from './bowdens.js';
 import { scrapeAutobarn } from './autobarn.js';
 import { scrapeRepco } from './repco.js';
@@ -20,6 +21,6 @@ export async function scrapeAllRetailers(): Promise<void> {
 }
 
 // Allow running directly: npm run scrape
-if (process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('index.js')) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   scrapeAllRetailers().catch((err) => { console.error(err); process.exit(1); });
 }

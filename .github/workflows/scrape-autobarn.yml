@@ -1,0 +1,36 @@
+name: Daily Auto Barn price scrape
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # 05:00 UTC = 3 PM AEST, within Auto Barn's 04:00–08:45 UTC crawl window
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Initialise local database
+        working-directory: backend
+        run: |
+          node --import tsx/esm src/db/init.ts
+          node --import tsx/esm src/db/seed.ts
+
+      - name: Run Auto Barn scraper and push to Render
+        working-directory: backend
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
+        run: node --import tsx/esm src/scrapers/run-autobarn.ts
