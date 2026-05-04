@@ -38,28 +38,28 @@ async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number;
     // Wait for the price wrapper — always present once the PDP loads
     await page.waitForSelector('#product-content .product-price', { timeout: 15_000 });
 
-    const prices = await page.evaluate(() => {
-      const parsePrice = (text: string | null | undefined) =>
-        text ? Math.round(parseFloat(text.replace(/[^0-9.]/g, '')) * 100) : null;
-
-      const clubEl = document.querySelector('#product-content > .product-price.has-club .text-club-price');
-      const sellEl = document.querySelector('#product-content > .product-price .price-sales .promo-price');
-      const retailEl = document.querySelector('#product-content > .product-price .price-standard .stroke-content');
-      const wrapperEl = document.querySelector('#product-content .product-price');
-
+    // Only plain DOM reads inside evaluate — no helper functions, avoids tsx __name injection
+    const raw = await page.evaluate(() => {
+      const wrapper = document.querySelector('#product-content .product-price');
       return {
-        clubCents: parsePrice(clubEl?.textContent),
-        sellCents: parsePrice(sellEl?.textContent),
-        retailCents: parsePrice(retailEl?.textContent),
-        wrapperHtml: wrapperEl?.outerHTML?.slice(0, 1000) ?? null,
-        wrapperClass: wrapperEl?.className ?? null,
+        clubText: document.querySelector('#product-content > .product-price.has-club .text-club-price')?.textContent?.trim() ?? null,
+        sellText: document.querySelector('#product-content > .product-price .price-sales .promo-price')?.textContent?.trim() ?? null,
+        retailText: document.querySelector('#product-content > .product-price .price-standard .stroke-content')?.textContent?.trim() ?? null,
+        wrapperHtml: wrapper?.outerHTML?.slice(0, 1000) ?? null,
+        wrapperClass: wrapper?.className ?? null,
       };
     });
 
-    const { clubCents, sellCents, retailCents, wrapperHtml, wrapperClass } = prices;
-    console.log(`    club=${clubCents} sell=${sellCents} retail=${retailCents} wrapperClass="${wrapperClass}"`);
-    if (wrapperHtml && !clubCents && !sellCents) {
-      console.warn(`    price wrapper HTML: ${wrapperHtml}`);
+    const parsePrice = (text: string | null) =>
+      text ? Math.round(parseFloat(text.replace(/[^0-9.]/g, '')) * 100) : null;
+
+    const clubCents = parsePrice(raw.clubText);
+    const sellCents = parsePrice(raw.sellText);
+    const retailCents = parsePrice(raw.retailText);
+
+    console.log(`    club=${clubCents} sell=${sellCents} retail=${retailCents} wrapperClass="${raw.wrapperClass}"`);
+    if (raw.wrapperHtml && !clubCents && !sellCents) {
+      console.warn(`    price wrapper HTML: ${raw.wrapperHtml}`);
     }
 
     // Determine the price we actually pay
