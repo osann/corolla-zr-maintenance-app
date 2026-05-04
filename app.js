@@ -81,7 +81,7 @@
       else { el.textContent = `${done} of ${count}`; el.classList.remove('done'); }
     });
     // Also refresh spend panel if visible
-    renderSpendPanel(byPhase, spent, total);
+    renderSpendPanel(spent, total);
   }
 
   items.forEach(item => {
@@ -98,6 +98,7 @@
   const BUDGET_KEY = 'corolla-budget-v1';
   let budgetTarget = 0;
   let liveProducts = [];
+  let slugToBest = {};
 
   async function loadBudget() {
     const b = await storageGet(BUDGET_KEY);
@@ -117,7 +118,7 @@
     setTimeout(() => { document.getElementById('budget-status').textContent = ''; }, 2000);
   }
 
-  function renderSpendPanel(byPhase, spent, total) {
+  function renderSpendPanel(spent, total) {
     // Summary
     document.getElementById('sp-spent').textContent = spent;
     document.getElementById('sp-remain').textContent = total - spent;
@@ -137,28 +138,55 @@
       document.getElementById('budget-bar-label').textContent = `$${spent} of $${total} total kit cost`;
     }
 
-    // Phase breakdown
-    const container = document.getElementById('spend-phases');
+    renderPriceList();
+  }
+
+  function renderPriceList() {
+    const container = document.getElementById('price-list');
     if (!container) return;
+
+    const byPhase = {};
+    itemData.forEach(item => {
+      if (!byPhase[item.phase]) byPhase[item.phase] = [];
+      byPhase[item.phase].push(item);
+    });
+
+    const hasLive = Object.keys(slugToBest).length > 0;
     container.innerHTML = '';
+
     Object.keys(byPhase).sort().forEach(p => {
-      const { spent: ps, total: pt } = byPhase[p];
-      const pct = pt > 0 ? Math.round((ps / pt) * 100) : 0;
-      const phaseItems = itemData.filter(i => i.phase === p);
       const card = document.createElement('div');
       card.className = 'phase-spend-card';
+
+      const rows = byPhase[p].map(item => {
+        const live = item.slug ? slugToBest[item.slug] : null;
+        const price = live ? `$${(live.priceCents / 100).toFixed(2)}` : `$${item.price}`;
+        const retailerName = live ? (RETAILER_NAMES[live.retailer] || live.retailer) : '';
+        const url = live?.url || null;
+        const onSale = live?.onSale || false;
+        const bought = item.input.checked;
+        const saleTag = onSale ? '<span class="price-on-sale">Sale</span>' : '';
+        const linkEl = url
+          ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
+          : '<span class="price-row-link-none"></span>';
+
+        return `
+          <div class="price-row${bought ? ' bought' : ''}">
+            <span class="price-row-name">${item.name}</span>
+            <div class="price-row-right">
+              <div class="price-row-amount">${price}${saleTag}</div>
+              <div class="price-row-meta">${retailerName}</div>
+            </div>
+            ${linkEl}
+          </div>`;
+      }).join('');
+
       card.innerHTML = `
         <div class="phase-spend-head">
           <div class="phase-spend-name">${phaseNames[p] || 'Phase ' + p}</div>
-          <div class="phase-spend-amounts"><strong>$${ps}</strong> of $${pt}</div>
+          ${!hasLive ? '<div class="price-list-stale">Prices unavailable</div>' : ''}
         </div>
-        <div class="phase-spend-bar"><div class="phase-spend-fill" style="width:${pct}%"></div></div>
-        ${phaseItems.map(item => `
-          <div class="phase-item-row">
-            <span class="phase-item-name ${item.input.checked ? 'bought' : ''}">${item.name}</span>
-            <span class="phase-item-price">$${item.price}</span>
-            <span class="phase-item-badge ${item.input.checked ? 'bought' : 'pending'}">${item.input.checked ? 'Bought' : 'Pending'}</span>
-          </div>`).join('')}
+        ${rows}
       `;
       container.appendChild(card);
     });
@@ -735,30 +763,35 @@
   }
 
   function applyLivePrices() {
-    // Build slug → cheapest current price across all retailers
-    const priceMap = {};
+    // Build slug → cheapest retailer across all with URL
+    slugToBest = {};
     for (const product of liveProducts) {
       const retailers = Object.entries(product.latestPrice);
       if (retailers.length === 0) continue;
-      let best = null;
+      let bestRetailer = null;
+      let bestData = null;
       for (const [retailer, data] of retailers) {
-        if (!best || data.priceCents < best.priceCents) {
-          best = { retailer, priceCents: data.priceCents, onSale: data.onSale };
+        if (!bestData || data.priceCents < bestData.priceCents) {
+          bestRetailer = retailer;
+          bestData = data;
         }
       }
-      // on sale if ANY retailer currently has it on sale
-      best.onSale = retailers.some(([, d]) => d.onSale);
-      priceMap[product.slug] = { ...best, name: product.name };
+      slugToBest[product.slug] = {
+        retailer: bestRetailer,
+        priceCents: bestData.priceCents,
+        onSale: retailers.some(([, d]) => d.onSale),
+        url: product.urls?.[bestRetailer] || null,
+      };
     }
 
-    // Update checklist item prices and item.price for spend totals
+    // Update checklist item prices for spend totals
     itemData.forEach(item => {
-      const live = item.slug ? priceMap[item.slug] : null;
+      const live = item.slug ? slugToBest[item.slug] : null;
+      if (!live) return;
       const priceEl = item.el.querySelector('.item-price');
-      if (!priceEl) return;
-      if (live) {
-        const dollars = (live.priceCents / 100).toFixed(2);
-        const retailerName = RETAILER_NAMES[live.retailer] || live.retailer;
+      const dollars = (live.priceCents / 100).toFixed(2);
+      const retailerName = RETAILER_NAMES[live.retailer] || live.retailer;
+      if (priceEl) {
         priceEl.textContent = `$${dollars} · ${retailerName}`;
         if (live.onSale) {
           const flame = document.createElement('span');
@@ -767,53 +800,11 @@
           flame.textContent = ' 🔥';
           priceEl.appendChild(flame);
         }
-        item.price = Math.round(live.priceCents / 100);
       }
+      item.price = Math.round(live.priceCents / 100);
     });
 
-    // Refresh spend panel with live prices
     recompute();
-
-    // "Price drops right now" section in the spend tab
-    const onSaleProducts = liveProducts.filter(p =>
-      Object.values(p.latestPrice).some(d => d.onSale)
-    );
-    const spend = document.getElementById('spend');
-    if (!spend) return;
-    let section = document.getElementById('price-drops-section');
-
-    if (onSaleProducts.length === 0) {
-      section?.remove();
-      return;
-    }
-
-    if (!section) {
-      section = document.createElement('div');
-      section.id = 'price-drops-section';
-      section.className = 'sale-section';
-      const summary = spend.querySelector('.spend-summary');
-      spend.insertBefore(section, summary);
-    }
-
-    const rows = onSaleProducts.flatMap(p =>
-      Object.entries(p.latestPrice)
-        .filter(([, d]) => d.onSale)
-        .sort((a, b) => a[1].priceCents - b[1].priceCents)
-        .map(([retailer, data]) => `
-          <div class="sale-card">
-            <div class="sale-icon">🔥</div>
-            <div>
-              <div class="sale-retailer">${p.name}</div>
-              <div class="sale-desc">$${(data.priceCents / 100).toFixed(2)} at ${RETAILER_NAMES[retailer] || retailer}</div>
-            </div>
-          </div>`)
-    );
-
-    section.innerHTML = `
-      <div class="sale-section-title">Price drops right now</div>
-      <div class="sale-section-desc">Live prices from Australian retailers — updated daily.</div>
-      ${rows.join('')}
-    `;
   }
 
   // ─── Init ────────────────────────────────────────
