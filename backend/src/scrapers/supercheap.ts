@@ -6,7 +6,7 @@ import { isOnSale } from '../lib/sale-detector.js';
 import { createStealthContext } from '../lib/browser.js';
 import type { PriceObservation } from '../routes/prices.js';
 
-const CACHE_HOURS = 6;
+const CACHE_HOURS = 12;
 const RATE_LIMIT_MS = 5_000;
 
 function sleep(ms: number) {
@@ -83,7 +83,7 @@ async function wasRecentlyScraped(productId: number): Promise<boolean> {
       and(
         eq(priceHistory.productId, productId),
         eq(priceHistory.retailer, 'supercheap'),
-        gt(priceHistory.observedAt, sql`datetime('now', '-6 hours')`),
+        gt(priceHistory.observedAt, sql`datetime('now', '-12 hours')`),
       ),
     )
     .limit(1);
@@ -116,6 +116,11 @@ export async function scrapeToArray(): Promise<PriceObservation[]> {
 
   for (const row of rows) {
     try {
+      if (await wasRecentlyScraped(row.productId)) {
+        console.log(`  [skip] ${row.name} — scraped within ${CACHE_HOURS}h`);
+        continue;
+      }
+
       console.log(`  Fetching ${row.name}...`);
       const result = await fetchProductPrice(row.url);
 
