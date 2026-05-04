@@ -12,13 +12,13 @@ const BACKEND_URL = process.env.BACKEND_URL ?? 'https://corolla-zr-maintenance-a
 const SCRAPE_SECRET = process.env.SCRAPE_SECRET ?? '';
 
 async function main() {
-  console.log('=== Repco ===');
-  const repcoResults = await scrapeRepco();
-
   console.log('=== Supercheap Auto ===');
   const supercheapResults = await scrapeSupercheap();
 
-  const results = [...repcoResults, ...supercheapResults];
+  console.log('=== Repco ===');
+  const repcoResults = await scrapeRepco();
+
+  const results = [...supercheapResults, ...repcoResults];
   console.log(`\nCollected ${results.length} price observations. Pushing to ${BACKEND_URL}...`);
 
   if (results.length === 0) {
