@@ -8,3 +8,4 @@ backend/db.sqlite
 backend/.env
 dist/
 backend/dist/
+Next Prompts
