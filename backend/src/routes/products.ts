@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { eq, desc, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
-import { products, priceHistory } from '../db/schema.js';
+import { products, priceHistory, retailerUrls } from '../db/schema.js';
 
 const router = new Hono();
 
@@ -30,7 +30,11 @@ router.get('/products', async (c) => {
         }
       }
 
-      return { ...p, latestPrice };
+      const urlRows = await db.select().from(retailerUrls).where(eq(retailerUrls.productId, p.id));
+      const urls: Record<string, string> = {};
+      for (const row of urlRows) { urls[row.retailer] = row.url; }
+
+      return { ...p, latestPrice, urls };
     }),
   );
 

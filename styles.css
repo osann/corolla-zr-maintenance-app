@@ -1142,6 +1142,37 @@
   .spend-sub-panel { display: none; }
   .spend-sub-panel.active { display: block; }
 
+  /* Price list */
+  .price-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .price-row:first-of-type { border-top: none; }
+  .price-row.bought { opacity: 0.4; }
+  .price-row-name { flex: 1; font-size: 13.5px; color: var(--ink); min-width: 0; }
+  .price-row.bought .price-row-name { text-decoration: line-through; }
+  .price-row-right { text-align: right; flex-shrink: 0; }
+  .price-row-amount { font-size: 13.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .price-row-meta { font-size: 11.5px; color: var(--ink-mid); margin-top: 1px; }
+  .price-on-sale { background: var(--accent-tint); color: var(--accent-dark); font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 4px; margin-left: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .price-row-link {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 4px 9px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .price-row-link:hover { background: var(--accent-tint); }
+  .price-row-link-none { width: 52px; flex-shrink: 0; }
+  .price-list-stale { font-size: 12px; color: var(--ink-low); }
+
   .settings-save-bar {
     display: flex;
     align-items: center;
