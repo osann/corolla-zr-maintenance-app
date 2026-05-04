@@ -13,7 +13,16 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// SFCC renders prices with a content attribute on [itemprop="price"] or .value[content]
+// Supercheap Auto uses SFCC (Salesforce Commerce Cloud).
+// Prices are rendered into the DOM after page load — not in meta tags.
+//
+// Selectors from the site's own JS (pdpClubPrice, pdpRetailPrice, pdpSalePrice):
+//   Club/member price:   #product-content > .product-price.has-club .text-club-price
+//   Current sell price:  #product-content > .product-price .price-sales .promo-price
+//   Standard retail:     #product-content > .product-price .price-standard .stroke-content
+//
+// We are a club member, so club price (when shown) is what we pay.
+// compareAtCents = standard retail when it's higher than what we pay.
 async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
   const { context, close } = await createStealthContext();
   const page = await context.newPage();
@@ -22,34 +31,44 @@ async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number;
 
     // 410 Gone = product removed from SFCC catalogue
     if (response?.status() === 410) {
-      console.warn(`  410 Gone — URL needs updating: ${pageUrl}`);
+      console.warn(`    410 Gone — URL needs updating: ${pageUrl}`);
       return null;
     }
 
-    await page.waitForSelector('[itemprop="price"], .value[content]', { timeout: 10_000 });
+    // Wait for the price wrapper — always present once the PDP loads
+    await page.waitForSelector('#product-content .product-price', { timeout: 15_000 });
 
-    const priceText = await page.evaluate(() => {
-      const el = document.querySelector('[itemprop="price"]')
-               ?? document.querySelector('.value[content]');
-      return el?.getAttribute('content') ?? el?.textContent;
+    const prices = await page.evaluate(() => {
+      const parsePrice = (text: string | null | undefined) =>
+        text ? Math.round(parseFloat(text.replace(/[^0-9.]/g, '')) * 100) : null;
+
+      const clubEl = document.querySelector('#product-content > .product-price.has-club .text-club-price');
+      const sellEl = document.querySelector('#product-content > .product-price .price-sales .promo-price');
+      const retailEl = document.querySelector('#product-content > .product-price .price-standard .stroke-content');
+
+      return {
+        clubCents: parsePrice(clubEl?.textContent),
+        sellCents: parsePrice(sellEl?.textContent),
+        retailCents: parsePrice(retailEl?.textContent),
+      };
     });
 
-    if (!priceText) return null;
-    const priceCents = Math.round(parseFloat(priceText.replace(/[^0-9.]/g, '')) * 100);
+    const { clubCents, sellCents, retailCents } = prices;
 
-    // SFCC renders strike-through list price when on sale
-    const compareText = await page.evaluate(() => {
-      const el = document.querySelector('.strike-through.list .value[content], .strike-through .value');
-      return el?.getAttribute('content') ?? el?.textContent;
-    });
+    // Determine the price we actually pay
+    const priceCents = clubCents ?? sellCents;
+    if (!priceCents) {
+      const title = await page.title();
+      console.warn(`    No price found (page: "${title}")`);
+      return null;
+    }
 
-    const rawCompare = compareText
-      ? Math.round(parseFloat(compareText.replace(/[^0-9.]/g, '')) * 100)
-      : null;
-    const compareAtCents = rawCompare && rawCompare > priceCents ? rawCompare : null;
+    // Standard retail is the compareAt only when it's genuinely higher
+    const compareAtCents = retailCents && retailCents > priceCents ? retailCents : null;
 
     return { priceCents, compareAtCents };
-  } catch {
+  } catch (err) {
+    console.warn(`    Playwright error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   } finally {
     await close();
