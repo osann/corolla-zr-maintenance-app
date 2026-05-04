@@ -315,6 +315,16 @@
     });
   });
 
+  // ─── Spend sub-tab navigation ─────────────────────
+  document.querySelectorAll('.spend-sub-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.spend-sub-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.spend-sub-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('spend-sub-' + btn.dataset.spendTab).classList.add('active');
+    });
+  });
+
   // ─── TOC smooth scroll handling ──────────────────
   document.querySelectorAll('.toc-list a').forEach(link => {
     link.addEventListener('click', (e) => {
