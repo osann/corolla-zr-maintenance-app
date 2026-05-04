@@ -27,7 +27,7 @@ async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number;
   const { context, close } = await createStealthContext();
   const page = await context.newPage();
   try {
-    const response = await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 30_000 });
+    const response = await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
     // 410 Gone = product removed from SFCC catalogue
     if (response?.status() === 410) {
@@ -39,16 +39,11 @@ async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number;
     await page.waitForSelector('#product-content .product-price', { timeout: 15_000 });
 
     // Only plain DOM reads inside evaluate — no helper functions, avoids tsx __name injection
-    const raw = await page.evaluate(() => {
-      const wrapper = document.querySelector('#product-content .product-price');
-      return {
-        clubText: document.querySelector('#product-content > .product-price.has-club .text-club-price')?.textContent?.trim() ?? null,
-        sellText: document.querySelector('#product-content > .product-price .price-sales .promo-price')?.textContent?.trim() ?? null,
-        retailText: document.querySelector('#product-content > .product-price .price-standard .stroke-content')?.textContent?.trim() ?? null,
-        wrapperHtml: wrapper?.outerHTML?.slice(0, 1000) ?? null,
-        wrapperClass: wrapper?.className ?? null,
-      };
-    });
+    const raw = await page.evaluate(() => ({
+      clubText: document.querySelector('#product-content > .product-price.has-club .text-club-price')?.textContent?.trim() ?? null,
+      sellText: document.querySelector('#product-content > .product-price .price-sales .promo-price')?.textContent?.trim() ?? null,
+      retailText: document.querySelector('#product-content > .product-price .price-standard .stroke-content')?.textContent?.trim() ?? null,
+    }));
 
     const parsePrice = (text: string | null) =>
       text ? Math.round(parseFloat(text.replace(/[^0-9.]/g, '')) * 100) : null;
@@ -56,11 +51,6 @@ async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number;
     const clubCents = parsePrice(raw.clubText);
     const sellCents = parsePrice(raw.sellText);
     const retailCents = parsePrice(raw.retailText);
-
-    console.log(`    club=${clubCents} sell=${sellCents} retail=${retailCents} wrapperClass="${raw.wrapperClass}"`);
-    if (raw.wrapperHtml && !clubCents && !sellCents) {
-      console.warn(`    price wrapper HTML: ${raw.wrapperHtml}`);
-    }
 
     // Determine the price we actually pay
     const priceCents = clubCents ?? sellCents;
