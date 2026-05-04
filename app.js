@@ -30,7 +30,8 @@
     input: el.querySelector('input'),
     price: parseInt(el.dataset.price, 10),
     phase: el.closest('.phase').dataset.phase,
-    name: el.querySelector('.item-name').textContent.trim()
+    name: el.querySelector('.item-name').textContent.trim(),
+    slug: el.dataset.slug ?? null,
   }));
 
   // Phase metadata
@@ -101,7 +102,7 @@
   // ─── Spend panel ─────────────────────────────────
   const BUDGET_KEY = 'corolla-budget-v1';
   let budgetTarget = 0;
-  let priceAlerts = [];
+  let liveProducts = [];
 
   async function loadBudget() {
     const b = await storageGet(BUDGET_KEY);
@@ -718,44 +719,65 @@
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(`${BACKEND_URL}/api/alerts`, { signal: controller.signal });
+      const res = await fetch(`${BACKEND_URL}/api/products`, { signal: controller.signal });
       clearTimeout(timeout);
       if (!res.ok) return;
-      priceAlerts = await res.json();
-      applyPriceAlerts();
+      liveProducts = await res.json();
+      applyLivePrices();
     } catch {
       // backend unavailable or cold-starting — app works without prices
     }
   }
 
-  function applyPriceAlerts() {
-    // Flame icons on checklist items that are on sale
-    document.querySelectorAll('.item').forEach(label => {
-      const slug = label.dataset.slug;
-      if (!slug) return;
-      const alert = priceAlerts.find(a => a.slug === slug);
-      const priceEl = label.querySelector('.item-price');
-      if (!priceEl) return;
-      const existing = priceEl.querySelector('[data-sale]');
-      if (alert) {
-        if (!existing) {
-          const icon = document.createElement('span');
-          icon.setAttribute('data-sale', '1');
-          icon.title = `On sale at ${RETAILER_NAMES[alert.retailer] || alert.retailer}`;
-          icon.textContent = ' 🔥';
-          priceEl.appendChild(icon);
+  function applyLivePrices() {
+    // Build slug → cheapest current price across all retailers
+    const priceMap = {};
+    for (const product of liveProducts) {
+      const retailers = Object.entries(product.latestPrice);
+      if (retailers.length === 0) continue;
+      let best = null;
+      for (const [retailer, data] of retailers) {
+        if (!best || data.priceCents < best.priceCents) {
+          best = { retailer, priceCents: data.priceCents, onSale: data.onSale };
         }
-      } else if (existing) {
-        existing.remove();
+      }
+      // on sale if ANY retailer currently has it on sale
+      best.onSale = retailers.some(([, d]) => d.onSale);
+      priceMap[product.slug] = { ...best, name: product.name };
+    }
+
+    // Update checklist item prices and item.price for spend totals
+    itemData.forEach(item => {
+      const live = item.slug ? priceMap[item.slug] : null;
+      const priceEl = item.el.querySelector('.item-price');
+      if (!priceEl) return;
+      if (live) {
+        const dollars = (live.priceCents / 100).toFixed(2);
+        const retailerName = RETAILER_NAMES[live.retailer] || live.retailer;
+        priceEl.textContent = `$${dollars} · ${retailerName}`;
+        if (live.onSale) {
+          const flame = document.createElement('span');
+          flame.setAttribute('data-sale', '1');
+          flame.title = 'On sale now';
+          flame.textContent = ' 🔥';
+          priceEl.appendChild(flame);
+        }
+        item.price = Math.round(live.priceCents / 100);
       }
     });
 
-    // "Price drops right now" card in the spend tab
+    // Refresh spend panel with live prices
+    recompute();
+
+    // "Price drops right now" section in the spend tab
+    const onSaleProducts = liveProducts.filter(p =>
+      Object.values(p.latestPrice).some(d => d.onSale)
+    );
     const spend = document.getElementById('spend');
     if (!spend) return;
     let section = document.getElementById('price-drops-section');
 
-    if (priceAlerts.length === 0) {
+    if (onSaleProducts.length === 0) {
       section?.remove();
       return;
     }
@@ -768,15 +790,24 @@
       spend.insertBefore(section, summary);
     }
 
+    const rows = onSaleProducts.flatMap(p =>
+      Object.entries(p.latestPrice)
+        .filter(([, d]) => d.onSale)
+        .sort((a, b) => a[1].priceCents - b[1].priceCents)
+        .map(([retailer, data]) => `
+          <div class="sale-card">
+            <div class="sale-icon">🔥</div>
+            <div>
+              <div class="sale-retailer">${p.name}</div>
+              <div class="sale-desc">$${(data.priceCents / 100).toFixed(2)} at ${RETAILER_NAMES[retailer] || retailer}</div>
+            </div>
+          </div>`)
+    );
+
     section.innerHTML = `
       <div class="sale-section-title">Price drops right now</div>
-      <div class="sale-section-desc">Live prices from Australian retailers.</div>
-      ${priceAlerts.map(a => `
-        <div class="sale-card">
-          <div class="sale-card-name">${a.name}</div>
-          <div class="sale-card-detail">$${(a.priceCents / 100).toFixed(2)} at ${RETAILER_NAMES[a.retailer] || a.retailer}</div>
-        </div>
-      `).join('')}
+      <div class="sale-section-desc">Live prices from Australian retailers — updated daily.</div>
+      ${rows.join('')}
     `;
   }
 
