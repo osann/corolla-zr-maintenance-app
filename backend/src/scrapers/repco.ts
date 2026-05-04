@@ -13,47 +13,47 @@ const RATE_LIMIT_MS = 5_000;
 // Skip it — Playwright against the real page is the only reliable approach.
 
 // Playwright page scrape.
-// Repco shows a member/promotion price in .promotion-price alongside the regular price.
-// The first .promotion-price on the page belongs to the main product; related-product
-// carousels appear further down the DOM, so querySelector picks the right one.
+// Repco is server-rendered Hybris (not Spartacus/Angular) — prices are in the initial HTML.
+//
+// Regular price: <meta property="og:price:amount" content="30.0"> — always present,
+//   more reliable than any visible price element.
+// Member price: first .promotion-price on the page — present only when a promo applies.
+//   [itemprop="price"] only appears inside a <script type="application/ld+json"> tag,
+//   NOT as a visible DOM attribute, so never use it as a waitForSelector target.
 async function fetchRepcoPlaywright(pageUrl: string): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
   const { context, close } = await createStealthContext();
   const page = await context.newPage();
   try {
     await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 30_000 });
 
-    // Wait for either member price or standard schema price — whichever appears first
-    await page.waitForSelector('.promotion-price, [itemprop="price"]', { timeout: 15_000 });
+    // og:price:amount is server-rendered into <head> — reliable anchor that's always present
+    await page.waitForSelector('meta[property="og:price:amount"]', { state: 'attached', timeout: 10_000 });
 
     const prices = await page.evaluate(() => {
-      // First .promotion-price is the main product member price (related-product
-      // carousels appear later in the DOM)
+      const regularEl = document.querySelector('meta[property="og:price:amount"]');
       const promoEl = document.querySelector('.promotion-price');
-      // First [itemprop="price"] is the main product regular price
-      const regularEl = document.querySelector('[itemprop="price"]');
 
       return {
+        regularText: regularEl?.getAttribute('content') ?? null,
         promoText: promoEl?.textContent?.trim() ?? null,
-        regularText: regularEl?.getAttribute('content') ?? regularEl?.textContent?.trim() ?? null,
       };
     });
 
     const parsePrice = (text: string | null) =>
       text ? Math.round(parseFloat(text.replace(/[^0-9.]/g, '')) * 100) : null;
 
-    const promoCents = parsePrice(prices.promoText);
     const regularCents = parsePrice(prices.regularText);
-
-    if (!promoCents && !regularCents) {
-      // Log the page title so we can tell if we hit a block page or CAPTCHA
+    if (!regularCents) {
       const title = await page.title();
-      console.warn(`    No price elements found (page title: "${title}")`);
+      console.warn(`    No price found (page: "${title}")`);
       return null;
     }
 
-    // Member price is the actual price we pay; regular becomes compareAt
-    const priceCents = promoCents ?? regularCents!;
-    const compareAtCents = promoCents && regularCents && regularCents > promoCents ? regularCents : null;
+    const promoCents = parsePrice(prices.promoText);
+
+    // Member price is what we actually pay; regular retail becomes compareAt
+    const priceCents = (promoCents && promoCents < regularCents) ? promoCents : regularCents;
+    const compareAtCents = (promoCents && promoCents < regularCents) ? regularCents : null;
 
     return { priceCents, compareAtCents };
   } catch (err) {
