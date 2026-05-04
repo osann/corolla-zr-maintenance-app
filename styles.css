@@ -1123,6 +1123,25 @@
   .routine-editor { display: none; }
   .routine-editor.active { display: block; }
 
+  /* Spend sub-tabs */
+  .spend-sub-tabs { display: flex; gap: 4px; margin-bottom: 24px; flex-wrap: wrap; }
+  .spend-sub-tab {
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--rule);
+    background: transparent;
+    color: var(--ink-mid);
+    cursor: pointer;
+    transition: all 160ms ease;
+  }
+  .spend-sub-tab:hover { background: var(--bg-muted); color: var(--ink); }
+  .spend-sub-tab.active { background: var(--ink); color: var(--bg-elev); border-color: var(--ink); }
+  .spend-sub-panel { display: none; }
+  .spend-sub-panel.active { display: block; }
+
   .settings-save-bar {
     display: flex;
     align-items: center;
