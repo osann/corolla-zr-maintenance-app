@@ -11,7 +11,7 @@ import { seed } from './db/seed.js';
 
 // Ensure schema and seed data exist on every startup (idempotent).
 // Handles first boot on a fresh Render deploy where the SQLite file doesn't exist yet.
-initDb();
+await initDb();
 await seed();
 
 const app = new Hono();
