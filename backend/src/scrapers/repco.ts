@@ -24,7 +24,7 @@ async function fetchRepcoPlaywright(pageUrl: string): Promise<{ priceCents: numb
   const { context, close } = await createStealthContext();
   const page = await context.newPage();
   try {
-    await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 30_000 });
+    await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
     // og:price:amount is server-rendered into <head> — reliable anchor that's always present
     await page.waitForSelector('meta[property="og:price:amount"]', { state: 'attached', timeout: 10_000 });
