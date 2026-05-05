@@ -1,0 +1,48 @@
+name: Supercheap Tuesday sale scrape
+
+# Supercheap Auto runs Super Saver Tuesdays from 5 PM AEST.
+# First run captures the sale prices; second run at 11:59 PM AEST refreshes
+# them back to normal once the window closes.
+#
+# AEST = UTC+10. During AEDT (Oct–Apr, UTC+11) these fire one hour early
+# (4:05 PM and 10:59 PM) — acceptable drift for a personal tool.
+
+on:
+  schedule:
+    - cron: '5 7 * * 2'   # 5:05 PM AEST Tuesday  — capture sale prices
+    - cron: '59 13 * * 2'  # 11:59 PM AEST Tuesday — refresh after sale ends
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: backend
+        run: npx playwright install chromium --with-deps
+
+      - name: Initialise local database
+        working-directory: backend
+        run: |
+          node --import tsx/esm src/db/init.ts
+          node --import tsx/esm src/db/seed.ts
+
+      - name: Scrape Supercheap and push to Render
+        working-directory: backend
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
+        run: node --import tsx/esm src/scrapers/run-supercheap.ts
