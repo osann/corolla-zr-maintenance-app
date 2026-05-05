@@ -3,14 +3,13 @@ name: Bowden's Own variant scrape
 # Scrapes Bowden's Own products that have size radio buttons — plain fetch always
 # returns the default (smallest) size price so Playwright must click the correct variant.
 #
-# NOTE: Bowden's blocks some cloud IPs. If runs fail with navigation timeouts or
-# unexpected redirects, Bowden's may be blocking GitHub Actions IP ranges and this
-# scraper will need to be moved to a different execution environment.
+# KNOWN LIMITATION: Bowden's is behind Cloudflare, which blocks GitHub Actions datacenter
+# IPs with a JS challenge ("Just a moment..."). This workflow will always fail to retrieve
+# prices until run from a residential IP. A proxy service would fix it, but the added
+# complexity isn't justified for a personal project. Snow Job 5L is covered by Repco.
 
 on:
-  schedule:
-    - cron: '0 22 * * *'  # 8 AM AEST (UTC+10) — 1 hour before the Render cron
-  workflow_dispatch:
+  workflow_dispatch:  # manual only — scheduled runs disabled (Cloudflare blocks GitHub Actions IPs)
 
 permissions:
   contents: read
