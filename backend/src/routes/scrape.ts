@@ -16,7 +16,8 @@ router.post('/scrape/bowdens-variants', async (c) => {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
-  const result = await scrapeVariants();
+  const force = c.req.query('force') === 'true';
+  const result = await scrapeVariants({ force });
   return c.json({ ok: true, ...result });
 });
 

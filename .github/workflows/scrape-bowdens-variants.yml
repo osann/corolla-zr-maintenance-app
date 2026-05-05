@@ -6,6 +6,12 @@ name: Bowden's Own variant scrape
 
 on:
   workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: 'Ignore the 6-hour backend cache and insert a fresh observation'
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -29,4 +35,5 @@ jobs:
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
           SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
+          FORCE_SCRAPE: ${{ inputs.force_refresh }}
         run: node --import tsx/esm src/scrapers/run-bowdens-variants.ts
