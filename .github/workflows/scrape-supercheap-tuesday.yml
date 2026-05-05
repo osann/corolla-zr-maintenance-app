@@ -1,16 +1,22 @@
 name: Supercheap Tuesday sale scrape
 
-# Supercheap Auto runs Super Saver Tuesdays from 5 PM AEST.
-# First run captures the sale prices; second run at 11:59 PM AEST refreshes
-# them back to normal once the window closes.
+# Supercheap Auto runs Super Saver Tuesdays from 5 PM AEST/AEDT.
+# First run captures sale prices; second run refreshes after the window closes.
 #
-# AEST = UTC+10. During AEDT (Oct–Apr, UTC+11) these fire one hour early
-# (4:05 PM and 10:59 PM) — acceptable drift for a personal tool.
+# GitHub Actions runs in UTC. Australia/Sydney observes:
+#   AEST  UTC+10  (Apr–Oct)  5:05 PM = 07:05 UTC,  11:59 PM = 13:59 UTC
+#   AEDT  UTC+11  (Oct–Apr)  5:05 PM = 06:05 UTC,  11:59 PM = 12:59 UTC
+#
+# Both pairs are scheduled so the correct run always fires regardless of DST.
+# The off-season pair fires an hour off-target but is harmless — prices are
+# still pushed and the frontend reflects the latest scraped data.
 
 on:
   schedule:
-    - cron: '5 7 * * 2'   # 5:05 PM AEST Tuesday  — capture sale prices
-    - cron: '59 13 * * 2'  # 11:59 PM AEST Tuesday — refresh after sale ends
+    - cron: '5 6 * * 2'   # 5:05 PM AEDT (UTC+11) — sale open, daylight saving
+    - cron: '5 7 * * 2'   # 5:05 PM AEST (UTC+10) — sale open, standard time
+    - cron: '59 12 * * 2'  # 11:59 PM AEDT (UTC+11) — refresh, daylight saving
+    - cron: '59 13 * * 2'  # 11:59 PM AEST (UTC+10) — refresh, standard time
   workflow_dispatch:
 
 permissions:
