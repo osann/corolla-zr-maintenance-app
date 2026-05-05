@@ -24,7 +24,7 @@ corolla-zr-maintenance-app/
 ├── styles.css              # All CSS
 ├── backend/
 │   ├── src/
-│   │   ├── index.ts        # Hono server + node-cron for Bowden's scrape
+│   │   ├── index.ts        # Hono server + node-cron backup scrape (23:00 UTC)
 │   │   ├── db/
 │   │   │   ├── schema.ts   # Drizzle schema (products, retailer_urls, price_history)
 │   │   │   ├── seed.ts     # Product catalogue + retailer URLs — edit this to add products
@@ -35,7 +35,6 @@ corolla-zr-maintenance-app/
 │   │   │   ├── prices.ts   # POST /api/prices — ingest scraper results
 │   │   │   └── alerts.ts   # GET /api/alerts, GET /api/prices/current
 │   │   ├── scrapers/
-│   │   │   ├── bowdens.ts  # Shopify JSON-LD scraper (runs on Render via cron)
 │   │   │   ├── supercheap.ts
 │   │   │   ├── repco.ts
 │   │   │   ├── autobarn.ts
@@ -55,7 +54,7 @@ corolla-zr-maintenance-app/
 ### Hosting
 
 - **Frontend:** GitHub Pages, served via CNAME at `https://corolla.jhosan.top`. `deploy.yml` replaces the `__BACKEND_URL__` placeholder in `app.js` with the `BACKEND_URL` secret before deploying.
-- **Backend:** Render. `npm start` runs the Hono server. Bowden's Own is scraped by an internal node-cron job (daily at 23:00 UTC) because Bowden's blocks cloud IPs that GitHub Actions runs on.
+- **Backend:** Render. `npm start` runs the Hono server. A node-cron job fires daily at 23:00 UTC as a backup scrape for Auto Barn, Supercheap, and Repco. Bowden's Own is not scraped — their site returns HTTP 403 to all datacenter IPs (GitHub Actions gets a Cloudflare JS challenge; Render gets a hard 403).
 - **Database:** Turso (cloud libSQL). Falls back to `file:./db.sqlite` locally when `TURSO_URL` is unset. Render requires `TURSO_URL` and `TURSO_TOKEN` env vars — without them price history is ephemeral (wiped on restart).
 
 ### CORS
@@ -105,11 +104,13 @@ Two execution paths — read `SCRAPER-LEARNING.md` before modifying any scraper:
 
 1. **GitHub Actions** (`run-and-push.ts`, `run-autobarn.ts`): calls `scrapeToArray()` which returns observations without writing to DB, then POSTs them to `POST /api/prices` on the Render backend. The local DB is always fresh on each run so the 12-hour cache check never skips anything here.
 
-2. **Render cron** (`scrapers/index.ts`): calls `scrapeRepco()`, `scrapeSupercheap()`, `scrapeBowdens()`, etc. which write directly to the production DB. The 12-hour cache check (`wasRecentlyScraped()`) is effective here.
+2. **Render cron** (`scrapers/index.ts`): calls `scrapeAutobarn()`, `scrapeSupercheap()`, `scrapeRepco()` which write directly to the production DB. Runs at 23:00 UTC as a backup. The 12-hour cache check (`wasRecentlyScraped()`) is effective here.
 
 Scraper order in both paths: Supercheap → Repco (Repco is slower and more prone to rate-limiting).
 
 Auto Barn has its own workflow (`scrape-autobarn.yml`) at 05:00 UTC because its `robots.txt` restricts crawlers to 04:00–08:45 UTC.
+
+**Bowden's Own is not scraped.** Their site blocks all datacenter IPs — GitHub Actions gets a Cloudflare JS challenge on page loads; Render gets HTTP 403 on every request including the product pages themselves. All products that were previously tracked via Bowden's have Repco or Supercheap fallback URLs. Do not add a `bowdens` retailer entry to any product — it will never succeed from any cloud environment.
 
 ## Frontend architecture
 
