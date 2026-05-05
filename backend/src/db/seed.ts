@@ -56,7 +56,7 @@ const KIT_ITEMS: Item[] = [
   { name: 'Flash Prep 500ml', slug: 'flash-prep-500ml', phase: 4, bowdensHandle: 'flash-prep', autobarnSku: null, repcoUrl: 'https://www.repco.com.au/car-care-panel/car-care/car-wax-sealants/bowden-s-own-flash-prep-surface-spray-500ml-bofprep/p/A5516653', supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-flash-prep-spray-500ml/599354.html' },
   { name: 'Bead Machine 500ml', slug: 'bead-machine-500ml', phase: 4, bowdensHandle: 'bead-machine', autobarnSku: null, repcoUrl: 'https://www.repco.com.au/car-care-panel/car-care/car-wax-sealants/bowden-s-own-bead-machine-paint-sealant-500ml-bomachine/p/A5527501', supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-bead-machine-sealant-500ml/599353.html' },
   { name: 'Big Softie Pair', slug: 'big-softie-pair', phase: 4, bowdensHandle: 'big-softie', autobarnSku: null, repcoUrl: 'https://www.repco.com.au/car-care-panel/car-care-accessories/microfibre-and-polishing-cloths/bowden-s-own-big-softie-blue-microfibre-cloth-bobcp/p/A9815910', supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-big-softie-microfibre-cloth-400-x-500mm/415549.html' },
-  { name: 'Snow Job 5L', slug: 'snow-job-5l', phase: 4, bowdensHandle: 'snow-job-5l', autobarnSku: null, repcoUrl: 'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-snow-job-pre-wash-snow-foam-concentrate-v2-5l-bosnowv25l/p/A5640384', supercheapUrl: null },
+  { name: 'Snow Job 5L', slug: 'snow-job-5l', phase: 4, bowdensHandle: null, autobarnSku: null, repcoUrl: 'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-snow-job-pre-wash-snow-foam-concentrate-v2-5l-bosnowv25l/p/A5640384', supercheapUrl: null },
   { name: 'Wheely Clean V2 5L', slug: 'wheely-clean-v2-5l', phase: 4, bowdensHandle: 'new-wheely-clean', autobarnSku: null, repcoUrl: null, supercheapUrl: "https://www.supercheapauto.com.au/p/bowdens-own-wheely-clean-v2-5l/SPO7219102.html?cgid=SCA01010404" },
 ];
 
@@ -113,26 +113,34 @@ export async function seed() {
       skipped++;
     }
 
-    // Bowden's Own URL
+    // Bowden's Own URL — no /products/ prefix; URLs are at the root of bowdensown.com.au
     if (item.bowdensHandle) {
-      const url = `https://www.bowdensown.com.au/products/${item.bowdensHandle}`;
-      await db.insert(retailerUrls).values({ productId, retailer: 'bowdens', url }).onConflictDoNothing();
+      const url = `https://www.bowdensown.com.au/${item.bowdensHandle}`;
+      await db.insert(retailerUrls)
+        .values({ productId, retailer: 'bowdens', url })
+        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url } });
     }
 
     // Auto Barn URL — short form /ab/p/{SKU} (redirects to full path)
     if (item.autobarnSku) {
       const url = `https://www.autobarn.com.au/ab/p/${item.autobarnSku}`;
-      await db.insert(retailerUrls).values({ productId, retailer: 'autobarn', url }).onConflictDoNothing();
+      await db.insert(retailerUrls)
+        .values({ productId, retailer: 'autobarn', url })
+        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url } });
     }
 
     // Repco URL — full URL stored directly (path varies per product, can't be templated)
     if (item.repcoUrl) {
-      await db.insert(retailerUrls).values({ productId, retailer: 'repco', url: item.repcoUrl }).onConflictDoNothing();
+      await db.insert(retailerUrls)
+        .values({ productId, retailer: 'repco', url: item.repcoUrl })
+        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url: item.repcoUrl } });
     }
 
     // Supercheap Auto URL — full URL stored directly (slug varies per product, can't be templated)
     if (item.supercheapUrl) {
-      await db.insert(retailerUrls).values({ productId, retailer: 'supercheap', url: item.supercheapUrl }).onConflictDoNothing();
+      await db.insert(retailerUrls)
+        .values({ productId, retailer: 'supercheap', url: item.supercheapUrl })
+        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url: item.supercheapUrl } });
     }
   }
 
