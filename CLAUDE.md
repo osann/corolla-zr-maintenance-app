@@ -54,8 +54,28 @@ corolla-zr-maintenance-app/
 
 ### Hosting
 
-- **Frontend:** GitHub Pages. `deploy.yml` replaces the `__BACKEND_URL__` placeholder in `app.js` with the `BACKEND_URL` secret before deploying.
+- **Frontend:** GitHub Pages, served via CNAME at `https://corolla.jhosan.top`. `deploy.yml` replaces the `__BACKEND_URL__` placeholder in `app.js` with the `BACKEND_URL` secret before deploying.
 - **Backend:** Render. `npm start` runs the Hono server. Bowden's Own is scraped by an internal node-cron job (daily at 23:00 UTC) because Bowden's blocks cloud IPs that GitHub Actions runs on.
+- **Database:** Turso (cloud libSQL). Falls back to `file:./db.sqlite` locally when `TURSO_URL` is unset. Render requires `TURSO_URL` and `TURSO_TOKEN` env vars — without them price history is ephemeral (wiped on restart).
+
+### CORS
+
+The backend allows two origins: `https://osann.github.io` and `https://corolla.jhosan.top`. Both must be present in `backend/src/index.ts`. If the custom domain changes, update the CORS allowlist first or live prices will silently fail to load.
+
+### Environment variables (Render)
+
+| Var | Purpose |
+|---|---|
+| `TURSO_URL` | `libsql://corolla-detailing-osann.aws-ap-northeast-1.turso.io` |
+| `TURSO_TOKEN` | Auth token from Turso dashboard |
+| `SCRAPE_SECRET` | Shared secret for `POST /api/prices` from GitHub Actions |
+
+### GitHub secrets
+
+| Secret | Purpose |
+|---|---|
+| `BACKEND_URL` | Injected into `app.js` at deploy time — Render service URL |
+| `SCRAPE_SECRET` | Must match Render `SCRAPE_SECRET` env var |
 
 ## Backend commands
 
@@ -71,7 +91,7 @@ npm run scrape:push  # GitHub Actions path: scrape Supercheap + Repco, POST to R
 
 ## Database schema
 
-Three tables in SQLite (`backend/db.sqlite` locally, Render's persistent disk in production):
+Three tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Locally falls back to `file:./db.sqlite` when `TURSO_URL` is not set:
 
 - **`products`** — `id, name, slug, phase, created_at`. Phase 0 = tracked for pricing but not shown in the kit checklist.
 - **`retailer_urls`** — `product_id, retailer, url`. One row per product per retailer. Full URLs stored directly (templates don't work for Supercheap or Repco).
@@ -100,7 +120,8 @@ Auto Barn has its own workflow (`scrape-autobarn.yml`) at 05:00 UTC because its 
 - `apply*()` functions mutate the DOM based on current settings
 - `init()` on load: `loadChecklist → loadLog → loadBudget → loadSettings → loadPriceData()` (non-blocking)
 - `itemData` array is built at startup from `.item` DOM elements — includes `slug` for matching against live price data
-- `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable.
+- `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
+- The `__BACKEND_URL__` guard uses `BACKEND_URL.startsWith('__')` — not strict equality. The `sed` substitution in `deploy.yml` replaces `__BACKEND_URL__` globally, which would corrupt a `=== '__BACKEND_URL__'` check into `=== '<real-url>'`. Never revert this to a string equality check.
 
 ### Storage keys
 
@@ -139,6 +160,6 @@ See `SCRAPER-LEARNING.md` for detailed hard-won lessons. Key points:
 
 - Never define named functions inside `page.evaluate()` — tsx compiles them with `__name()` helpers that don't exist in the browser context. Keep evaluate callbacks to plain DOM reads only.
 - `[itemprop="price"]` on Repco and Supercheap only exists in JSON-LD `<script>` tags, not as real DOM attributes. Never use it as a selector.
-- Use `waitUntil: 'domcontentloaded'` not `'networkidle'` for SFCC/Supercheap pages — some never reach idle due to analytics.
+- Use `waitUntil: 'domcontentloaded'` not `'networkidle'` for **all** Playwright scrapers (Repco and Supercheap) — analytics and chat widgets prevent networkidle from ever firing, causing 30s timeouts per product.
 - Repco: `meta[property="og:price:amount"]` for regular price, `.promotion-price` for member price.
 - Supercheap: selectors from the site's own JS — `#product-content > .product-price .price-sales .promo-price` for sell price, `.product-price.has-club .text-club-price` for club price.
