@@ -751,7 +751,7 @@
     if (!BACKEND_URL || BACKEND_URL === '__BACKEND_URL__') return;
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 40000);
       const res = await fetch(`${BACKEND_URL}/api/products`, { signal: controller.signal });
       clearTimeout(timeout);
       if (!res.ok) return;
