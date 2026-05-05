@@ -5,14 +5,19 @@
 // SKU; the response contains URL-encoded HTML with the correct variant price in the
 // aGVhZGVy (base64 "header") section.
 //
-// This XHR endpoint bypasses Cloudflare's JS challenge (which only fires on full page
-// loads), so plain fetch works from any IP — no Playwright required.
+// This XHR endpoint can still be blocked from GitHub Actions/cloud runner IPs, so the
+// scheduled path runs from the Render/local Bowden's scraper and writes directly to DB.
 //
 // SKUs can be found by switching variants in DevTools → Network → XHR and reading the
 // `sku` value in the `fields` query parameter of the ajax_template request.
 
+import { and, eq, gt, avg, sql } from 'drizzle-orm';
+import { db } from '../db/connection.js';
+import { priceHistory, products } from '../db/schema.js';
+import { isOnSale } from '../lib/sale-detector.js';
 import type { PriceObservation } from '../routes/prices.js';
 
+const CACHE_HOURS = 6;
 const RATE_LIMIT_MS = 3_000;
 
 const NETO_HEADERS = {
@@ -96,6 +101,48 @@ async function fetchVariantPrice(sku: string): Promise<{ priceCents: number; com
   return { priceCents, compareAtCents };
 }
 
+async function getProductId(slug: string): Promise<number | null> {
+  const rows = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(eq(products.slug, slug))
+    .limit(1);
+
+  return rows[0]?.id ?? null;
+}
+
+async function getRollingAvg(productId: number): Promise<number | null> {
+  const result = await db
+    .select({ avg: avg(priceHistory.priceCents) })
+    .from(priceHistory)
+    .where(
+      and(
+        eq(priceHistory.productId, productId),
+        eq(priceHistory.retailer, 'bowdens'),
+        gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
+      ),
+    );
+
+  const val = result[0]?.avg;
+  return val !== null && val !== undefined ? Number(val) : null;
+}
+
+async function wasRecentlyScraped(productId: number): Promise<boolean> {
+  const rows = await db
+    .select({ id: priceHistory.id })
+    .from(priceHistory)
+    .where(
+      and(
+        eq(priceHistory.productId, productId),
+        eq(priceHistory.retailer, 'bowdens'),
+        gt(priceHistory.observedAt, sql`datetime('now', '-6 hours')`),
+      ),
+    )
+    .limit(1);
+
+  return rows.length > 0;
+}
+
 export async function scrapeVariantsToArray(): Promise<PriceObservation[]> {
   console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via Neto API...`);
   const results: PriceObservation[] = [];
@@ -118,4 +165,48 @@ export async function scrapeVariantsToArray(): Promise<PriceObservation[]> {
   }
 
   return results;
+}
+
+export async function scrapeVariants(): Promise<void> {
+  console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via Neto API...`);
+
+  for (const { slug, sku } of BOWDENS_VARIANTS) {
+    console.log(`  Fetching ${slug} (SKU: ${sku})...`);
+
+    try {
+      const productId = await getProductId(slug);
+      if (productId === null) {
+        console.warn(`  [skip] ${slug} — product not found in DB`);
+        continue;
+      }
+
+      if (await wasRecentlyScraped(productId)) {
+        console.log(`  [skip] ${slug} — scraped within ${CACHE_HOURS}h`);
+        continue;
+      }
+
+      const result = await fetchVariantPrice(sku);
+      if (!result) {
+        console.warn(`  [skip] ${slug} — no price data`);
+        continue;
+      }
+
+      const rollingAvg = await getRollingAvg(productId);
+      const onSale = isOnSale(result.priceCents, result.compareAtCents, rollingAvg);
+
+      await db.insert(priceHistory).values({
+        productId,
+        retailer: 'bowdens',
+        priceCents: result.priceCents,
+        onSale,
+      });
+
+      const displayPrice = (result.priceCents / 100).toFixed(2);
+      console.log(`  [ok] ${slug} — $${displayPrice}${onSale ? ' ON SALE' : ''}`);
+    } catch (err) {
+      console.error(`  [error] ${slug}:`, err);
+    }
+
+    await sleep(RATE_LIMIT_MS);
+  }
 }

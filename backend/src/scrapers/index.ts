@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { scrapeAll as scrapeBowdens } from './bowdens.js';
+import { scrapeVariants as scrapeBowdensVariants } from './bowdens-playwright.js';
 import { scrapeAutobarn } from './autobarn.js';
 import { scrapeRepco } from './repco.js';
 import { scrapeSupercheap } from './supercheap.js';
@@ -9,6 +10,9 @@ import { scrapeSupercheap } from './supercheap.js';
 export async function scrapeAllRetailers(): Promise<void> {
   console.log('=== Bowden\'s Own ===');
   await scrapeBowdens();
+
+  console.log('=== Bowden\'s Own (variant products) ===');
+  await scrapeBowdensVariants();
 
   console.log('=== Auto Barn ===');
   await scrapeAutobarn();
