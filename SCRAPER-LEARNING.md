@@ -142,17 +142,16 @@ Auto Barn's `robots.txt` restricts crawlers to **04:00–08:45 UTC**. The main s
 
 ---
 
-## Bowden's Own variant XHR can 403 from GitHub Actions
+## Bowden's Own cannot be scraped from any cloud environment
 
-Multi-size Bowden's products such as Snow Job render the default size in the initial HTML and load other sizes through the Maropost/Neto `/ajax/ajax_template` endpoint. That endpoint works locally, but can return HTTP 403 from GitHub Actions runner IPs.
+Bowden's Own blocks all datacenter IPs at two levels:
 
-The reliable GitHub Actions path is real Playwright first, plain Neto fetch second:
-1. Install Chromium with `npx playwright install chromium --with-deps`
-2. Visit the product page in Playwright
-3. Call the Neto endpoint through the browser context, carrying cookies/session state
-4. Fall back to the plain Neto fetch only if the browser path fails
+- **GitHub Actions runner IPs** — Cloudflare serves a JS challenge ("Just a moment...") on every page load. Playwright sees this page instead of the product page regardless of stealth settings (`--disable-blink-features=AutomationControlled`, `navigator.webdriver` masking, etc.). The block is IP reputation, not fingerprint detection, so stealth improvements don't help.
+- **Render IPs** — HTTP 403 on every request, including the product index page. This is a hard IP block, not a JS challenge.
 
-Do not use Render for this variant path; Render can also return no usable price data.
+Multi-size products (e.g. Snow Job) use the Maropost/Neto `/ajax/ajax_template` endpoint to load variant prices client-side. That endpoint also returns 403 from both GitHub Actions and Render IPs, even when session cookies are forwarded from a prior page request.
+
+**Do not attempt to scrape bowdensown.com.au from any cloud environment.** All Bowden's products in the catalogue have Repco or Supercheap fallback URLs. The `seed.ts` `Item` type has no `bowdensHandle` field — do not add one.
 
 ---
 
