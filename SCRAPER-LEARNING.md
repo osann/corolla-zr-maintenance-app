@@ -146,7 +146,13 @@ Auto Barn's `robots.txt` restricts crawlers to **04:00–08:45 UTC**. The main s
 
 Multi-size Bowden's products such as Snow Job render the default size in the initial HTML and load other sizes through the Maropost/Neto `/ajax/ajax_template` endpoint. That endpoint works locally, but can return HTTP 403 from GitHub Actions runner IPs.
 
-Run Bowden's variant scraping from the Render/local scraper path, not directly from GitHub Actions. The `scrape-bowdens-variants.yml` workflow should only trigger the Render endpoint at `POST /api/scrape/bowdens-variants`.
+The reliable GitHub Actions path is real Playwright first, plain Neto fetch second:
+1. Install Chromium with `npx playwright install chromium --with-deps`
+2. Visit the product page in Playwright
+3. Call the Neto endpoint through the browser context, carrying cookies/session state
+4. Fall back to the plain Neto fetch only if the browser path fails
+
+Do not use Render for this variant path; Render can also return no usable price data.
 
 ---
 

@@ -1,12 +1,14 @@
-// Bowden's Own variant scraper — uses the Maropost/Neto ajax_template API directly.
+// Bowden's Own variant scraper — uses real browser interaction plus the Maropost/Neto
+// ajax_template API.
 //
 // For products with size radio buttons, the page always server-renders the default
 // (smallest) size. Switching sizes fires an XHR to /ajax/ajax_template with the target
 // SKU; the response contains URL-encoded HTML with the correct variant price in the
 // aGVhZGVy (base64 "header") section.
 //
-// This XHR endpoint can still be blocked from GitHub Actions/cloud runner IPs, so the
-// scheduled path runs from the Render/local Bowden's scraper and writes directly to DB.
+// This XHR endpoint can be blocked from GitHub Actions/cloud runner IPs when called
+// directly, so the Actions path first visits the product page with Playwright and then
+// retries the Neto request with browser session state.
 //
 // SKUs can be found by switching variants in DevTools → Network → XHR and reading the
 // `sku` value in the `fields` query parameter of the ajax_template request.
@@ -14,6 +16,7 @@
 import { and, eq, gt, avg, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { priceHistory, products } from '../db/schema.js';
+import { createStealthContext } from '../lib/browser.js';
 import { isOnSale } from '../lib/sale-detector.js';
 import type { PriceObservation } from '../routes/prices.js';
 
@@ -32,8 +35,13 @@ const NETO_HEADERS = {
 const CHILD_TEMPLATES = 'NSD1;#3|$8|aW1hZ2Vz$7|_images$8|aGVhZGVy$7|_header$12|YWRkdG9jYXJ0$10|_addtocart';
 
 // Add entries here when a new multi-size Bowden's product needs tracking.
-const BOWDENS_VARIANTS: { slug: string; sku: string }[] = [
-  { slug: 'snow-job-5l', sku: 'BOSNOWV25L' },
+const BOWDENS_VARIANTS: { slug: string; sku: string; url: string; optionText: string }[] = [
+  {
+    slug: 'snow-job-5l',
+    sku: 'BOSNOWV25L',
+    url: 'https://www.bowdensown.com.au/snow-job~3816',
+    optionText: '5L',
+  },
 ];
 
 export type VariantScrapeResult = {
@@ -71,7 +79,13 @@ function buildNetoFields(sku: string): string {
   return `NSD1;#${items.length}|${parts}`;
 }
 
-async function fetchVariantPrice(sku: string): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
+type VariantPriceResult = {
+  priceCents: number;
+  compareAtCents: number | null;
+  source: 'browser' | 'neto';
+};
+
+function buildNetoUrl(sku: string): string {
   const url = new URL('https://www.bowdensown.com.au/ajax/ajax_template');
   url.searchParams.set('proc', 'load');
   url.searchParams.set('docid', '_jstl__buying_options');
@@ -82,15 +96,10 @@ async function fetchVariantPrice(sku: string): Promise<{ priceCents: number; com
   url.searchParams.set('fields', buildNetoFields(sku));
   url.searchParams.set('child_templates', CHILD_TEMPLATES);
 
-  const res = await fetch(url.toString(), { headers: NETO_HEADERS });
+  return url.toString();
+}
 
-  if (!res.ok) {
-    console.warn(`    HTTP ${res.status} from Neto API for SKU ${sku}`);
-    return null;
-  }
-
-  const body = await res.text();
-
+function parseNetoBody(body: string, sku: string, source: VariantPriceResult['source']): VariantPriceResult | null {
   if (!body.startsWith('^NETO^SUCCESS')) {
     console.warn(`    Unexpected Neto response for SKU ${sku}: ${body.slice(0, 120)}`);
     return null;
@@ -116,7 +125,100 @@ async function fetchVariantPrice(sku: string): Promise<{ priceCents: number; com
   const wasMatch = headerHtml.match(/<(?:s|del)[^>]*>\s*\$?\s*([0-9]+(?:\.[0-9]{1,2})?)\s*<\/(?:s|del)>/i);
   const compareAtCents = wasMatch ? Math.round(parseFloat(wasMatch[1]) * 100) : null;
 
-  return { priceCents, compareAtCents };
+  return { priceCents, compareAtCents, source };
+}
+
+async function fetchVariantPrice(sku: string): Promise<VariantPriceResult | null> {
+  const res = await fetch(buildNetoUrl(sku), { headers: NETO_HEADERS });
+
+  if (!res.ok) {
+    console.warn(`    HTTP ${res.status} from Neto API for SKU ${sku}`);
+    return null;
+  }
+
+  return parseNetoBody(await res.text(), sku, 'neto');
+}
+
+async function fetchVariantPriceWithBrowser(
+  pageUrl: string,
+  sku: string,
+  optionText: string,
+): Promise<VariantPriceResult | null> {
+  let close: (() => Promise<void>) | null = null;
+
+  try {
+    const browser = await createStealthContext();
+    close = browser.close;
+    const page = await browser.context.newPage();
+
+    const response = await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    if (!response?.ok()) {
+      console.warn(`    Browser page load returned HTTP ${response?.status() ?? 'unknown'} for ${pageUrl}`);
+      return null;
+    }
+
+    const netoResponse = await browser.context.request.get(buildNetoUrl(sku), {
+      headers: { ...NETO_HEADERS, Referer: pageUrl },
+      timeout: 20_000,
+    });
+    if (netoResponse.ok()) {
+      const result = parseNetoBody(await netoResponse.text(), sku, 'browser');
+      if (result) return result;
+    } else {
+      console.warn(`    Browser Neto request returned HTTP ${netoResponse.status()} for SKU ${sku}`);
+    }
+
+    await page
+      .locator('label, button, a, [role="button"], .btn')
+      .filter({ hasText: new RegExp(`^\\s*${optionText}\\s*$`) })
+      .first()
+      .click({ timeout: 15_000 });
+
+    await page.waitForFunction(
+      (label) => document.body.textContent?.includes(`Snow Job ${label}`),
+      optionText,
+      { timeout: 20_000 },
+    ).catch(() => undefined);
+
+    const raw = await page.evaluate(() => ({
+      title: document.querySelector('h1')?.textContent?.trim() ?? null,
+      priceText: document.querySelector('[itemprop="price"]')?.textContent?.trim() ?? null,
+      bodyText: document.body.textContent ?? '',
+      wasText: document.querySelector('s, del')?.textContent?.trim() ?? null,
+    }));
+
+    if (raw.title && !raw.title.toLowerCase().includes(optionText.toLowerCase())) {
+      console.warn(`    Browser did not switch to ${optionText}; title is "${raw.title}"`);
+      return null;
+    }
+
+    const priceText = raw.priceText
+      ?? raw.bodyText.match(/\$\s*([0-9]+(?:\.[0-9]{1,2})?)/)?.[0]
+      ?? null;
+    const priceCents = parsePriceCents(priceText);
+    if (priceCents === null) {
+      console.warn(`    Browser found no price for ${pageUrl}`);
+      return null;
+    }
+
+    const compareAtCents = parsePriceCents(raw.wasText);
+    return {
+      priceCents,
+      compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null,
+      source: 'browser',
+    };
+  } catch (err) {
+    console.warn(`    Browser scrape failed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  } finally {
+    await close?.();
+  }
+}
+
+function parsePriceCents(text: string | null): number | null {
+  if (!text) return null;
+  const match = text.match(/([0-9]+(?:\.[0-9]{1,2})?)/);
+  return match ? Math.round(parseFloat(match[1]) * 100) : null;
 }
 
 async function getProductId(slug: string): Promise<number | null> {
@@ -162,16 +264,16 @@ async function wasRecentlyScraped(productId: number): Promise<boolean> {
 }
 
 export async function scrapeVariantsToArray(): Promise<PriceObservation[]> {
-  console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via Neto API...`);
+  console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via browser/Neto fallback...`);
   const results: PriceObservation[] = [];
 
-  for (const { slug, sku } of BOWDENS_VARIANTS) {
+  for (const { slug, sku, url, optionText } of BOWDENS_VARIANTS) {
     console.log(`  Fetching ${slug} (SKU: ${sku})...`);
     try {
-      const result = await fetchVariantPrice(sku);
+      const result = await fetchVariantPriceWithBrowser(url, sku, optionText) ?? await fetchVariantPrice(sku);
       if (result) {
         const displayPrice = (result.priceCents / 100).toFixed(2);
-        console.log(`  [ok] ${slug} — $${displayPrice}`);
+        console.log(`  [ok] ${slug} — $${displayPrice} via ${result.source}`);
         results.push({ slug, retailer: 'bowdens', priceCents: result.priceCents, compareAtCents: result.compareAtCents });
       } else {
         console.warn(`  [skip] ${slug} — no price data`);
@@ -186,10 +288,10 @@ export async function scrapeVariantsToArray(): Promise<PriceObservation[]> {
 }
 
 export async function scrapeVariants(options: ScrapeVariantsOptions = {}): Promise<VariantScrapeResult> {
-  console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via Neto API...`);
+  console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via browser/Neto fallback...`);
   const summary: VariantScrapeResult = { inserted: 0, skipped: 0, errors: 0, details: [] };
 
-  for (const { slug, sku } of BOWDENS_VARIANTS) {
+  for (const { slug, sku, url, optionText } of BOWDENS_VARIANTS) {
     console.log(`  Fetching ${slug} (SKU: ${sku})...`);
 
     try {
@@ -208,7 +310,7 @@ export async function scrapeVariants(options: ScrapeVariantsOptions = {}): Promi
         continue;
       }
 
-      const result = await fetchVariantPrice(sku);
+      const result = await fetchVariantPriceWithBrowser(url, sku, optionText) ?? await fetchVariantPrice(sku);
       if (!result) {
         console.warn(`  [skip] ${slug} — no price data`);
         summary.skipped++;
@@ -227,7 +329,7 @@ export async function scrapeVariants(options: ScrapeVariantsOptions = {}): Promi
       });
 
       const displayPrice = (result.priceCents / 100).toFixed(2);
-      console.log(`  [ok] ${slug} — $${displayPrice}${onSale ? ' ON SALE' : ''}`);
+      console.log(`  [ok] ${slug} — $${displayPrice} via ${result.source}${onSale ? ' ON SALE' : ''}`);
       summary.inserted++;
       summary.details.push({
         slug,

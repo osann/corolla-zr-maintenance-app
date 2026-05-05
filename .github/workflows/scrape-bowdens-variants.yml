@@ -1,17 +1,13 @@
 name: Bowden's Own variant scrape
 
-# Triggers the Render backend to scrape Bowden's variant products. GitHub Actions
-# runner IPs can receive HTTP 403 from Bowden's Maropost/Neto ajax_template endpoint,
-# so the workflow must not scrape Bowden's directly.
+# Scrapes Bowden's variant products with real Playwright browser interaction, then
+# pushes observations to Render. Plain-fetch Neto requests can receive HTTP 403 from
+# GitHub Actions runner IPs.
 
 on:
+  schedule:
+    - cron: '0 22 * * *'  # 8 AM AEST (UTC+10) — 1 hour before the Render Bowden's cron
   workflow_dispatch:
-    inputs:
-      force_refresh:
-        description: 'Ignore the 6-hour backend cache and insert a fresh observation'
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -30,10 +26,13 @@ jobs:
         working-directory: backend
         run: npm ci
 
-      - name: Trigger Bowden's variant scrape on Render
+      - name: Install Playwright browser
+        working-directory: backend
+        run: npx playwright install chromium --with-deps
+
+      - name: Scrape Bowden's variants and push to Render
         working-directory: backend
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
           SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
-          FORCE_SCRAPE: ${{ inputs.force_refresh }}
         run: node --import tsx/esm src/scrapers/run-bowdens-variants.ts
