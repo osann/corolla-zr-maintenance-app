@@ -11,7 +11,8 @@
     "db:init": "node --import tsx/esm src/db/init.ts",
     "seed": "node --import tsx/esm src/db/seed.ts",
     "scrape": "node --import tsx/esm src/scrapers/index.ts",
-    "scrape:push": "node --import tsx/esm src/scrapers/run-and-push.ts"
+    "scrape:push": "node --import tsx/esm src/scrapers/run-and-push.ts",
+    "scrape:autobarn": "node --import tsx/esm src/scrapers/run-autobarn.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
