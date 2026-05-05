@@ -31,6 +31,10 @@ async function scrapeVariant(
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
+    const pageTitle = await page.title();
+    const pageUrl = page.url();
+    console.log(`    Loaded: "${pageTitle}" @ ${pageUrl}`);
+
     // Wait for the size selector to be present
     await page.waitForSelector('._itmspec_listitm', { state: 'attached', timeout: 10_000 });
 
