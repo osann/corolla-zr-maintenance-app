@@ -1,5 +1,4 @@
-import { eq, and, gt } from 'drizzle-orm';
-import { sql } from 'drizzle-orm';
+import { eq, and, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, retailerUrls, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
@@ -51,11 +50,12 @@ async function fetchRepcoPlaywright(pageUrl: string): Promise<{ priceCents: numb
 
     const promoCents = parsePrice(prices.promoText);
 
-    // Member price is what we actually pay; regular retail becomes compareAt
+    // Use the lowest available price (member/promo if present, else regular).
+    // compareAt is intentionally null — Repco's member discount is a permanent
+    // baseline, not a sale. Sale detection relies on rolling average in isOnSale.
     const priceCents = (promoCents && promoCents < regularCents) ? promoCents : regularCents;
-    const compareAtCents = (promoCents && promoCents < regularCents) ? regularCents : null;
 
-    return { priceCents, compareAtCents };
+    return { priceCents, compareAtCents: null };
   } catch (err) {
     console.warn(`    Playwright error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
@@ -172,7 +172,16 @@ export async function scrapeRepco(): Promise<void> {
         continue;
       }
 
-      const onSale = isOnSale(result.priceCents, result.compareAtCents, null);
+      const avgRows = await db
+        .select({ avg: sql<number>`AVG(price_cents)` })
+        .from(priceHistory)
+        .where(and(
+          eq(priceHistory.productId, row.productId),
+          eq(priceHistory.retailer, 'repco'),
+          gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
+        ));
+      const rollingAvg = avgRows[0]?.avg ?? null;
+      const onSale = isOnSale(result.priceCents, null, rollingAvg);
 
       await db.insert(priceHistory).values({
         productId: row.productId,
