@@ -1,15 +1,14 @@
 name: Bowden's Own variant scrape
 
-# Scrapes Bowden's Own products that have size radio buttons — plain fetch always
-# returns the default (smallest) size price so Playwright must click the correct variant.
-#
-# KNOWN LIMITATION: Bowden's is behind Cloudflare, which blocks GitHub Actions datacenter
-# IPs with a JS challenge ("Just a moment..."). This workflow will always fail to retrieve
-# prices until run from a residential IP. A proxy service would fix it, but the added
-# complexity isn't justified for a personal project. Snow Job 5L is covered by Repco.
+# Scrapes Bowden's Own products that have size radio buttons, using the Maropost/Neto
+# ajax_template XHR endpoint directly. The XHR endpoint bypasses Cloudflare's JS
+# challenge (which only fires on full page loads), so plain fetch works from GitHub
+# Actions without Playwright or proxies.
 
 on:
-  workflow_dispatch:  # manual only — scheduled runs disabled (Cloudflare blocks GitHub Actions IPs)
+  schedule:
+    - cron: '0 22 * * *'  # 8 AM AEST (UTC+10) — 1 hour before the Render Bowden's cron
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,10 +26,6 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
-
-      - name: Install Playwright browsers
-        working-directory: backend
-        run: npx playwright install chromium --with-deps
 
       - name: Initialise local database
         working-directory: backend
