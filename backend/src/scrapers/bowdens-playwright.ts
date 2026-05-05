@@ -291,7 +291,7 @@ export async function scrapeVariants(options: ScrapeVariantsOptions = {}): Promi
   console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via browser/Neto fallback...`);
   const summary: VariantScrapeResult = { inserted: 0, skipped: 0, errors: 0, details: [] };
 
-  for (const { slug, sku, url, optionText } of BOWDENS_VARIANTS) {
+  for (const { slug, sku } of BOWDENS_VARIANTS) {
     console.log(`  Fetching ${slug} (SKU: ${sku})...`);
 
     try {
@@ -310,7 +310,9 @@ export async function scrapeVariants(options: ScrapeVariantsOptions = {}): Promi
         continue;
       }
 
-      const result = await fetchVariantPriceWithBrowser(url, sku, optionText) ?? await fetchVariantPrice(sku);
+      // Use plain Neto API fetch — this runs on Render where Bowden's doesn't block us.
+      // The browser-based path is for GitHub Actions only (via scrapeVariantsToArray).
+      const result = await fetchVariantPrice(sku);
       if (!result) {
         console.warn(`  [skip] ${slug} — no price data`);
         summary.skipped++;

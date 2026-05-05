@@ -1,8 +1,9 @@
 name: Bowden's Own variant scrape
 
-# Scrapes Bowden's variant products with real Playwright browser interaction, then
-# pushes observations to Render. Plain-fetch Neto requests can receive HTTP 403 from
-# GitHub Actions runner IPs.
+# Triggers the Render backend to scrape Bowden's variant products (size radio buttons).
+# Scraping runs on Render, not here — Render's IPs are not Cloudflare-blocked by
+# Bowden's, whereas GitHub Actions runner IPs receive a JS challenge on page loads and
+# HTTP 403 on the Neto XHR endpoint.
 
 on:
   schedule:
@@ -13,26 +14,16 @@ permissions:
   contents: read
 
 jobs:
-  scrape:
+  trigger:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm ci
-
-      - name: Install Playwright browser
-        working-directory: backend
-        run: npx playwright install chromium --with-deps
-
-      - name: Scrape Bowden's variants and push to Render
-        working-directory: backend
+      - name: Trigger Render backend scrape
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
           SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
-        run: node --import tsx/esm src/scrapers/run-bowdens-variants.ts
+        run: |
+          STATUS=$(curl -s -o /tmp/body.txt -w "%{http_code}" \
+            -X POST "$BACKEND_URL/api/scrape/bowdens-variants" \
+            -H "Authorization: Bearer $SCRAPE_SECRET")
+          cat /tmp/body.txt
+          [ "$STATUS" -eq 200 ] || exit 1
