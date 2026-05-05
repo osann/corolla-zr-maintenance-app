@@ -142,6 +142,14 @@ Auto Barn's `robots.txt` restricts crawlers to **04:00–08:45 UTC**. The main s
 
 ---
 
+## Bowden's Own variant XHR can 403 from GitHub Actions
+
+Multi-size Bowden's products such as Snow Job render the default size in the initial HTML and load other sizes through the Maropost/Neto `/ajax/ajax_template` endpoint. That endpoint works locally, but can return HTTP 403 from GitHub Actions runner IPs.
+
+Run scheduled Bowden's variant scraping from the Render/local scraper path, not the push-style GitHub Actions path. The manual `scrape-bowdens-variants.yml` workflow is only for diagnostics.
+
+---
+
 ## Proton Drive sync conflicts corrupt the git index
 
 If Proton Drive syncs during a git operation it may create conflict files like `seed (# Name clash 2026-05-04 jt0gs7C #).ts` in the working tree. Git sees this as the original file being deleted. Fix: delete the conflict file, then re-stage the original.

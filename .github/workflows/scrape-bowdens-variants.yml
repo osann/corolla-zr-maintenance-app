@@ -1,13 +1,10 @@
 name: Bowden's Own variant scrape
 
-# Scrapes Bowden's Own products that have size radio buttons, using the Maropost/Neto
-# ajax_template XHR endpoint directly. The XHR endpoint bypasses Cloudflare's JS
-# challenge (which only fires on full page loads), so plain fetch works from GitHub
-# Actions without Playwright or proxies.
+# Manual diagnostic only. The scheduled Bowden's variant scrape runs from the Render
+# backend cron via backend/src/scrapers/index.ts. GitHub Actions runner IPs can receive
+# HTTP 403 from Bowden's Maropost/Neto ajax_template endpoint.
 
 on:
-  schedule:
-    - cron: '0 22 * * *'  # 8 AM AEST (UTC+10) — 1 hour before the Render Bowden's cron
   workflow_dispatch:
 
 permissions:
