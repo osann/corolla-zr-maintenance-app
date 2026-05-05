@@ -17,7 +17,7 @@ await seed();
 const app = new Hono();
 
 app.use('*', cors({
-  origin: ['https://osann.github.io'],
+  origin: ['https://osann.github.io', 'https://corolla.jhosan.top'],
   allowMethods: ['GET', 'POST', 'OPTIONS'],
 }));
 
