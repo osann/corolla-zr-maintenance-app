@@ -6,6 +6,7 @@ import productsRouter from './routes/products.js';
 import alertsRouter from './routes/alerts.js';
 import pricesRouter from './routes/prices.js';
 import { scrapeAllRetailers } from './scrapers/index.js';
+import { scrapeAutobarn } from './scrapers/autobarn.js';
 import { initDb } from './db/init.js';
 import { seed } from './db/seed.js';
 
@@ -27,12 +28,20 @@ app.route('/api', productsRouter);
 app.route('/api', alertsRouter);
 app.route('/api', pricesRouter);
 
-// node-cron fallback: runs Bowden's Own scraper daily at 9 AM AEST (23:00 UTC).
-// Auto Barn, Repco, and Supercheap are scraped by GitHub Actions (run-and-push.ts)
-// since those scrapers need Playwright which can't run on Render's free tier.
+// Bowden's Own: daily at 9 AM AEST (23:00 UTC). Needs Render because Bowden's blocks
+// cloud IPs that GitHub Actions uses. scrapeAllRetailers() also runs Repco/Supercheap
+// as a backup, but GitHub Actions is the primary path for those.
 cron.schedule('0 23 * * *', () => {
   console.log('Running scheduled Bowden\'s scrape...');
   scrapeAllRetailers().catch(console.error);
+});
+
+// Auto Barn: daily at 05:00 UTC — well within robots.txt crawl window (04:00–08:45 UTC).
+// GitHub Actions free tier can delay scheduled runs by hours, pushing execution outside
+// the allowed window. Render node-cron fires punctually, so this is the reliable path.
+cron.schedule('0 5 * * *', () => {
+  console.log('Running scheduled Auto Barn scrape...');
+  scrapeAutobarn().catch(console.error);
 });
 
 const port = Number(process.env.PORT ?? 3000);
