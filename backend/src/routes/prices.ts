@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq } from 'drizzle-orm';
+import { and, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
@@ -58,7 +58,18 @@ router.post('/prices', async (c) => {
     }
 
     const productId = productRows[0].id;
-    const onSale = isOnSale(priceCents, compareAtCents, null);
+
+    const avgRows = await db
+      .select({ avg: sql<number>`AVG(price_cents)` })
+      .from(priceHistory)
+      .where(and(
+        eq(priceHistory.productId, productId),
+        eq(priceHistory.retailer, retailer as 'bowdens' | 'supercheap' | 'repco' | 'autopro' | 'autobarn'),
+        gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
+      ));
+    const rollingAvg = avgRows[0]?.avg ?? null;
+
+    const onSale = isOnSale(priceCents, compareAtCents, rollingAvg);
 
     await db.insert(priceHistory).values({
       productId,
