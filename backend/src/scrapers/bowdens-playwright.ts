@@ -36,6 +36,12 @@ const BOWDENS_VARIANTS: { slug: string; sku: string }[] = [
   { slug: 'snow-job-5l', sku: 'BOSNOWV25L' },
 ];
 
+export type VariantScrapeResult = {
+  inserted: number;
+  skipped: number;
+  errors: number;
+};
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -167,8 +173,9 @@ export async function scrapeVariantsToArray(): Promise<PriceObservation[]> {
   return results;
 }
 
-export async function scrapeVariants(): Promise<void> {
+export async function scrapeVariants(): Promise<VariantScrapeResult> {
   console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via Neto API...`);
+  const summary: VariantScrapeResult = { inserted: 0, skipped: 0, errors: 0 };
 
   for (const { slug, sku } of BOWDENS_VARIANTS) {
     console.log(`  Fetching ${slug} (SKU: ${sku})...`);
@@ -177,17 +184,20 @@ export async function scrapeVariants(): Promise<void> {
       const productId = await getProductId(slug);
       if (productId === null) {
         console.warn(`  [skip] ${slug} — product not found in DB`);
+        summary.skipped++;
         continue;
       }
 
       if (await wasRecentlyScraped(productId)) {
         console.log(`  [skip] ${slug} — scraped within ${CACHE_HOURS}h`);
+        summary.skipped++;
         continue;
       }
 
       const result = await fetchVariantPrice(sku);
       if (!result) {
         console.warn(`  [skip] ${slug} — no price data`);
+        summary.skipped++;
         continue;
       }
 
@@ -203,10 +213,14 @@ export async function scrapeVariants(): Promise<void> {
 
       const displayPrice = (result.priceCents / 100).toFixed(2);
       console.log(`  [ok] ${slug} — $${displayPrice}${onSale ? ' ON SALE' : ''}`);
+      summary.inserted++;
     } catch (err) {
       console.error(`  [error] ${slug}:`, err);
+      summary.errors++;
     }
 
     await sleep(RATE_LIMIT_MS);
   }
+
+  return summary;
 }

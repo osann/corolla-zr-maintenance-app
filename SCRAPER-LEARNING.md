@@ -146,7 +146,7 @@ Auto Barn's `robots.txt` restricts crawlers to **04:00–08:45 UTC**. The main s
 
 Multi-size Bowden's products such as Snow Job render the default size in the initial HTML and load other sizes through the Maropost/Neto `/ajax/ajax_template` endpoint. That endpoint works locally, but can return HTTP 403 from GitHub Actions runner IPs.
 
-Run scheduled Bowden's variant scraping from the Render/local scraper path, not the push-style GitHub Actions path. The manual `scrape-bowdens-variants.yml` workflow is only for diagnostics.
+Run Bowden's variant scraping from the Render/local scraper path, not directly from GitHub Actions. The `scrape-bowdens-variants.yml` workflow should only trigger the Render endpoint at `POST /api/scrape/bowdens-variants`.
 
 ---
 

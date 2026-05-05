@@ -5,6 +5,7 @@ import cron from 'node-cron';
 import productsRouter from './routes/products.js';
 import alertsRouter from './routes/alerts.js';
 import pricesRouter from './routes/prices.js';
+import scrapeRouter from './routes/scrape.js';
 import { scrapeAllRetailers } from './scrapers/index.js';
 import { scrapeAutobarn } from './scrapers/autobarn.js';
 import { initDb } from './db/init.js';
@@ -27,6 +28,7 @@ app.get('/api/health', (c) => c.json({ status: 'ok', time: new Date().toISOStrin
 app.route('/api', productsRouter);
 app.route('/api', alertsRouter);
 app.route('/api', pricesRouter);
+app.route('/api', scrapeRouter);
 
 // Bowden's Own: daily at 9 AM AEST (23:00 UTC). Needs Render because Bowden's blocks
 // cloud IPs that GitHub Actions uses. scrapeAllRetailers() also runs Repco/Supercheap
