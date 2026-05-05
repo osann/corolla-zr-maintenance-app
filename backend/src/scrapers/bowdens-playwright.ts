@@ -23,12 +23,31 @@ import type { PriceObservation } from '../routes/prices.js';
 const CACHE_HOURS = 6;
 const RATE_LIMIT_MS = 3_000;
 
+const PAGE_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-AU,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"Windows"',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
+};
+
 const NETO_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Accept': 'text/plain, */*; q=0.01',
   'Accept-Language': 'en-AU,en;q=0.9',
-  'Referer': 'https://www.bowdensown.com.au/',
   'X-Requested-With': 'XMLHttpRequest',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
 };
 
 // child_templates value is constant — requests images, header (price), and addtocart sections
@@ -128,8 +147,28 @@ function parseNetoBody(body: string, sku: string, source: VariantPriceResult['so
   return { priceCents, compareAtCents, source };
 }
 
-async function fetchVariantPrice(sku: string): Promise<VariantPriceResult | null> {
-  const res = await fetch(buildNetoUrl(sku), { headers: NETO_HEADERS });
+async function fetchVariantPrice(sku: string, pageUrl: string): Promise<VariantPriceResult | null> {
+  // Visit the product page first to establish a session cookie — the Neto AJAX endpoint
+  // returns 403 without it, even from IPs that can load the main pages fine.
+  const pageRes = await fetch(pageUrl, { headers: PAGE_HEADERS });
+  if (!pageRes.ok) {
+    console.warn(`    HTTP ${pageRes.status} loading product page ${pageUrl}`);
+    return null;
+  }
+
+  // Extract session cookies from the page response
+  const rawCookies: string[] = typeof (pageRes.headers as any).getSetCookie === 'function'
+    ? (pageRes.headers as any).getSetCookie()
+    : (pageRes.headers.get('set-cookie') ?? '').split(/,(?=[^ ])/).filter(Boolean);
+  const cookieHeader = rawCookies.map(c => c.split(';')[0].trim()).join('; ');
+
+  const res = await fetch(buildNetoUrl(sku), {
+    headers: {
+      ...NETO_HEADERS,
+      'Referer': pageUrl,
+      ...(cookieHeader ? { 'Cookie': cookieHeader } : {}),
+    },
+  });
 
   if (!res.ok) {
     console.warn(`    HTTP ${res.status} from Neto API for SKU ${sku}`);
@@ -270,7 +309,7 @@ export async function scrapeVariantsToArray(): Promise<PriceObservation[]> {
   for (const { slug, sku, url, optionText } of BOWDENS_VARIANTS) {
     console.log(`  Fetching ${slug} (SKU: ${sku})...`);
     try {
-      const result = await fetchVariantPriceWithBrowser(url, sku, optionText) ?? await fetchVariantPrice(sku);
+      const result = await fetchVariantPriceWithBrowser(url, sku, optionText) ?? await fetchVariantPrice(sku, url);
       if (result) {
         const displayPrice = (result.priceCents / 100).toFixed(2);
         console.log(`  [ok] ${slug} — $${displayPrice} via ${result.source}`);
@@ -291,7 +330,7 @@ export async function scrapeVariants(options: ScrapeVariantsOptions = {}): Promi
   console.log(`Bowden's Own (variants): scraping ${BOWDENS_VARIANTS.length} products via browser/Neto fallback...`);
   const summary: VariantScrapeResult = { inserted: 0, skipped: 0, errors: 0, details: [] };
 
-  for (const { slug, sku } of BOWDENS_VARIANTS) {
+  for (const { slug, sku, url } of BOWDENS_VARIANTS) {
     console.log(`  Fetching ${slug} (SKU: ${sku})...`);
 
     try {
@@ -310,9 +349,7 @@ export async function scrapeVariants(options: ScrapeVariantsOptions = {}): Promi
         continue;
       }
 
-      // Use plain Neto API fetch — this runs on Render where Bowden's doesn't block us.
-      // The browser-based path is for GitHub Actions only (via scrapeVariantsToArray).
-      const result = await fetchVariantPrice(sku);
+      const result = await fetchVariantPrice(sku, url);
       if (!result) {
         console.warn(`  [skip] ${slug} — no price data`);
         summary.skipped++;
