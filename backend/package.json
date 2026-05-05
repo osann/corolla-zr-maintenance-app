@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@libsql/client": "^0.17.3",
     "drizzle-orm": "^0.41.0",
     "hono": "^4.7.10",
     "node-cron": "^3.0.3",
