@@ -1,8 +1,8 @@
 name: Bowden's Own variant scrape
 
-# Manual diagnostic only. The scheduled Bowden's variant scrape runs from the Render
-# backend cron via backend/src/scrapers/index.ts. GitHub Actions runner IPs can receive
-# HTTP 403 from Bowden's Maropost/Neto ajax_template endpoint.
+# Triggers the Render backend to scrape Bowden's variant products. GitHub Actions
+# runner IPs can receive HTTP 403 from Bowden's Maropost/Neto ajax_template endpoint,
+# so the workflow must not scrape Bowden's directly.
 
 on:
   workflow_dispatch:
@@ -24,13 +24,7 @@ jobs:
         working-directory: backend
         run: npm ci
 
-      - name: Initialise local database
-        working-directory: backend
-        run: |
-          node --import tsx/esm src/db/init.ts
-          node --import tsx/esm src/db/seed.ts
-
-      - name: Scrape Bowden's variants and push to Render
+      - name: Trigger Bowden's variant scrape on Render
         working-directory: backend
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
