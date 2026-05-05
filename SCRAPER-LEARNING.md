@@ -140,6 +140,10 @@ On GitHub Actions, de-duplication happens server-side in the `POST /api/prices` 
 
 Auto Barn's `robots.txt` restricts crawlers to **04:00–08:45 UTC**. The main scrape workflow runs at different times — Auto Barn must run in its own workflow (`scrape-autobarn.yml`) scheduled at `0 5 * * *` (05:00 UTC = 15:00 AEST).
 
+## Auto Barn requires Playwright — plain fetch returns 403
+
+Plain `fetch()` requests to `autobarn.com.au` return HTTP 403 regardless of headers or User-Agent. A custom bot-identifying User-Agent made this worse. Switched to `createStealthContext()` (Playwright) to appear as a real browser. Price parsing is identical — uses `page.content()` to get the rendered HTML, then applies the same `$XX.XX` regex and `<s>/<del>` was-price regex.
+
 ---
 
 ## Bowden's Own cannot be scraped from any cloud environment
