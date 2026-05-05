@@ -53,7 +53,7 @@ await page.waitForSelector('meta[property="og:price:amount"]', {
 
 `waitUntil: 'networkidle'` waits for no network activity for 500ms. Pages with persistent analytics, chat widgets, or polling will never reach idle and will timeout at 30 seconds.
 
-If prices are in the initial HTML (both Repco and Supercheap are server-rendered), use `domcontentloaded` and then let `waitForSelector` handle the wait for the specific price element. This is faster and more reliable.
+If prices are in the initial HTML (Repco and Supercheap are both server-rendered), use `domcontentloaded` and then let `waitForSelector` handle the wait for the specific price element. This is faster and more reliable. **Never use `networkidle` for either retailer** — it has caused repeated timeouts in production.
 
 ```ts
 // ❌ Times out on pages with background analytics/tracking
