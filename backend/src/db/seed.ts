@@ -33,7 +33,6 @@ const KIT_ITEMS: Item[] = [
   // Supercheap stocks "Snow Job V2" without a size qualifier — assumed 1L (standard retail size)
   { name: 'Snow Job 1L',                       slug: 'snow-job-1l',                    phase: 1, bowdensHandle: 'snow-job~3816',      autobarnSku: null,      repcoUrl: 'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-snow-job-pre-wash-snow-foam-concentrate-v2-1l-bosnowv21l/p/A5635293',                              supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-snow-job-v2/SPO9481182.html' },
   // Supercheap only stocks Happy Ending in 1L — tracked separately as happy-ending-1l
-  { name: 'Happy Ending Finishing Foam 500ml', slug: 'happy-ending-500ml',             phase: 1, bowdensHandle: 'happy-ending',       autobarnSku: null,      repcoUrl: null,                                                                                                                                                                              supercheapUrl: null },
 
   // Phase 2 — Complete exterior + interior
   // Supercheap only stocks Wheely Clean in 770ml — tracked separately as wheely-clean-770ml
