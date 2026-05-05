@@ -748,7 +748,7 @@
   };
 
   async function loadPriceData() {
-    if (!BACKEND_URL || BACKEND_URL === '__BACKEND_URL__') return;
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 40000);
