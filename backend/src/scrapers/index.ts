@@ -1,19 +1,12 @@
 import { fileURLToPath } from 'node:url';
-import { scrapeAll as scrapeBowdens } from './bowdens.js';
-import { scrapeVariants as scrapeBowdensVariants } from './bowdens-playwright.js';
 import { scrapeAutobarn } from './autobarn.js';
 import { scrapeRepco } from './repco.js';
 import { scrapeSupercheap } from './supercheap.js';
 
 // Runs all scrapers sequentially and writes results to the local DB.
 // Used by the in-process cron job and `npm run scrape`.
+// Bowden's Own is excluded — their site blocks all datacenter IPs.
 export async function scrapeAllRetailers(): Promise<void> {
-  console.log('=== Bowden\'s Own ===');
-  await scrapeBowdens();
-
-  console.log('=== Bowden\'s Own (variant products) ===');
-  await scrapeBowdensVariants();
-
   console.log('=== Auto Barn ===');
   await scrapeAutobarn();
 
