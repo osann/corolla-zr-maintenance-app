@@ -168,3 +168,39 @@ Multi-size products (e.g. Snow Job) use the Maropost/Neto `/ajax/ajax_template` 
 If Proton Drive syncs during a git operation it may create conflict files like `seed (# Name clash 2026-05-04 jt0gs7C #).ts` in the working tree. Git sees this as the original file being deleted. Fix: delete the conflict file, then re-stage the original.
 
 Avoid committing while Proton Drive is syncing, or pause sync during active git work.
+
+---
+
+## Autopro uses identical SKUs to Auto Barn
+
+Autopro (`autopro.com.au`) and Auto Barn (`autobarn.com.au`) run on the same platform and share the same product SKU codes. A SKU confirmed on one site works on the other with only a path prefix change:
+
+- Auto Barn: `https://www.autobarn.com.au/ab/p/{SKU}`
+- Autopro:   `https://www.autopro.com.au/ap/p/{SKU}`
+
+Both also share the same robots.txt restrictions: 10s crawl delay, 04:00–08:45 UTC crawl window. The seed derives Autopro URLs directly from the `autobarnSku` field — no separate `autoproSku` field is needed.
+
+---
+
+## Use `createFetchScraper()` for plain-fetch retailers
+
+Plain-fetch scrapers (no Playwright, prices in server-rendered HTML) share identical logic: `httpsGet`, first-`$XX.XX` price regex, `<s>/<del>` was-price regex, crawl window check, cache check, DB write. This is extracted into `createFetchScraper()` in `scrapers/fetch-scraper.ts`.
+
+To add a new plain-fetch retailer:
+
+```ts
+// my-retailer.ts
+import { createFetchScraper } from './fetch-scraper.js';
+
+const { scrapeToArray, scrapeAll: scrapeMyRetailer } = createFetchScraper({
+  retailer: 'my-retailer',  // must be in the schema enum
+  rateLimitMs: 15_000,
+  cacheHours: 6,
+  crawlWindow: { startHour: 4, endHour: 8, endMinute: 45 },
+  ignoreWindowEnvVar: 'MY_RETAILER_IGNORE_WINDOW',
+});
+
+export { scrapeToArray, scrapeMyRetailer };
+```
+
+Remember to add the new retailer value to the `retailer` enum in `schema.ts`, add seed URLs, and wire the scraper into `scrapers/index.ts` and `backend/src/index.ts`.
