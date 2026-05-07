@@ -47,8 +47,7 @@ const KIT_ITEMS: Item[] = [
 
   // Phase 3 — Daily-use bulk
   { name: 'Pumpy Pump', slug: 'pumpy-pump', phase: 3, autobarnSku: null, repcoUrl: 'https://www.repco.com.au/tools-equipment/garage-cleaning/general-cleaning/bowden-s-own-pumpy-pump-5-litre-bottle-bopump5l/p/A5388067', supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-pumpy-pump---5-litre-bottle/SPO6388649.html' },
-  // CC06486 is confirmed for Nanolicious Wash 2L — verify if 5L is a separate SKU
-  { name: 'Nanolicious Wash 5L', slug: 'nanolicious-wash-5l', phase: 3, autobarnSku: 'CC06486', repcoUrl: 'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-nanolicious-car-wash-5l-bonano5l/p/A5388059', supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-nanolicious-wash-v2-5l/SPO10567751.html' },
+  { name: 'Nanolicious Wash 5L', slug: 'nanolicious-wash-5l', phase: 3, autobarnSku: 'CC06504', repcoUrl: 'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-nanolicious-car-wash-5l-bonano5l/p/A5388059', supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-nanolicious-wash-v2-5l/SPO10567751.html' },
   // CC06814 is confirmed for Microfibre Wash 5L — verify if 1L is a separate SKU
   { name: 'Microfibre Wash 1L', slug: 'microfibre-wash-1l', phase: 3, autobarnSku: null, repcoUrl: null, supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-microfibre-wash-1-litre/415557.html' },
 

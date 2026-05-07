@@ -12,7 +12,8 @@
     "seed": "node --import tsx/esm src/db/seed.ts",
     "scrape": "node --import tsx/esm src/scrapers/index.ts",
     "scrape:push": "node --import tsx/esm src/scrapers/run-and-push.ts",
-    "scrape:autobarn": "node --import tsx/esm src/scrapers/run-autobarn.ts"
+    "scrape:autobarn": "node --import tsx/esm src/scrapers/run-autobarn.ts",
+    "postinstall": "npx playwright install chromium --with-deps"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

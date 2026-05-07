@@ -146,7 +146,7 @@ Both plain `fetch()` and Playwright return HTTP 403 from Auto Barn on GitHub Act
 
 Auto Barn is scraped exclusively via the Render backend's node-cron job at 05:00 UTC (within the robots.txt crawl window of 04:00–08:45 UTC). Do not attempt to re-add a GitHub Actions workflow for Auto Barn.
 
-Render does **not** have Playwright/Chromium installed — Auto Barn must use plain `fetch()` with realistic browser headers (Chrome UA, Sec-Fetch-* headers). Do not switch Auto Barn to Playwright.
+Render does **not** have Playwright/Chromium pre-installed. Chromium is installed via a `postinstall` script in `backend/package.json` (`npx playwright install chromium --with-deps`), which runs automatically on every Render deploy. Auto Barn uses plain `fetch()` (not Playwright) because it was already IP-blocked regardless of browser.
 
 ---
 
