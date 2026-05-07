@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this app is
 
-A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market). Built around the Bowden's Own product ecosystem with a few non-Bowden additions (303 Aerospace Protectant, Kärcher pressure washer). All retailer references are Australian (Supercheap Auto, Repco, Auto Barn, Bowden's Own direct) and pricing is in AUD.
+A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market). Built around the Bowden's Own product ecosystem with a few non-Bowden additions (303 Aerospace Protectant, Kärcher pressure washer). All retailer references are Australian (Supercheap Auto, Repco, Auto Barn, Autopro) and pricing is in AUD.
 
 The app has seven tabs:
 - **checklist** — kit purchase tracker, four phases, product prices
@@ -35,12 +35,13 @@ corolla-zr-maintenance-app/
 │   │   │   ├── prices.ts   # POST /api/prices — ingest scraper results
 │   │   │   └── alerts.ts   # GET /api/alerts, GET /api/prices/current
 │   │   ├── scrapers/
+│   │   │   ├── fetch-scraper.ts # createFetchScraper() factory — shared plain-fetch logic for Auto Barn + Autopro
+│   │   │   ├── autobarn.ts      # thin wrapper around createFetchScraper
+│   │   │   ├── autopro.ts       # thin wrapper around createFetchScraper (same SKUs as Auto Barn)
 │   │   │   ├── supercheap.ts
 │   │   │   ├── repco.ts
-│   │   │   ├── autobarn.ts
-│   │   │   ├── index.ts    # scrapeAllRetailers() — Render cron entry point
-│   │   │   ├── run-and-push.ts  # GitHub Actions entry point: Supercheap + Repco → POST to backend
-│   │   │   └── run-autobarn.ts  # GitHub Actions entry point: Auto Barn only
+│   │   │   ├── index.ts         # scrapeAllRetailers() — Render cron entry point
+│   │   │   └── run-and-push.ts  # GitHub Actions entry point: Supercheap + Repco → POST to backend
 │   │   └── lib/
 │   │       ├── browser.ts  # createStealthContext() — shared Playwright setup
 │   │       └── sale-detector.ts

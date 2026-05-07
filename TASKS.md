@@ -4,26 +4,25 @@ Backlog items ranked by usefulness × feasibility. Work top-to-bottom — each i
 
 ---
 
-## 1. Price tracking + alerts
+## 1. Price tracking + alerts ✅
 
 Know when products drop in price at Australian retailers.
 
-- [ ] Add retailer URLs to each kit item (Supercheap Auto, Repco, Autopro, Bowden's direct)
-- [ ] Build scraper for Bowden's Own (Shopify JSON-LD — easiest, start here)
-- [ ] Build scraper for Supercheap Auto (internal `/api/search` JSON endpoint)
-- [ ] Build scraper for Repco (JS-rendered, use Playwright; 5s delay between requests)
-- [ ] Build scraper for Autopro (straightforward HTML)
-- [ ] Store price observations: `price_history(product_id, retailer, price, observed_at, on_sale_flag)`
-- [ ] Detect "on sale": strike-through pricing in DOM, or >15% drop below 30-day rolling average
-- [ ] API endpoints: `GET /api/products/:id/prices` and `GET /api/alerts`
-- [ ] Spend tab UI: sparkline per item, flame icon for items below RRP, recent price drops list
+- [x] Add retailer URLs to each kit item (Supercheap Auto, Repco, Auto Barn, Autopro)
+- [x] Build scraper for Supercheap Auto (Playwright, SFCC selectors)
+- [x] Build scraper for Repco (Playwright, Hybris `og:price:amount` meta)
+- [x] Build scraper for Auto Barn (plain fetch, same-platform as Autopro)
+- [x] Build scraper for Autopro (plain fetch, shares SKUs with Auto Barn)
+- [x] Store price observations: `price_history(product_id, retailer, price_cents, observed_at, on_sale)`
+- [x] Detect "on sale": compare-at price in DOM, or >15% drop below 30-day rolling average
+- [x] API endpoints: `GET /api/products`, `GET /api/products/:id/prices`, `GET /api/alerts`
+- [x] Spend tab UI: sparkline per item, flame icon for on-sale items, sale badge in price list
 - [ ] Per-item alert thresholds (e.g. "notify me when Nanolicious 5L drops below $55")
 - [ ] Email digest notifications — at most once per day
 
 **Notes:**
-- Cache prices for 6 hours minimum
-- Set a real User-Agent header identifying the project
-- Rate-limit aggressively, respect robots.txt
+- Bowden's Own cannot be scraped from any cloud environment — Cloudflare JS challenge on GitHub Actions, hard 403 on Render. All Bowden's products have Repco/Supercheap fallback URLs.
+- Scrapers respect robots.txt: Auto Barn and Autopro run via Render cron at 05:00 UTC only (04:00–08:45 UTC crawl window); Supercheap and Repco run via GitHub Actions daily.
 
 ---
 
@@ -130,9 +129,7 @@ Let other Australian car owners use this as a starting template.
 
 ## Architecture milestones (prerequisite work)
 
-Before the above features can ship, the app needs a real backend:
-
+- [x] Stand up database and `/api/health` endpoint
+- [x] Ship scraper pipeline end-to-end across four retailers
 - [ ] Reorganise into proper structure: split CSS, JS, HTML; add Vite build step
 - [ ] Add tooling: ESLint, Prettier, TypeScript config, Husky pre-commit hook
-- [ ] Stand up database and `/api/health` endpoint (prove the architecture)
-- [ ] Ship scraper pipeline end-to-end for one product on Bowden's direct before scaling out
