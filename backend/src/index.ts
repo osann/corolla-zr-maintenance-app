@@ -7,6 +7,7 @@ import alertsRouter from './routes/alerts.js';
 import pricesRouter from './routes/prices.js';
 import { scrapeAllRetailers } from './scrapers/index.js';
 import { scrapeAutobarn } from './scrapers/autobarn.js';
+import { scrapeAutopro } from './scrapers/autopro.js';
 import { initDb } from './db/init.js';
 import { seed } from './db/seed.js';
 
@@ -36,12 +37,15 @@ cron.schedule('0 23 * * *', () => {
   scrapeAllRetailers().catch(console.error);
 });
 
-// Auto Barn: daily at 05:00 UTC — well within robots.txt crawl window (04:00–08:45 UTC).
+// Auto Barn + Autopro: daily at 05:00 UTC — within both sites' robots.txt window (04:00–08:45 UTC).
 // GitHub Actions free tier can delay scheduled runs by hours, pushing execution outside
 // the allowed window. Render node-cron fires punctually, so this is the reliable path.
+// Both sites block GitHub Actions IPs at the network level.
 cron.schedule('0 5 * * *', () => {
   console.log('Running scheduled Auto Barn scrape...');
   scrapeAutobarn().catch(console.error);
+  console.log('Running scheduled Autopro scrape...');
+  scrapeAutopro().catch(console.error);
 });
 
 const port = Number(process.env.PORT ?? 3000);

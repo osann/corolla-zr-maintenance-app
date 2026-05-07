@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { scrapeAutobarn } from './autobarn.js';
+import { scrapeAutopro } from './autopro.js';
 import { scrapeRepco } from './repco.js';
 import { scrapeSupercheap } from './supercheap.js';
 
@@ -9,6 +10,9 @@ import { scrapeSupercheap } from './supercheap.js';
 export async function scrapeAllRetailers(): Promise<void> {
   console.log('=== Auto Barn ===');
   await scrapeAutobarn();
+
+  console.log('=== Autopro ===');
+  await scrapeAutopro();
 
   console.log('=== Supercheap Auto ===');
   await scrapeSupercheap();
