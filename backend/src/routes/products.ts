@@ -9,34 +9,49 @@ const router = new Hono();
 router.get('/products', async (c) => {
   const allProducts = await db.select().from(products).orderBy(products.phase, products.id);
 
-  // For each product, fetch the latest price_history row per retailer
-  const result = await Promise.all(
-    allProducts.map(async (p) => {
-      const latestRows = await db
-        .select()
-        .from(priceHistory)
-        .where(eq(priceHistory.productId, p.id))
-        .orderBy(desc(priceHistory.observedAt))
-        .limit(10); // enough to cover all retailers
+  // Single query: latest price per (product_id, retailer) using a correlated subquery.
+  // A fixed LIMIT can miss retailers whose last observation is older than N recent rows
+  // from other retailers (e.g. autobarn scraped weekly vs supercheap scraped daily).
+  const latestPriceRows = await db.all<{
+    product_id: number;
+    retailer: string;
+    price_cents: number;
+    on_sale: number;
+    observed_at: string;
+  }>(sql`
+    SELECT ph.product_id, ph.retailer, ph.price_cents, ph.on_sale, ph.observed_at
+    FROM price_history ph
+    WHERE ph.observed_at = (
+      SELECT MAX(ph2.observed_at)
+      FROM price_history ph2
+      WHERE ph2.product_id = ph.product_id AND ph2.retailer = ph.retailer
+    )
+  `);
 
-      const latestPrice: Record<string, { priceCents: number; onSale: boolean; observedAt: string }> = {};
-      for (const row of latestRows) {
-        if (!latestPrice[row.retailer]) {
-          latestPrice[row.retailer] = {
-            priceCents: row.priceCents,
-            onSale: row.onSale,
-            observedAt: row.observedAt,
-          };
-        }
-      }
+  // Index by product_id → retailer
+  const pricesByProduct = new Map<number, Record<string, { priceCents: number; onSale: boolean; observedAt: string }>>();
+  for (const row of latestPriceRows) {
+    if (!pricesByProduct.has(row.product_id)) pricesByProduct.set(row.product_id, {});
+    pricesByProduct.get(row.product_id)![row.retailer] = {
+      priceCents: row.price_cents,
+      onSale: Boolean(row.on_sale),
+      observedAt: row.observed_at,
+    };
+  }
 
-      const urlRows = await db.select().from(retailerUrls).where(eq(retailerUrls.productId, p.id));
-      const urls: Record<string, string> = {};
-      for (const row of urlRows) { urls[row.retailer] = row.url; }
+  // Single query: all retailer URLs
+  const allUrlRows = await db.select().from(retailerUrls);
+  const urlsByProduct = new Map<number, Record<string, string>>();
+  for (const row of allUrlRows) {
+    if (!urlsByProduct.has(row.productId)) urlsByProduct.set(row.productId, {});
+    urlsByProduct.get(row.productId)![row.retailer] = row.url;
+  }
 
-      return { ...p, latestPrice, urls };
-    }),
-  );
+  const result = allProducts.map((p) => ({
+    ...p,
+    latestPrice: pricesByProduct.get(p.id) ?? {},
+    urls: urlsByProduct.get(p.id) ?? {},
+  }));
 
   return c.json(result);
 });
