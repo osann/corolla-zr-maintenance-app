@@ -120,12 +120,18 @@ export async function seed() {
       skipped++;
     }
 
-    // Auto Barn URL — short form /ab/p/{SKU} (redirects to full path)
+    // Auto Barn + Autopro — same SKU codes, different domains and path prefixes.
+    // Both use short-form URLs (/ab/p/{SKU} and /ap/p/{SKU}) that redirect to the full product path.
     if (item.autobarnSku) {
-      const url = `https://www.autobarn.com.au/ab/p/${item.autobarnSku}`;
+      const abUrl = `https://www.autobarn.com.au/ab/p/${item.autobarnSku}`;
       await db.insert(retailerUrls)
-        .values({ productId, retailer: 'autobarn', url })
-        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url } });
+        .values({ productId, retailer: 'autobarn', url: abUrl })
+        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url: abUrl } });
+
+      const apUrl = `https://www.autopro.com.au/ap/p/${item.autobarnSku}`;
+      await db.insert(retailerUrls)
+        .values({ productId, retailer: 'autopro', url: apUrl })
+        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url: apUrl } });
     }
 
     // Repco URL — full URL stored directly (path varies per product, can't be templated)
@@ -144,11 +150,12 @@ export async function seed() {
   }
 
   const autobarnCount = ALL_ITEMS.filter(i => i.autobarnSku).length;
+  const autoproCount = autobarnCount; // Autopro shares the same SKUs
   const repcoCount = ALL_ITEMS.filter(i => i.repcoUrl).length;
   const supercheapCount = ALL_ITEMS.filter(i => i.supercheapUrl).length;
 
   console.log(`Done. ${inserted} products inserted, ${skipped} already existed.`);
-  console.log(`Retailer URLs: ${autobarnCount} Auto Barn, ${repcoCount} Repco, ${supercheapCount} Supercheap`);
+  console.log(`Retailer URLs: ${autobarnCount} Auto Barn, ${autoproCount} Autopro, ${repcoCount} Repco, ${supercheapCount} Supercheap`);
 }
 
 // Allow running directly: npm run seed
