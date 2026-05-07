@@ -99,6 +99,7 @@
   let budgetTarget = 0;
   let liveProducts = [];
   let slugToBest = {};
+  let priceHistories = {}; // productId → [{ retailer, priceCents, onSale, observedAt }, ...]
 
   async function loadBudget() {
     const b = await storageGet(BUDGET_KEY);
@@ -169,6 +170,8 @@
         const linkEl = url
           ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
           : '<span class="price-row-link-none"></span>';
+        const history = live?.id !== undefined ? (priceHistories[live.id] ?? []) : [];
+        const sparkline = history.length ? buildSparklineSVG(history, live.retailer) : '';
 
         return `
           <div class="price-row${bought ? ' bought' : ''}">
@@ -176,6 +179,7 @@
             <div class="price-row-right">
               <div class="price-row-amount">${price}${saleTag}</div>
               <div class="price-row-meta">${retailerName}</div>
+              ${sparkline}
             </div>
             ${linkEl}
           </div>`;
@@ -757,6 +761,7 @@
       if (!res.ok) return;
       liveProducts = await res.json();
       applyLivePrices();
+      loadPriceHistories();
     } catch {
       // backend unavailable or cold-starting — app works without prices
     }
@@ -781,6 +786,7 @@
         priceCents: bestData.priceCents,
         onSale: retailers.some(([, d]) => d.onSale),
         url: product.urls?.[bestRetailer] || null,
+        id: product.id,
       };
     }
 
@@ -805,6 +811,40 @@
     });
 
     recompute();
+  }
+
+  async function loadPriceHistories() {
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+    const targets = liveProducts.filter(p => Object.keys(p.latestPrice).length > 0);
+    await Promise.all(targets.map(async (p) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/products/${p.id}/prices`);
+        if (res.ok) priceHistories[p.id] = await res.json();
+      } catch {}
+    }));
+    renderPriceList();
+  }
+
+  function buildSparklineSVG(history, retailer) {
+    // history is DESC — filter to retailer, take last 20 obs, reverse to ASC
+    const points = history.filter(h => h.retailer === retailer).slice(0, 20).reverse();
+    if (points.length < 2) return '';
+
+    const prices = points.map(p => p.priceCents);
+    const min = Math.min(...prices), max = Math.max(...prices);
+    const range = max - min || 1;
+    const W = 80, H = 24, PAD = 3;
+
+    const xs = points.map((_, i) => PAD + (i / (points.length - 1)) * (W - PAD * 2));
+    const ys = prices.map(p => PAD + (1 - (p - min) / range) * (H - PAD * 2));
+    const polyline = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+
+    const isOnSale = points[points.length - 1].onSale;
+    const stroke = isOnSale ? 'var(--accent)' : 'var(--ink-low, #bbb)';
+    const cx = xs[xs.length - 1].toFixed(1);
+    const cy = ys[ys.length - 1].toFixed(1);
+
+    return `<svg class="sparkline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${polyline}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="2.5" fill="${stroke}"/></svg>`;
   }
 
   // ─── Init ────────────────────────────────────────
