@@ -81,7 +81,7 @@ const EXTRA_ITEMS: Item[] = [
   { name: 'The Essentials Starters Kit', slug: 'the-essentials-starters-kit', phase: 0, autobarnSku: null, repcoUrl: null, supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-the-essentials-starters-kit/SPO10203079.html' },
   // New products found via Auto Barn SKU dump
   { name: 'Microfibre Bucket With Lid', slug: 'microfibre-bucket-lid', phase: 0, autobarnSku: 'CC07388', repcoUrl: null, supercheapUrl: null },
-  { name: 'Orange Agent 1L', slug: 'orange-agent-1l', phase: 0, autobarnSku: 'DI05894', repcoUrl: null, supercheapUrl: null },
+  { name: 'Orange Agent 500ml', slug: 'orange-agent-500ml', phase: 0, autobarnSku: 'DI05894', repcoUrl: null, supercheapUrl: null },
   { name: 'Debugger Cloth', slug: 'debugger-cloth', phase: 0, autobarnSku: 'CC06153', repcoUrl: null, supercheapUrl: null },
   { name: 'Wet Dreams Sealant 5L', slug: 'wet-dreams-5l', phase: 0, autobarnSku: 'CC07502', repcoUrl: null, supercheapUrl: null },
   { name: 'Boss Gloss 5L', slug: 'boss-gloss-5l', phase: 0, autobarnSku: 'CC06563', repcoUrl: null, supercheapUrl: null },
