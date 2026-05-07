@@ -1154,9 +1154,10 @@
   .price-row.bought { opacity: 0.4; }
   .price-row-name { flex: 1; font-size: 13.5px; color: var(--ink); min-width: 0; }
   .price-row.bought .price-row-name { text-decoration: line-through; }
-  .price-row-right { text-align: right; flex-shrink: 0; }
+  .price-row-right { text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; }
   .price-row-amount { font-size: 13.5px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
   .price-row-meta { font-size: 11.5px; color: var(--ink-mid); margin-top: 1px; }
+  .sparkline { display: block; margin-top: 5px; opacity: 0.8; }
   .price-on-sale { background: var(--accent-tint); color: var(--accent-dark); font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 4px; margin-left: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
   .price-row-link {
     font-size: 12px;
