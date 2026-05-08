@@ -56,7 +56,7 @@ corolla-zr-maintenance-app/
 
 - **Frontend:** GitHub Pages, served via CNAME at `https://corolla.jhosan.top`. `deploy.yml` replaces the `__BACKEND_URL__` placeholder in `app.js` with the `BACKEND_URL` secret before deploying.
 - **Backend:** Render. `npm start` runs the Hono server. Node-cron jobs fire daily: 23:00 UTC (backup scrape for Supercheap and Repco) and 05:00 UTC (Auto Barn and Autopro, within their shared robots.txt crawl window of 04:00–08:45 UTC). Bowden's Own is not scraped — their site returns HTTP 403 to all datacenter IPs (GitHub Actions gets a Cloudflare JS challenge; Render gets a hard 403).
-- **Keep-alive:** Render free tier spins down after 15 minutes idle, which prevents node-cron from firing. A cron-job.org monitor pings `GET /api/health` every 5 minutes to keep the service awake. If the pinger ever lapses, recreate it at cron-job.org — no code changes needed.
+- **Keep-alive:** Render free tier spins down after 15 minutes idle, which prevents node-cron from firing. A cron-job.org monitor pings `GET /api/health` every 10 minutes to keep the service awake. If the pinger ever lapses, recreate it at cron-job.org — no code changes needed.
 - **Database:** Turso (cloud libSQL). Falls back to `file:./db.sqlite` locally when `TURSO_URL` is unset. Render requires `TURSO_URL` and `TURSO_TOKEN` env vars — without them price history is ephemeral (wiped on restart).
 
 ### CORS
