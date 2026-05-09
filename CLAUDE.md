@@ -24,7 +24,7 @@ corolla-zr-maintenance-app/
 ├── styles.css              # All CSS
 ├── backend/
 │   ├── src/
-│   │   ├── index.ts        # Hono server + node-cron backup scrape (23:00 UTC)
+│   │   ├── index.ts        # Hono server + node-cron Autopro scrape (05:00 UTC)
 │   │   ├── db/
 │   │   │   ├── schema.ts   # Drizzle schema (products, retailer_urls, price_history)
 │   │   │   ├── seed.ts     # Product catalogue + retailer URLs — edit this to add products
@@ -35,12 +35,12 @@ corolla-zr-maintenance-app/
 │   │   │   ├── prices.ts   # POST /api/prices — ingest scraper results
 │   │   │   └── alerts.ts   # GET /api/alerts, GET /api/prices/current
 │   │   ├── scrapers/
-│   │   │   ├── fetch-scraper.ts # createFetchScraper() factory — shared plain-fetch logic for Auto Barn + Autopro
-│   │   │   ├── autobarn.ts      # thin wrapper around createFetchScraper
-│   │   │   ├── autopro.ts       # thin wrapper around createFetchScraper (same SKUs as Auto Barn)
+│   │   │   ├── fetch-scraper.ts # createFetchScraper() factory — shared plain-fetch logic for Autopro (+ unused autobarn)
+│   │   │   ├── autobarn.ts      # thin wrapper — Auto Barn blocks all cloud IPs, not called from any cron
+│   │   │   ├── autopro.ts       # thin wrapper — scraped via Render cron at 05:00 UTC
 │   │   │   ├── supercheap.ts
 │   │   │   ├── repco.ts
-│   │   │   ├── index.ts         # scrapeAllRetailers() — Render cron entry point
+│   │   │   ├── index.ts         # scrapeAllRetailers() — unused in production (kept for local use)
 │   │   │   └── run-and-push.ts  # GitHub Actions entry point: Supercheap + Repco → POST to backend
 │   │   └── lib/
 │   │       ├── browser.ts  # createStealthContext() — shared Playwright setup
@@ -49,13 +49,13 @@ corolla-zr-maintenance-app/
 └── .github/workflows/
     ├── deploy.yml          # Deploys index.html/app.js/styles.css to GitHub Pages
     ├── scrape.yml          # Daily: Supercheap + Repco (any time)
-    └── scrape-autobarn.yml # Daily at 05:00 UTC — within Auto Barn's robots.txt window
+    └── scrape-supercheap-tuesday.yml # Tuesdays: Supercheap Super Saver sale scrape (5 PM + 11:59 PM AEST)
 ```
 
 ### Hosting
 
 - **Frontend:** GitHub Pages, served via CNAME at `https://corolla.jhosan.top`. `deploy.yml` replaces the `__BACKEND_URL__` placeholder in `app.js` with the `BACKEND_URL` secret before deploying.
-- **Backend:** Render. `npm start` runs the Hono server. Node-cron jobs fire daily: 23:00 UTC (backup scrape for Supercheap and Repco) and 05:00 UTC (Auto Barn and Autopro, within their shared robots.txt crawl window of 04:00–08:45 UTC). Bowden's Own is not scraped — their site returns HTTP 403 to all datacenter IPs (GitHub Actions gets a Cloudflare JS challenge; Render gets a hard 403).
+- **Backend:** Render. `npm start` runs the Hono server. One node-cron job fires daily: 05:00 UTC (Autopro only, within robots.txt crawl window of 04:00–08:45 UTC). Auto Barn uses the same platform/SKUs as Autopro but blocks Render's cloud IPs (HTTP 403 on every request). Repco and Supercheap use Playwright which is not reliably available at Render runtime — those are handled entirely by GitHub Actions. Bowden's Own is not scraped — Cloudflare JS challenge on GitHub Actions, hard 403 on Render.
 - **Keep-alive:** Render free tier spins down after 15 minutes idle, which prevents node-cron from firing. A cron-job.org monitor pings `GET /api/health` every 10 minutes to keep the service awake. If the pinger ever lapses, recreate it at cron-job.org — no code changes needed.
 - **Database:** Turso (cloud libSQL). Falls back to `file:./db.sqlite` locally when `TURSO_URL` is unset. Render requires `TURSO_URL` and `TURSO_TOKEN` env vars — without them price history is ephemeral (wiped on restart).
 
@@ -104,13 +104,13 @@ Three tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Loca
 
 Two execution paths — read `SCRAPER-LEARNING.md` before modifying any scraper:
 
-1. **GitHub Actions** (`run-and-push.ts`, `run-autobarn.ts`): calls `scrapeToArray()` which returns observations without writing to DB, then POSTs them to `POST /api/prices` on the Render backend. The local DB is always fresh on each run so the 12-hour cache check never skips anything here.
+1. **GitHub Actions** (`run-and-push.ts`): calls `scrapeToArray()` which returns observations without writing to DB, then POSTs them to `POST /api/prices` on the Render backend. The local DB is always fresh on each run so the 12-hour cache check never skips anything here. Handles Supercheap and Repco.
 
-2. **Render cron** (`scrapers/index.ts`): calls `scrapeAutobarn()`, `scrapeSupercheap()`, `scrapeRepco()` which write directly to the production DB. Runs at 23:00 UTC as a backup. The 12-hour cache check (`wasRecentlyScraped()`) is effective here.
+2. **Render cron** (`scrapers/autopro.ts`): calls `scrapeAutopro()` which writes directly to the production DB via Turso. Fires at 05:00 UTC within the robots.txt crawl window (04:00–08:45 UTC). The 12-hour cache check (`wasRecentlyScraped()`) is effective here.
 
-Scraper order in both paths: Supercheap → Repco (Repco is slower and more prone to rate-limiting).
+Scraper order for GitHub Actions: Supercheap → Repco (Repco is slower and more prone to rate-limiting).
 
-Auto Barn has its own workflow (`scrape-autobarn.yml`) at 05:00 UTC because its `robots.txt` restricts crawlers to 04:00–08:45 UTC.
+**Auto Barn blocks all cloud IPs** — confirmed HTTP 403 from both GitHub Actions and Render. Auto Barn is not scraped from any environment.
 
 **Bowden's Own is not scraped.** Their site blocks all datacenter IPs — GitHub Actions gets a Cloudflare JS challenge on page loads; Render gets HTTP 403 on every request including the product pages themselves. All products that were previously tracked via Bowden's have Repco or Supercheap fallback URLs. Do not add a `bowdens` retailer entry to any product — it will never succeed from any cloud environment.
 

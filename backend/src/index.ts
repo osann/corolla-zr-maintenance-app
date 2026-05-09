@@ -5,8 +5,6 @@ import cron from 'node-cron';
 import productsRouter from './routes/products.js';
 import alertsRouter from './routes/alerts.js';
 import pricesRouter from './routes/prices.js';
-import { scrapeAllRetailers } from './scrapers/index.js';
-import { scrapeAutobarn } from './scrapers/autobarn.js';
 import { scrapeAutopro } from './scrapers/autopro.js';
 import { initDb } from './db/init.js';
 import { seed } from './db/seed.js';
@@ -29,21 +27,11 @@ app.route('/api', productsRouter);
 app.route('/api', alertsRouter);
 app.route('/api', pricesRouter);
 
-// Daily backup scrape for Auto Barn, Supercheap, and Repco at 23:00 UTC (9 AM AEST).
-// GitHub Actions is the primary path for Supercheap and Repco; this is a safety net.
-// Bowden's Own blocks all datacenter IPs — not scraped.
-cron.schedule('0 23 * * *', () => {
-  console.log('Running scheduled Bowden\'s scrape...');
-  scrapeAllRetailers().catch(console.error);
-});
-
-// Auto Barn + Autopro: daily at 05:00 UTC — within both sites' robots.txt window (04:00–08:45 UTC).
-// GitHub Actions free tier can delay scheduled runs by hours, pushing execution outside
-// the allowed window. Render node-cron fires punctually, so this is the reliable path.
-// Both sites block GitHub Actions IPs at the network level.
+// Autopro: daily at 05:00 UTC — within robots.txt crawl window (04:00–08:45 UTC).
+// Render node-cron fires punctually; GitHub Actions scheduled runs can be delayed.
+// Auto Barn uses the same platform/SKUs as Autopro but blocks Render IPs (HTTP 403).
+// Repco and Supercheap use Playwright (not installed at runtime) — handled by GitHub Actions.
 cron.schedule('0 5 * * *', () => {
-  console.log('Running scheduled Auto Barn scrape...');
-  scrapeAutobarn().catch(console.error);
   console.log('Running scheduled Autopro scrape...');
   scrapeAutopro().catch(console.error);
 });
