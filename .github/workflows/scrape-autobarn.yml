@@ -1,0 +1,37 @@
+name: Auto Barn price scrape (self-hosted)
+
+# Runs on the home PC via a self-hosted runner — Auto Barn blocks all cloud IPs
+# (GitHub Actions hosted runners and Render both return HTTP 403).
+# robots.txt window: 04:00–08:45 UTC = 2:00–6:45 PM AEST / 3:00–7:45 PM AEDT.
+# AUTOBARN_IGNORE_WINDOW=1 lets a queued job still run if the machine was briefly
+# asleep at 05:00 UTC and picks it up a few minutes late.
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # 05:00 UTC = 3 PM AEST / 4 PM AEDT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run Auto Barn scraper and push to Render
+        working-directory: backend
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
+          AUTOBARN_IGNORE_WINDOW: '1'
+        run: node --import tsx/esm src/scrapers/run-autobarn.ts
