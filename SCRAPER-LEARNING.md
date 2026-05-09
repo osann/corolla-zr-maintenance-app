@@ -136,17 +136,13 @@ On GitHub Actions, de-duplication happens server-side in the `POST /api/prices` 
 
 ---
 
-## Auto Barn crawl window
+## Auto Barn blocks all cloud IPs — cannot be scraped
 
-Auto Barn's `robots.txt` restricts crawlers to **04:00–08:45 UTC**. The main scrape workflow runs at different times — Auto Barn must run in its own workflow (`scrape-autobarn.yml`) scheduled at `0 5 * * *` (05:00 UTC = 15:00 AEST).
+Auto Barn (`autobarn.com.au`) returns HTTP 403 from both GitHub Actions runner IPs and Render's cloud IPs. This was confirmed by live Render logs — every product request during the 05:00 UTC cron returned 403, with only occasional inconsistent successes that are not reliable enough to count on.
 
-## Auto Barn blocks GitHub Actions IPs — use Render cron only
+The `scrape-autobarn.yml` GitHub Actions workflow has been removed, and Auto Barn has also been removed from the Render node-cron. **Do not attempt to re-add Auto Barn scraping from any cloud environment.** The block is IP-level and is not affected by user-agent, headers, or request timing.
 
-Both plain `fetch()` and Playwright return HTTP 403 from Auto Barn on GitHub Actions runners. This is an IP-level block, not a headers or user-agent issue. The `scrape-autobarn.yml` workflow has been removed.
-
-Auto Barn is scraped exclusively via the Render backend's node-cron job at 05:00 UTC (within the robots.txt crawl window of 04:00–08:45 UTC). Do not attempt to re-add a GitHub Actions workflow for Auto Barn.
-
-Render does **not** have Playwright/Chromium pre-installed. Chromium is installed via a `postinstall` script in `backend/package.json` (`npx playwright install chromium --with-deps`), which runs automatically on every Render deploy. Auto Barn uses plain `fetch()` (not Playwright) because it was already IP-blocked regardless of browser.
+Autopro (`autopro.com.au`) shares the same SKU codes and platform but does NOT block Render IPs — Autopro is scraped via the Render cron at 05:00 UTC.
 
 ---
 
