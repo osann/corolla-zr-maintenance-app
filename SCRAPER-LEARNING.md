@@ -72,7 +72,7 @@ Repco's PDP is rendered server-side using Hybris with jQuery. The Spartacus/Angu
 
 **Reliable selectors:**
 - Regular price: `meta[property="og:price:amount"]` content attribute — always present in `<head>`, server-rendered.
-- Member/promotional price: first `.promotion-price` on the page — only present when a member promotion applies.
+- Member/promotional price: first `.promotion-price` that is NOT a descendant of `a.price-group` — only present on the main product when a member promotion applies. Carousel/related-product tiles use the same `.promotion-price` class but are wrapped in `a.price-group`; they must be excluded or the wrong product's price is returned.
 
 **OCC REST API is not usable:** Repco's backend API blocks cloud IPs and requires authentication to return member pricing. Playwright against the real page is the only reliable approach.
 

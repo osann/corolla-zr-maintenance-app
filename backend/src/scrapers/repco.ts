@@ -30,7 +30,11 @@ async function fetchRepcoPlaywright(pageUrl: string): Promise<{ priceCents: numb
 
     const prices = await page.evaluate(() => {
       const regularEl = document.querySelector('meta[property="og:price:amount"]');
-      const promoEl = document.querySelector('.promotion-price');
+
+      // Exclude .promotion-price inside carousel/related-product tiles (a.price-group).
+      // Those belong to other products, not the current PDP item.
+      const promoEl = Array.from(document.querySelectorAll('.promotion-price'))
+        .find(el => !el.closest('a.price-group')) ?? null;
 
       return {
         regularText: regularEl?.getAttribute('content') ?? null,
