@@ -10,7 +10,7 @@ import { isOnSale } from '../lib/sale-detector.js';
 import type { PriceObservation } from '../routes/prices.js';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-const FETCH_HEADERS: Record<string, string> = {
+const BASE_HEADERS: Record<string, string> = {
   'User-Agent': UA,
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-AU,en;q=0.9',
@@ -22,25 +22,55 @@ const FETCH_HEADERS: Record<string, string> = {
   'Sec-Fetch-User': '?1',
 };
 
+interface GetOptions {
+  cookies?: string;
+  referer?: string;
+}
+
+interface GetResult {
+  status: number;
+  body: string;
+  setCookies: string[];
+}
+
 // Uses Node's https module to avoid undici's internal body timeout (UND_ERR_BODY_TIMEOUT).
 // Follows redirects manually — short /p/{SKU} URLs redirect to the full product path.
-function httpsGet(url: string, maxRedirects = 5): Promise<{ status: number; body: string }> {
+function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5): Promise<GetResult> {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: FETCH_HEADERS, timeout: 60_000 }, (res) => {
+    const headers: Record<string, string> = { ...BASE_HEADERS };
+    if (opts.cookies) headers['Cookie'] = opts.cookies;
+    if (opts.referer) headers['Referer'] = opts.referer;
+
+    const req = https.get(url, { headers, timeout: 60_000 }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         if (maxRedirects === 0) { reject(new Error('Too many redirects')); return; }
-        resolve(httpsGet(res.headers.location, maxRedirects - 1));
+        resolve(httpsGet(res.headers.location, opts, maxRedirects - 1));
         return;
       }
+      const setCookies = (res.headers['set-cookie'] ?? []).map(c => c.split(';')[0]);
       const chunks: Buffer[] = [];
       res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString() }));
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString(), setCookies }));
       res.on('error', reject);
     });
     req.on('error', reject);
     req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out after 60s')); });
   });
+}
+
+// Accumulates cookies from Set-Cookie headers into a single Cookie header string.
+function mergeCookies(existing: string, setCookies: string[]): string {
+  const jar = new Map<string, string>();
+  for (const pair of existing.split('; ')) {
+    const idx = pair.indexOf('=');
+    if (idx > 0) jar.set(pair.slice(0, idx), pair.slice(idx + 1));
+  }
+  for (const cookie of setCookies) {
+    const idx = cookie.indexOf('=');
+    if (idx > 0) jar.set(cookie.slice(0, idx), cookie.slice(idx + 1));
+  }
+  return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
 // First $XX.XX in the page is the product price.
@@ -66,14 +96,14 @@ function sleepJitter(ms: number) {
 }
 
 // Retry once on timeout after a longer back-off pause
-async function httpsGetWithRetry(url: string, retryAfterMs = 30_000): Promise<{ status: number; body: string }> {
+async function httpsGetWithRetry(url: string, opts: GetOptions, retryAfterMs = 30_000): Promise<GetResult> {
   try {
-    return await httpsGet(url);
+    return await httpsGet(url, opts);
   } catch (err) {
     if (err instanceof Error && err.message.includes('timed out')) {
       console.warn(`  timeout — waiting ${retryAfterMs / 1000}s before retry...`);
       await sleep(retryAfterMs);
-      return httpsGet(url);
+      return httpsGet(url, opts);
     }
     throw err;
   }
@@ -89,6 +119,7 @@ interface CrawlWindow {
 
 export interface FetchScraperConfig {
   retailer: FetchRetailer;
+  homepageUrl: string; // pre-fetched to obtain session cookies before the product loop
   rateLimitMs: number;
   cacheHours: number;
   crawlWindow: CrawlWindow;
@@ -106,7 +137,7 @@ function isInCrawlWindow(w: CrawlWindow): boolean {
 }
 
 export function createFetchScraper(config: FetchScraperConfig) {
-  const { retailer, rateLimitMs, cacheHours, crawlWindow, ignoreWindowEnvVar } = config;
+  const { retailer, homepageUrl, rateLimitMs, cacheHours, crawlWindow, ignoreWindowEnvVar } = config;
 
   function checkWindow(): boolean {
     if (process.env[ignoreWindowEnvVar] === '1') {
@@ -147,6 +178,21 @@ export function createFetchScraper(config: FetchScraperConfig) {
       .where(eq(retailerUrls.retailer, retailer));
   }
 
+  // Pre-fetches the homepage to obtain session cookies. Without these, Auto Barn
+  // treats requests as sessionless bot traffic and drops connections after a few hits.
+  async function fetchSessionCookies(): Promise<string> {
+    try {
+      console.log(`${retailer}: pre-fetching homepage for session cookies...`);
+      const { setCookies } = await httpsGet(homepageUrl);
+      const cookies = mergeCookies('', setCookies);
+      console.log(`${retailer}: session established (${setCookies.length} cookies)`);
+      return cookies;
+    } catch (err) {
+      console.warn(`${retailer}: homepage pre-fetch failed — continuing without session cookies:`, err);
+      return '';
+    }
+  }
+
   // Returns observations without writing to DB — used by GitHub Actions run-and-push.ts
   async function scrapeToArray(): Promise<PriceObservation[]> {
     if (!checkWindow()) return [];
@@ -154,12 +200,17 @@ export function createFetchScraper(config: FetchScraperConfig) {
     const rows = await getRows();
     console.log(`${retailer}: scraping ${rows.length} products...`);
 
+    let cookies = await fetchSessionCookies();
+    await sleepJitter(rateLimitMs);
+
     const results: PriceObservation[] = [];
 
     for (const row of rows) {
       try {
         console.log(`  Fetching ${row.name}...`);
-        const { status, body: html } = await httpsGetWithRetry(row.url);
+        const opts: GetOptions = { cookies, referer: homepageUrl };
+        const { status, body: html, setCookies } = await httpsGetWithRetry(row.url, opts);
+        cookies = mergeCookies(cookies, setCookies);
 
         if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
         if (status < 200 || status >= 300) throw new Error(`HTTP ${status} fetching ${row.url}`);
@@ -185,6 +236,9 @@ export function createFetchScraper(config: FetchScraperConfig) {
     const rows = await getRows();
     console.log(`${retailer}: scraping ${rows.length} products...`);
 
+    let cookies = await fetchSessionCookies();
+    await sleepJitter(rateLimitMs);
+
     for (const row of rows) {
       try {
         if (await wasRecentlyScraped(row.productId)) {
@@ -193,7 +247,9 @@ export function createFetchScraper(config: FetchScraperConfig) {
         }
 
         console.log(`  Fetching ${row.name}...`);
-        const { status, body: html } = await httpsGetWithRetry(row.url);
+        const opts: GetOptions = { cookies, referer: homepageUrl };
+        const { status, body: html, setCookies } = await httpsGetWithRetry(row.url, opts);
+        cookies = mergeCookies(cookies, setCookies);
 
         if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
         if (status < 200 || status >= 300) throw new Error(`HTTP ${status} fetching ${row.url}`);
