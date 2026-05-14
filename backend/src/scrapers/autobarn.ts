@@ -5,6 +5,7 @@ import { createFetchScraper } from './fetch-scraper.js';
 // Runs via the self-hosted runner on the home machine (residential IP).
 const { scrapeToArray, scrapeAll: scrapeAutobarn } = createFetchScraper({
   retailer: 'autobarn',
+  homepageUrl: 'https://www.autobarn.com.au/',
   rateLimitMs: 20_000, // 10s per robots.txt, using 20s + jitter to reduce throttling
   cacheHours: 6,
   crawlWindow: { startHour: 4, endHour: 8, endMinute: 45 },

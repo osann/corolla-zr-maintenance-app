@@ -5,6 +5,7 @@ import { createFetchScraper } from './fetch-scraper.js';
 // SKUs are identical to Auto Barn SKUs — seeded from the same autobarnSku field.
 const { scrapeToArray, scrapeAll: scrapeAutopro } = createFetchScraper({
   retailer: 'autopro',
+  homepageUrl: 'https://www.autopro.com.au/',
   rateLimitMs: 15_000,
   cacheHours: 6,
   crawlWindow: { startHour: 4, endHour: 8, endMinute: 45 },
