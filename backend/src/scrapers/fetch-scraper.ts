@@ -59,6 +59,26 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// +/- 25% jitter so sequential requests don't look machine-regular
+function sleepJitter(ms: number) {
+  const jitter = ms * 0.25 * (Math.random() * 2 - 1);
+  return sleep(Math.max(1000, Math.round(ms + jitter)));
+}
+
+// Retry once on timeout after a longer back-off pause
+async function httpsGetWithRetry(url: string, retryAfterMs = 30_000): Promise<{ status: number; body: string }> {
+  try {
+    return await httpsGet(url);
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('timed out')) {
+      console.warn(`  timeout — waiting ${retryAfterMs / 1000}s before retry...`);
+      await sleep(retryAfterMs);
+      return httpsGet(url);
+    }
+    throw err;
+  }
+}
+
 type FetchRetailer = 'autobarn' | 'autopro';
 
 interface CrawlWindow {
@@ -139,20 +159,20 @@ export function createFetchScraper(config: FetchScraperConfig) {
     for (const row of rows) {
       try {
         console.log(`  Fetching ${row.name}...`);
-        const { status, body: html } = await httpsGet(row.url);
+        const { status, body: html } = await httpsGetWithRetry(row.url);
 
-        if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleep(rateLimitMs); continue; }
+        if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
         if (status < 200 || status >= 300) throw new Error(`HTTP ${status} fetching ${row.url}`);
 
         const result = parsePriceHtml(html);
-        if (!result) { console.warn(`  No price found at ${row.url}`); await sleep(rateLimitMs); continue; }
+        if (!result) { console.warn(`  No price found at ${row.url}`); await sleepJitter(rateLimitMs); continue; }
 
         results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
         console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
       } catch (err) {
         console.error(`  [error] ${row.name}:`, err);
       }
-      await sleep(rateLimitMs);
+      await sleepJitter(rateLimitMs);
     }
 
     return results;
@@ -173,13 +193,13 @@ export function createFetchScraper(config: FetchScraperConfig) {
         }
 
         console.log(`  Fetching ${row.name}...`);
-        const { status, body: html } = await httpsGet(row.url);
+        const { status, body: html } = await httpsGetWithRetry(row.url);
 
-        if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleep(rateLimitMs); continue; }
+        if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
         if (status < 200 || status >= 300) throw new Error(`HTTP ${status} fetching ${row.url}`);
 
         const result = parsePriceHtml(html);
-        if (!result) { console.warn(`  No price found at ${row.url}`); await sleep(rateLimitMs); continue; }
+        if (!result) { console.warn(`  No price found at ${row.url}`); await sleepJitter(rateLimitMs); continue; }
 
         const onSale = isOnSale(result.priceCents, result.compareAtCents, null);
         await db.insert(priceHistory).values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
@@ -187,7 +207,7 @@ export function createFetchScraper(config: FetchScraperConfig) {
       } catch (err) {
         console.error(`  [error] ${row.name}:`, err);
       }
-      await sleep(rateLimitMs);
+      await sleepJitter(rateLimitMs);
     }
   }
 
