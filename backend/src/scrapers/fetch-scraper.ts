@@ -35,17 +35,22 @@ interface GetResult {
 
 // Uses Node's https module to avoid undici's internal body timeout (UND_ERR_BODY_TIMEOUT).
 // Follows redirects manually — short /p/{SKU} URLs redirect to the full product path.
+const REQUEST_TIMEOUT_MS = 120_000;
+
 function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5): Promise<GetResult> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...BASE_HEADERS };
     if (opts.cookies) headers['Cookie'] = opts.cookies;
     if (opts.referer) headers['Referer'] = opts.referer;
 
-    const req = https.get(url, { headers, timeout: 60_000 }, (res) => {
+    const req = https.get(url, { headers, timeout: REQUEST_TIMEOUT_MS }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         if (maxRedirects === 0) { reject(new Error('Too many redirects')); return; }
-        resolve(httpsGet(res.headers.location, opts, maxRedirects - 1));
+        const dest = res.headers.location;
+        // Log redirect destination on first hop to help diagnose per-URL issues
+        if (maxRedirects === 5) process.stdout.write(`→${dest} `);
+        resolve(httpsGet(dest, opts, maxRedirects - 1));
         return;
       }
       const setCookies = (res.headers['set-cookie'] ?? []).map(c => c.split(';')[0]);
@@ -55,7 +60,7 @@ function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5): Promise
       res.on('error', reject);
     });
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out after 60s')); });
+    req.on('timeout', () => { req.destroy(); reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`)); });
   });
 }
 
@@ -96,12 +101,12 @@ function sleepJitter(ms: number) {
 }
 
 // Retry once on timeout after a longer back-off pause
-async function httpsGetWithRetry(url: string, opts: GetOptions, retryAfterMs = 30_000): Promise<GetResult> {
+async function httpsGetWithRetry(url: string, opts: GetOptions, retryAfterMs = 60_000): Promise<GetResult> {
   try {
     return await httpsGet(url, opts);
   } catch (err) {
     if (err instanceof Error && err.message.includes('timed out')) {
-      console.warn(`  timeout — waiting ${retryAfterMs / 1000}s before retry...`);
+      console.warn(`\n  timeout — waiting ${retryAfterMs / 1000}s before retry...`);
       await sleep(retryAfterMs);
       return httpsGet(url, opts);
     }
