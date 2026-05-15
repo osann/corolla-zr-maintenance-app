@@ -1385,6 +1385,40 @@
   <!-- ═══ SETTINGS PANEL ══════════════════════════════ -->
   <div class="panel" id="settings">
 
+    <!-- ── Device sync ── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Device sync</div>
+      <div class="settings-section-desc" id="auth-status-text">Not signed in — data is local only</div>
+
+      <div id="auth-login-form">
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
+          <div class="settings-row-label">
+            <strong>Sign in with your email</strong>
+            <span>A one-time link will be emailed to you. After clicking it, data syncs automatically across devices.</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input class="log-input" type="email" id="auth-email-input"
+              placeholder="your@email.com" style="flex:1;min-width:200px;"
+              onkeydown="if(event.key==='Enter') requestMagicLink()">
+            <button class="settings-save-btn" id="auth-send-btn" onclick="requestMagicLink()">Send link</button>
+          </div>
+        </div>
+        <div id="auth-message" class="settings-saved-msg" style="display:none;visibility:visible;opacity:1;padding:8px 0;"></div>
+      </div>
+
+      <div id="auth-logout-section" style="display:none;">
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <strong>Signed in as</strong>
+            <span id="auth-email-display"></span>
+          </div>
+          <div class="settings-control">
+            <button class="settings-reset-btn" onclick="signOut()">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Wash Frequency ── -->
     <div class="settings-section">
       <div class="settings-section-title">Wash frequency</div>

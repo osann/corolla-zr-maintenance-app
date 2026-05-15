@@ -1,5 +1,7 @@
   // ─── Backend ─────────────────────────────────────
   const BACKEND_URL = '__BACKEND_URL__';
+  let syncEnabled = false;
+  let syncEmail   = null;
 
   // ─── Storage helpers ─────────────────────────────
   const hasStorage = typeof window.storage !== 'undefined';
@@ -19,6 +21,19 @@
     } else {
       try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
     }
+  }
+
+  async function syncPush(key, value) {
+    if (!syncEnabled || !BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+    try {
+      await fetch(`${BACKEND_URL}/api/sync/${encodeURIComponent(key)}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value),
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch {}
   }
 
   // ─── Checklist ───────────────────────────────────
@@ -54,6 +69,7 @@
     const state = {};
     itemData.forEach(item => { state[item.id] = item.input.checked; });
     await storageSet(CHECKLIST_KEY, state);
+    syncPush(CHECKLIST_KEY, state);
   }
 
   function recompute() {
@@ -114,6 +130,7 @@
     if (isNaN(val) || val < 0) return;
     budgetTarget = val;
     await storageSet(BUDGET_KEY, { target: val });
+    syncPush(BUDGET_KEY, { target: val });
     recompute();
     document.getElementById('budget-status').textContent = 'Saved ✓';
     setTimeout(() => { document.getElementById('budget-status').textContent = ''; }, 2000);
@@ -228,6 +245,7 @@
 
   async function saveLog() {
     await storageSet(LOG_KEY, washLog);
+    syncPush(LOG_KEY, washLog);
   }
 
   function addLogEntry() {
@@ -631,6 +649,7 @@
       settings.car.rego = document.getElementById('car-rego').value.trim();
     }
     await storageSet(SETTINGS_KEY, settings);
+    syncPush(SETTINGS_KEY, settings);
     applyPrefs();
     applyCarInfo();
     applyLogStepChips();
@@ -674,6 +693,7 @@
     settings.freq = { ...FREQ_DEFAULTS };
     renderFreqDisplays();
     await storageSet(SETTINGS_KEY, settings);
+    syncPush(SETTINGS_KEY, settings);
     applySchedule();
     showSaved('freq-saved');
   }
@@ -684,6 +704,7 @@
     renderAllRoutineEditors();
     applyLogStepChips();
     await storageSet(SETTINGS_KEY, settings);
+    syncPush(SETTINGS_KEY, settings);
     showSaved('routines-saved');
   }
 
@@ -693,6 +714,7 @@
     loadPrefsUI();
     applyPrefs();
     await storageSet(SETTINGS_KEY, settings);
+    syncPush(SETTINGS_KEY, settings);
     showSaved('prefs-saved');
   }
 
@@ -735,6 +757,16 @@
   async function resetEverything() {
     if (!confirm('This will clear ALL data — checklist, wash log, budget, and settings. Are you sure?')) return;
     if (!confirm('Last chance — all your data will be deleted. Continue?')) return;
+    // Push empty values to remote first so the reset propagates to all devices
+    if (syncEnabled) {
+      await Promise.allSettled([
+        syncPush(CHECKLIST_KEY, {}),
+        syncPush(LOG_KEY, []),
+        syncPush(BUDGET_KEY, {}),
+        syncPush(SETTINGS_KEY, {}),
+      ]);
+      syncEnabled = false;
+    }
     await storageSet(CHECKLIST_KEY, {});
     await storageSet(LOG_KEY, []);
     await storageSet(BUDGET_KEY, {});
@@ -847,12 +879,135 @@
     return `<svg class="sparkline" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${polyline}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="2.5" fill="${stroke}"/></svg>`;
   }
 
+  // ─── Auth / sync ─────────────────────────────────
+  function renderAuthUI() {
+    const loginForm    = document.getElementById('auth-login-form');
+    const logoutSec    = document.getElementById('auth-logout-section');
+    const statusText   = document.getElementById('auth-status-text');
+    const emailDisplay = document.getElementById('auth-email-display');
+    if (!loginForm || !logoutSec) return;
+    if (syncEnabled) {
+      loginForm.style.display  = 'none';
+      logoutSec.style.display  = '';
+      if (statusText)   statusText.textContent   = `Signed in — data syncs automatically`;
+      if (emailDisplay) emailDisplay.textContent  = syncEmail ?? '';
+    } else {
+      loginForm.style.display  = '';
+      logoutSec.style.display  = 'none';
+      if (statusText)   statusText.textContent   = 'Not signed in — data is local only';
+    }
+  }
+
+  async function requestMagicLink() {
+    const input  = document.getElementById('auth-email-input');
+    const btn    = document.getElementById('auth-send-btn');
+    const msgEl  = document.getElementById('auth-message');
+    const email  = input?.value?.trim();
+    if (!email) return;
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+
+    btn.disabled = true;
+    if (msgEl) { msgEl.style.display = ''; msgEl.textContent = 'Sending…'; }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/request`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.status === 429) {
+        if (msgEl) msgEl.textContent = 'Please wait a minute before requesting another link.';
+        btn.disabled = false;
+      } else {
+        if (msgEl) msgEl.textContent = 'Check your email — link expires in 15 minutes.';
+      }
+    } catch {
+      if (msgEl) msgEl.textContent = 'Could not reach server. Try again.';
+      btn.disabled = false;
+    }
+  }
+
+  async function signOut() {
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+    try {
+      await fetch(`${BACKEND_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch {}
+    syncEnabled = false;
+    syncEmail   = null;
+    renderAuthUI();
+  }
+
+  async function checkAuthAndSync() {
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) { renderAuthUI(); return; }
+
+    // Handle magic link token in URL
+    const params = new URLSearchParams(window.location.search);
+    const token  = params.get('token');
+    if (token) {
+      // Clean the URL immediately — don't leave the token in browser history
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState(null, '', cleanUrl);
+      try {
+        await fetch(`${BACKEND_URL}/api/auth/verify`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+          signal: AbortSignal.timeout(10000),
+        });
+      } catch {}
+    }
+
+    // Check for existing session
+    try {
+      const meRes = await fetch(`${BACKEND_URL}/api/auth/me`, {
+        credentials: 'include',
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!meRes.ok) { renderAuthUI(); return; }
+      const me = await meRes.json();
+      if (!me.authenticated) { renderAuthUI(); return; }
+
+      syncEnabled = true;
+      syncEmail   = me.email;
+      renderAuthUI();
+
+      // Pull remote data and overwrite local state
+      const syncRes = await fetch(`${BACKEND_URL}/api/sync`, {
+        credentials: 'include',
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!syncRes.ok) return;
+      const remote = await syncRes.json();
+
+      const keys = [CHECKLIST_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY];
+      for (const key of keys) {
+        if (remote[key] !== undefined) await storageSet(key, remote[key]);
+      }
+
+      // Re-run loaders so UI reflects remote data
+      await loadChecklist();
+      await loadLog();
+      await loadBudget();
+      await loadSettings();
+    } catch {
+      renderAuthUI();
+    }
+  }
+
   // ─── Init ────────────────────────────────────────
   async function init() {
     await loadChecklist();
     await loadLog();
     await loadBudget();
     await loadSettings();
+    await checkAuthAndSync();
     loadPriceData();
   }
   init();
