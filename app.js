@@ -213,6 +213,75 @@
     });
   }
 
+  function renderPricesTab() {
+    const container = document.getElementById('prices-list');
+    if (!container) return;
+
+    const phaseNames = {
+      1: 'Phase 1 — Wash, dry, glass, sealant',
+      2: 'Phase 2 — Wheels, tyres, leather, Ultrasuede',
+      3: 'Phase 3 — Daily-use bulk',
+      4: 'Phase 4 — Long-term preservation',
+    };
+
+    const byPhase = {};
+    for (const product of liveProducts) {
+      const retailers = Object.entries(product.latestPrice ?? {});
+      if (retailers.length === 0) continue;
+      const key = product.phase ?? 0;
+      (byPhase[key] ??= []).push({ product, retailers });
+    }
+
+    if (Object.keys(byPhase).length === 0) {
+      container.innerHTML = '<p class="prices-empty">No prices loaded yet.</p>';
+      return;
+    }
+
+    const phaseKeys = Object.keys(byPhase)
+      .map(Number)
+      .sort((a, b) => (a === 0 ? 1 : b === 0 ? -1 : a - b));
+
+    container.innerHTML = '';
+
+    for (const phase of phaseKeys) {
+      const card = document.createElement('div');
+      card.className = 'phase-spend-card';
+      const label = phaseNames[phase] ?? 'Other';
+
+      let rows = '';
+      for (const { product, retailers } of byPhase[phase]) {
+        const history = priceHistories[product.id] ?? [];
+        for (const [retailer, data] of retailers) {
+          const price = `$${(data.priceCents / 100).toFixed(2)}`;
+          const saleTag = data.onSale ? '<span class="price-on-sale">Sale</span>' : '';
+          const retailerName = RETAILER_NAMES[retailer] || retailer;
+          const url = product.urls?.[retailer] || null;
+          const linkEl = url
+            ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
+            : '<span class="price-row-link-none"></span>';
+          const sparkline = buildSparklineSVG(history, retailer);
+          rows += `
+            <div class="price-row">
+              <span class="price-row-name">${product.name}</span>
+              <div class="price-row-right">
+                <div class="price-row-amount">${price}${saleTag}</div>
+                <div class="price-row-meta">${retailerName}</div>
+                ${sparkline}
+              </div>
+              ${linkEl}
+            </div>`;
+        }
+      }
+
+      card.innerHTML = `
+        <div class="phase-spend-head">
+          <div class="phase-spend-name">${label}</div>
+        </div>
+        ${rows}`;
+      container.appendChild(card);
+    }
+  }
+
   // ─── Wash Log ────────────────────────────────────
   const LOG_KEY = 'corolla-washlog-v1';
   let washLog = [];
@@ -913,6 +982,7 @@
       } catch {}
     }));
     renderPriceList();
+    renderPricesTab();
   }
 
   function buildSparklineSVG(history, retailer) {
