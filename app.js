@@ -933,6 +933,18 @@
         btn.disabled = false;
       } else {
         if (msgEl) msgEl.textContent = 'Check your email — link expires in 15 minutes.';
+        btn.style.display = 'none';
+        let remaining = 120;
+        const interval = setInterval(() => {
+          remaining--;
+          if (msgEl) msgEl.textContent = `Check your email — link expires in 15 minutes. Resend available in ${remaining}s.`;
+          if (remaining <= 0) {
+            clearInterval(interval);
+            btn.style.display = '';
+            btn.disabled = false;
+            if (msgEl) msgEl.textContent = 'Check your email — or send another link.';
+          }
+        }, 1000);
       }
     } catch {
       if (msgEl) msgEl.textContent = 'Could not reach server. Try again.';
