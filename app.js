@@ -449,7 +449,7 @@
     freq: { ...FREQ_DEFAULTS },
     routines: JSON.parse(JSON.stringify(DEFAULT_STEPS)),
     prefs: { ...DEFAULT_PREFS },
-    car: { model: '', year: '', colour: '', rego: '' }
+    car: { model: '', year: '', colour: '', rego: '', displayName: '' }
   };
 
   // Frequency stepper
@@ -589,6 +589,7 @@
     document.getElementById('car-year').value = settings.car.year || '';
     document.getElementById('car-colour').value = settings.car.colour || '';
     document.getElementById('car-rego').value = settings.car.rego || '';
+    document.getElementById('car-display-name').value = settings.car.displayName || '';
   }
 
   function applyCarInfo() {
@@ -647,6 +648,7 @@
       settings.car.year = document.getElementById('car-year').value.trim();
       settings.car.colour = document.getElementById('car-colour').value.trim();
       settings.car.rego = document.getElementById('car-rego').value.trim();
+      settings.car.displayName = document.getElementById('car-display-name').value.trim();
     }
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
@@ -654,12 +656,13 @@
     applyCarInfo();
     applyLogStepChips();
     applySchedule();
-    // Show saved message
-    const msgEl = document.getElementById(`${section}-saved`);
-    if (msgEl) {
-      msgEl.classList.add('visible');
-      setTimeout(() => msgEl.classList.remove('visible'), 2200);
-    }
+    // Show saved message(s)
+    const msgIds = section === 'car' ? ['car-saved', 'sync-name-saved'] : [`${section}-saved`];
+    msgIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.add('visible'); setTimeout(() => el.classList.remove('visible'), 2200); }
+    });
+    if (section === 'car') renderAuthUI();
   }
 
   async function loadSettings() {
@@ -675,7 +678,7 @@
         };
       }
       if (saved.prefs) settings.prefs = { ...DEFAULT_PREFS, ...saved.prefs };
-      if (saved.car)  settings.car  = { model:'', year:'', colour:'', rego:'', ...saved.car };
+      if (saved.car)  settings.car  = { model:'', year:'', colour:'', rego:'', displayName:'', ...saved.car };
     }
     renderFreqDisplays();
     renderAllRoutineEditors();
@@ -892,7 +895,7 @@
       logoutSec.style.display  = '';
       if (statusText)   statusText.textContent   = 'Signed in — data syncs automatically';
       if (emailDisplay) emailDisplay.textContent  = syncEmail ?? '';
-      if (navBtn) { navBtn.textContent = '● Syncing'; navBtn.classList.add('syncing'); }
+      if (navBtn) { navBtn.textContent = settings.car.displayName || syncEmail || '●'; navBtn.classList.add('syncing'); }
     } else {
       loginForm.style.display  = '';
       logoutSec.style.display  = 'none';
