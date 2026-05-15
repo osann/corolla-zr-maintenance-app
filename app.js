@@ -1022,6 +1022,7 @@
       await loadLog();
       await loadBudget();
       await loadSettings();
+      renderAuthUI();
     } catch {
       renderAuthUI();
     }
