@@ -72,16 +72,18 @@
     margin-bottom: 12px;
   }
   h1 {
-    font-family: 'Inter', sans-serif;
-    font-weight: 600;
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 400;
     font-size: 42px;
     line-height: 1.05;
     letter-spacing: -0.02em;
     color: var(--ink);
     margin-bottom: 10px;
+    font-variation-settings: 'opsz' 144;
   }
   h1 em {
     font-style: italic;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100;
     color: var(--accent-dark);
   }
   .tagline {
@@ -192,11 +194,12 @@
     font-weight: 500;
   }
   .stat-value {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 28px;
-    font-weight: 500;
+    font-weight: 400;
     color: var(--ink);
     line-height: 1;
+    font-variation-settings: 'opsz' 144;
   }
   .stat-value .subtle { color: var(--ink-low); font-size: 18px; }
   .progress {
@@ -237,12 +240,13 @@
     font-weight: 500;
   }
   .phase-title {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 22px;
-    font-weight: 600;
+    font-weight: 400;
     color: var(--ink);
     margin-top: 2px;
     line-height: 1.2;
+    font-variation-settings: 'opsz' 144;
   }
   .phase-status {
     font-size: 12px;
@@ -302,7 +306,7 @@
 
   /* ─── Guide Panel ───────────────────────────────── */
   .guide-intro {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 20px;
     line-height: 1.5;
     color: var(--ink-mid);
@@ -310,6 +314,7 @@
     margin-bottom: 36px;
     padding-left: 20px;
     border-left: 2px solid var(--accent);
+    font-variation-settings: 'opsz' 144;
   }
   .toc {
     background: var(--bg-muted);
@@ -342,10 +347,11 @@
   }
   .toc-list a:hover { color: var(--accent); }
   .toc-list .num {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     color: var(--accent);
-    font-weight: 600;
+    font-weight: 500;
     min-width: 20px;
+    font-variation-settings: 'opsz' 144;
   }
 
   .product-section {
@@ -354,21 +360,23 @@
   }
   .product-section:first-of-type { border-top: none; padding-top: 12px; }
   .product-num {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 13px;
     color: var(--accent);
+    font-variation-settings: 'opsz' 144;
     font-style: italic;
     margin-bottom: 4px;
   }
   h2 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 30px;
-    font-weight: 600;
+    font-weight: 400;
     line-height: 1.15;
     letter-spacing: -0.01em;
     color: var(--ink);
     margin-bottom: 10px;
     scroll-margin-top: 80px;
+    font-variation-settings: 'opsz' 144;
   }
   h2 .product-short {
     color: var(--ink-low);
@@ -523,10 +531,11 @@
     background: var(--bg-muted);
   }
   .routine-table th:first-child, .routine-table td:first-child {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     color: var(--accent);
-    font-weight: 600;
+    font-weight: 500;
     width: 40px;
+    font-variation-settings: 'opsz' 144;
   }
   .routine-table th:nth-child(2), .routine-table td:nth-child(2) {
     font-weight: 500;
@@ -566,11 +575,11 @@
   /* ─── References Panel ─────────────────────────── */
   .ref-group { margin-bottom: 36px; }
   .ref-group-title {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 22px;
-    font-weight: 600;
     margin-bottom: 8px;
     color: var(--ink);
+    font-variation-settings: 'opsz' 144;
   }
   .ref-group-desc {
     font-size: 14px;
@@ -643,11 +652,12 @@
     box-shadow: var(--shadow);
   }
   .log-form-title {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 19px;
-    font-weight: 500;
+    font-weight: 400;
     color: var(--ink);
     margin-bottom: 18px;
+    font-variation-settings: 'opsz' 144;
   }
   .log-form-grid {
     display: grid;
@@ -732,7 +742,7 @@
   }
   .streak-icon { font-size: 28px; line-height: 1; }
   .streak-label { font-size: 12px; color: var(--ink-low); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 500; }
-  .streak-value { font-family: 'Inter', sans-serif; font-size: 26px; font-weight: 500; color: var(--ink); }
+  .streak-value { font-family: 'Fraunces', Georgia, serif; font-size: 26px; color: var(--ink); font-variation-settings: 'opsz' 144; }
   .streak-divider { width: 1px; height: 40px; background: var(--rule-strong); margin: 0 4px; }
   .log-empty {
     text-align: center;
@@ -762,10 +772,11 @@
     flex-wrap: wrap;
   }
   .log-entry-date {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 18px;
-    font-weight: 500;
+    font-weight: 400;
     color: var(--ink);
+    font-variation-settings: 'opsz' 144;
   }
   .log-entry-type {
     font-size: 12px;
@@ -886,7 +897,7 @@
     gap: 12px;
     flex-wrap: wrap;
   }
-  .phase-spend-name { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 500; color: var(--ink); }
+  .phase-spend-name { font-family: 'Fraunces', Georgia, serif; font-size: 18px; font-weight: 400; color: var(--ink); font-variation-settings: 'opsz' 144; }
   .phase-spend-amounts { font-size: 13px; color: var(--ink-mid); font-variant-numeric: tabular-nums; }
   .phase-spend-amounts strong { color: var(--ink); }
   .phase-spend-bar { height: 6px; background: var(--bg-muted); border-radius: 100px; overflow: hidden; margin-bottom: 14px; }
@@ -908,7 +919,7 @@
   .phase-item-badge.bought { background: var(--accent-tint); color: var(--accent-dark); }
   .phase-item-badge.pending { background: var(--bg-muted); color: var(--ink-low); }
   .sale-section { margin-top: 32px; }
-  .sale-section-title { font-family: 'Inter', sans-serif; font-size: 22px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .sale-section-title { font-family: 'Fraunces', Georgia, serif; font-size: 22px; font-weight: 400; color: var(--ink); margin-bottom: 6px; font-variation-settings: 'opsz' 144; }
   .sale-section-desc { font-size: 14px; color: var(--ink-mid); margin-bottom: 20px; line-height: 1.55; }
   .sale-card {
     background: var(--bg-elev);
@@ -940,11 +951,12 @@
     box-shadow: var(--shadow);
   }
   .settings-section-title {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Fraunces', Georgia, serif;
     font-size: 20px;
-    font-weight: 600;
+    font-weight: 400;
     color: var(--ink);
     margin-bottom: 4px;
+    font-variation-settings: 'opsz' 144;
   }
   .settings-section-desc {
     font-size: 13.5px;
