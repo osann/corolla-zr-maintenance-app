@@ -885,17 +885,28 @@
     const logoutSec    = document.getElementById('auth-logout-section');
     const statusText   = document.getElementById('auth-status-text');
     const emailDisplay = document.getElementById('auth-email-display');
+    const navBtn       = document.getElementById('nav-auth-btn');
     if (!loginForm || !logoutSec) return;
     if (syncEnabled) {
       loginForm.style.display  = 'none';
       logoutSec.style.display  = '';
-      if (statusText)   statusText.textContent   = `Signed in — data syncs automatically`;
+      if (statusText)   statusText.textContent   = 'Signed in — data syncs automatically';
       if (emailDisplay) emailDisplay.textContent  = syncEmail ?? '';
+      if (navBtn) { navBtn.textContent = '● Syncing'; navBtn.classList.add('syncing'); }
     } else {
       loginForm.style.display  = '';
       logoutSec.style.display  = 'none';
       if (statusText)   statusText.textContent   = 'Not signed in — data is local only';
+      if (navBtn) { navBtn.textContent = 'Sign in'; navBtn.classList.remove('syncing'); }
     }
+  }
+
+  function navAuthClick() {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.tab[data-tab="settings"]').classList.add('active');
+    document.getElementById('settings').classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function requestMagicLink() {

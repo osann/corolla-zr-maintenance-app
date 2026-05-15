@@ -120,6 +120,26 @@
     scrollbar-width: none;
   }
   .tabs-inner::-webkit-scrollbar { display: none; }
+  .nav-auth-btn {
+    margin-left: auto;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-mid);
+    background: transparent;
+    border: 1px solid var(--rule);
+    padding: 5px 12px;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 180ms ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .nav-auth-btn:hover { color: var(--ink); border-color: var(--ink-mid); }
+  .nav-auth-btn.syncing {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
   .tab {
     font-family: 'Inter', sans-serif;
     font-size: 13px;
