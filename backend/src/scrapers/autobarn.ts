@@ -10,6 +10,7 @@ const { scrapeToArray, scrapeAll: scrapeAutobarn } = createFetchScraper({
   cacheHours: 6,
   crawlWindow: { startHour: 4, endHour: 8, endMinute: 45 },
   ignoreWindowEnvVar: 'AUTOBARN_IGNORE_WINDOW',
+  playwrightFallback: true,
 });
 
 export { scrapeToArray, scrapeAutobarn };

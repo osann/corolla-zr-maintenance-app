@@ -33,10 +33,10 @@ interface GetResult {
   setCookies: string[];
 }
 
+const REQUEST_TIMEOUT_MS = 60_000;
+
 // Uses Node's https module to avoid undici's internal body timeout (UND_ERR_BODY_TIMEOUT).
 // Follows redirects manually — short /p/{SKU} URLs redirect to the full product path.
-const REQUEST_TIMEOUT_MS = 120_000;
-
 function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5): Promise<GetResult> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...BASE_HEADERS };
@@ -47,10 +47,7 @@ function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5): Promise
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         if (maxRedirects === 0) { reject(new Error('Too many redirects')); return; }
-        const dest = res.headers.location;
-        // Log redirect destination on first hop to help diagnose per-URL issues
-        if (maxRedirects === 5) process.stdout.write(`→${dest} `);
-        resolve(httpsGet(dest, opts, maxRedirects - 1));
+        resolve(httpsGet(res.headers.location, opts, maxRedirects - 1));
         return;
       }
       const setCookies = (res.headers['set-cookie'] ?? []).map(c => c.split(';')[0]);
@@ -100,20 +97,6 @@ function sleepJitter(ms: number) {
   return sleep(Math.max(1000, Math.round(ms + jitter)));
 }
 
-// Retry once on timeout after a longer back-off pause
-async function httpsGetWithRetry(url: string, opts: GetOptions, retryAfterMs = 60_000): Promise<GetResult> {
-  try {
-    return await httpsGet(url, opts);
-  } catch (err) {
-    if (err instanceof Error && err.message.includes('timed out')) {
-      console.warn(`\n  timeout — waiting ${retryAfterMs / 1000}s before retry...`);
-      await sleep(retryAfterMs);
-      return httpsGet(url, opts);
-    }
-    throw err;
-  }
-}
-
 type FetchRetailer = 'autobarn' | 'autopro';
 
 interface CrawlWindow {
@@ -128,8 +111,10 @@ export interface FetchScraperConfig {
   rateLimitMs: number;
   cacheHours: number;
   crawlWindow: CrawlWindow;
-  // Env var name to bypass the crawl window (e.g. AUTOBARN_IGNORE_WINDOW=1)
   ignoreWindowEnvVar: string;
+  // When true, products that fail plain-HTTP fetching are retried via Playwright.
+  // Only suitable for environments where Playwright/Chromium is available (self-hosted runner).
+  playwrightFallback?: boolean;
 }
 
 function isInCrawlWindow(w: CrawlWindow): boolean {
@@ -142,7 +127,7 @@ function isInCrawlWindow(w: CrawlWindow): boolean {
 }
 
 export function createFetchScraper(config: FetchScraperConfig) {
-  const { retailer, homepageUrl, rateLimitMs, cacheHours, crawlWindow, ignoreWindowEnvVar } = config;
+  const { retailer, homepageUrl, rateLimitMs, cacheHours, crawlWindow, ignoreWindowEnvVar, playwrightFallback } = config;
 
   function checkWindow(): boolean {
     if (process.env[ignoreWindowEnvVar] === '1') {
@@ -198,6 +183,47 @@ export function createFetchScraper(config: FetchScraperConfig) {
     }
   }
 
+  type Row = Awaited<ReturnType<typeof getRows>>[number];
+
+  // Playwright fallback for products that plain-fetch can't reach.
+  // Launched once per scrape run, handles all failed products in one browser session.
+  async function playwrightScrape(failed: Row[]): Promise<PriceObservation[]> {
+    console.log(`\n${retailer}: ${failed.length} products failed HTTP — retrying with Playwright...`);
+    const { createStealthContext } = await import('../lib/browser.js');
+    const { context, close } = await createStealthContext();
+    const results: PriceObservation[] = [];
+
+    try {
+      // Visit homepage first to establish session cookies in the browser context
+      const home = await context.newPage();
+      await home.goto(homepageUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
+      await home.close();
+
+      for (const row of failed) {
+        try {
+          console.log(`  [playwright] Fetching ${row.name}...`);
+          const page = await context.newPage();
+          await page.goto(row.url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+          const html = await page.content();
+          await page.close();
+
+          const result = parsePriceHtml(html);
+          if (!result) { console.warn(`  [playwright] No price found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
+
+          results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
+          console.log(`  [playwright ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
+        } catch (err) {
+          console.error(`  [playwright error] ${row.name}:`, err);
+        }
+        await sleepJitter(rateLimitMs);
+      }
+    } finally {
+      await close();
+    }
+
+    return results;
+  }
+
   // Returns observations without writing to DB — used by GitHub Actions run-and-push.ts
   async function scrapeToArray(): Promise<PriceObservation[]> {
     if (!checkWindow()) return [];
@@ -209,12 +235,13 @@ export function createFetchScraper(config: FetchScraperConfig) {
     await sleepJitter(rateLimitMs);
 
     const results: PriceObservation[] = [];
+    const failed: Row[] = [];
 
     for (const row of rows) {
       try {
         console.log(`  Fetching ${row.name}...`);
         const opts: GetOptions = { cookies, referer: homepageUrl };
-        const { status, body: html, setCookies } = await httpsGetWithRetry(row.url, opts);
+        const { status, body: html, setCookies } = await httpsGet(row.url, opts);
         cookies = mergeCookies(cookies, setCookies);
 
         if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
@@ -226,9 +253,15 @@ export function createFetchScraper(config: FetchScraperConfig) {
         results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
         console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
       } catch (err) {
-        console.error(`  [error] ${row.name}:`, err);
+        console.error(`  [error] ${row.name}:`, (err as Error).message);
+        if (playwrightFallback) failed.push(row);
       }
       await sleepJitter(rateLimitMs);
+    }
+
+    if (failed.length > 0) {
+      const playwrightResults = await playwrightScrape(failed);
+      results.push(...playwrightResults);
     }
 
     return results;
@@ -253,7 +286,7 @@ export function createFetchScraper(config: FetchScraperConfig) {
 
         console.log(`  Fetching ${row.name}...`);
         const opts: GetOptions = { cookies, referer: homepageUrl };
-        const { status, body: html, setCookies } = await httpsGetWithRetry(row.url, opts);
+        const { status, body: html, setCookies } = await httpsGet(row.url, opts);
         cookies = mergeCookies(cookies, setCookies);
 
         if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
@@ -266,7 +299,7 @@ export function createFetchScraper(config: FetchScraperConfig) {
         await db.insert(priceHistory).values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
         console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}${onSale ? ' 🔥 ON SALE' : ''}`);
       } catch (err) {
-        console.error(`  [error] ${row.name}:`, err);
+        console.error(`  [error] ${row.name}:`, (err as Error).message);
       }
       await sleepJitter(rateLimitMs);
     }
