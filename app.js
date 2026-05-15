@@ -588,18 +588,74 @@
     document.getElementById('car-model').value = settings.car.model || '';
     document.getElementById('car-year').value = settings.car.year || '';
     document.getElementById('car-colour').value = settings.car.colour || '';
-    document.getElementById('car-rego').value = settings.car.rego || '';
     document.getElementById('car-display-name').value = settings.car.displayName || '';
   }
 
   function applyCarInfo() {
-    const { model, year, colour, rego } = settings.car;
-    const parts = [year, model, colour].filter(Boolean);
-    if (parts.length) {
-      const eyebrow = document.querySelector('.eyebrow');
-      if (eyebrow) eyebrow.textContent = rego ? `${rego} — Detailing kit + technique` : 'Detailing kit + technique';
+    const { model, year, colour } = settings.car;
+    const h1 = document.getElementById('header-h1');
+    if (h1) {
+      const m = model || 'Corolla ZR Hybrid';
+      const y = year  || '2025';
+      h1.innerHTML = `${y} <em>${m}</em><br>care guide`;
     }
+    applyColourAccent(colour);
   }
+
+  function applyColourAccent(colourText) {
+    const root = document.documentElement;
+    if (!colourText) {
+      root.style.removeProperty('--accent');
+      root.style.removeProperty('--accent-dark');
+      root.style.removeProperty('--accent-tint');
+      return;
+    }
+    const t = colourText.toLowerCase();
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    const palettes = [
+      {
+        words: ['bronze', 'copper', 'amber', 'mango', 'spice', 'gold', 'caramel'],
+        light:    ['#8b5e1a', '#6b4712', 'rgba(139,94,26,0.10)'],
+        darkMode: ['#d4983a', '#8b5e1a', 'rgba(212,152,58,0.15)'],
+      },
+      {
+        words: ['red', 'crimson', 'scarlet', 'burgundy', 'ruby', 'burn', 'rose'],
+        light:    ['#a83030', '#7a2020', 'rgba(168,48,48,0.10)'],
+        darkMode: ['#e06060', '#a83030', 'rgba(224,96,96,0.15)'],
+      },
+      {
+        words: ['blue', 'mineral', 'navy', 'cobalt', 'sapphire', 'ocean', 'teal'],
+        light:    ['#1a5a8b', '#124070', 'rgba(26,90,139,0.10)'],
+        darkMode: ['#4a90d9', '#1a5a8b', 'rgba(74,144,217,0.15)'],
+      },
+      {
+        words: ['grey', 'gray', 'graphite', 'silver', 'slate', 'platinum', 'titanium', 'meteor'],
+        light:    ['#4a5460', '#323c48', 'rgba(74,84,96,0.10)'],
+        darkMode: ['#8a9ab0', '#4a5460', 'rgba(138,154,176,0.15)'],
+      },
+      {
+        words: ['black', 'obsidian', 'midnight', 'onyx', 'phantom', 'eclipse'],
+        light:    ['#3a3a50', '#252535', 'rgba(58,58,80,0.10)'],
+        darkMode: ['#7070a0', '#3a3a50', 'rgba(112,112,160,0.15)'],
+      },
+    ];
+
+    for (const p of palettes) {
+      if (p.words.some(w => t.includes(w))) {
+        const [accent, accentDark, accentTint] = dark ? p.darkMode : p.light;
+        root.style.setProperty('--accent', accent);
+        root.style.setProperty('--accent-dark', accentDark);
+        root.style.setProperty('--accent-tint', accentTint);
+        return;
+      }
+    }
+    root.style.removeProperty('--accent');
+    root.style.removeProperty('--accent-dark');
+    root.style.removeProperty('--accent-tint');
+  }
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyCarInfo());
 
   // Rebuild log step chips from settings
   function applySchedule() {
@@ -647,7 +703,6 @@
       settings.car.model = document.getElementById('car-model').value.trim();
       settings.car.year = document.getElementById('car-year').value.trim();
       settings.car.colour = document.getElementById('car-colour').value.trim();
-      settings.car.rego = document.getElementById('car-rego').value.trim();
       settings.car.displayName = document.getElementById('car-display-name').value.trim();
     }
     await storageSet(SETTINGS_KEY, settings);
@@ -678,7 +733,7 @@
         };
       }
       if (saved.prefs) settings.prefs = { ...DEFAULT_PREFS, ...saved.prefs };
-      if (saved.car)  settings.car  = { model:'', year:'', colour:'', rego:'', displayName:'', ...saved.car };
+      if (saved.car)  settings.car  = { model:'', year:'', colour:'', displayName:'', ...saved.car };
     }
     renderFreqDisplays();
     renderAllRoutineEditors();

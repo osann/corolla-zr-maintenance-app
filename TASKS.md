@@ -50,13 +50,13 @@ Attach before/after photos to wash log entries.
 
 ---
 
-## 4. Multi-device sync
+## 4. Multi-device sync ✅
 
 Access data from phone + desktop after moving storage to the backend.
 
-- [ ] Magic link email auth (no passwords) — use Lucia or Auth.js
-- [ ] Migrate all storage keys to user-scoped database rows
-- [ ] "Migrate from local" button: reads existing `localStorage` and POSTs to backend on first sign-in
+- [x] Magic link email auth (no passwords) — use Lucia or Auth.js
+- [x] Migrate all storage keys to user-scoped database rows
+- [x] "Migrate from local" button: reads existing `localStorage` and POSTs to backend on first sign-in
 
 ---
 

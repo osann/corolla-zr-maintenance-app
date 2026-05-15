@@ -9,3 +9,4 @@ backend/.env
 dist/
 backend/dist/
 Next Prompts
+PLAN-FixAutobarn.md
