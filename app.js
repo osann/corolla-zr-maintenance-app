@@ -630,7 +630,7 @@
         darkMode: ['#4a90d9', '#1a5a8b', 'rgba(74,144,217,0.15)'],
       },
       {
-        words: ['grey', 'gray', 'graphite', 'silver', 'slate', 'platinum', 'titanium', 'meteor'],
+        words: ['grey', 'gray', 'graphite', 'graphene', 'silver', 'slate', 'platinum', 'titanium', 'meteor'],
         light:    ['#4a5460', '#323c48', 'rgba(74,84,96,0.10)'],
         darkMode: ['#8a9ab0', '#4a5460', 'rgba(138,154,176,0.15)'],
       },
