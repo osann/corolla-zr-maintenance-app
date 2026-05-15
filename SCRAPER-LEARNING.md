@@ -136,11 +136,23 @@ On GitHub Actions, de-duplication happens server-side in the `POST /api/prices` 
 
 ---
 
-## Auto Barn blocks all cloud IPs — cannot be scraped
+## Auto Barn: cloud IPs blocked, scraped via self-hosted runner with Playwright fallback
 
-Auto Barn (`autobarn.com.au`) returns HTTP 403 from both GitHub Actions runner IPs and Render's cloud IPs. This was confirmed by live Render logs — every product request during the 05:00 UTC cron returned 403, with only occasional inconsistent successes that are not reliable enough to count on.
+Auto Barn (`autobarn.com.au`) returns HTTP 403 from GitHub Actions hosted runner IPs and Render's cloud IPs. It is scraped from `debian-server`, a home Debian Linux machine with a residential IP, via `scrape-autobarn.yml`.
 
-The `scrape-autobarn.yml` GitHub Actions workflow has been removed, and Auto Barn has also been removed from the Render node-cron. **Do not attempt to re-add Auto Barn scraping from any cloud environment.** The block is IP-level and is not affected by user-agent, headers, or request timing.
+Even with a residential IP, roughly half (~20/40) of Auto Barn product URLs consistently timeout on plain HTTP (60s, the other half succeed in <15s). The pattern is per-URL — the same products fail on every run regardless of session cookies, headers, or timing. These failures are handled by `playwrightFallback: true` in `autobarn.ts`: after the plain-HTTP loop, all failed products are retried in a single Playwright browser session using `createStealthContext()`.
+
+**Self-hosted runner OS dependencies:** `npm ci` postinstall runs `npx playwright install chromium` which downloads the browser binary, but does NOT install the required system libraries. These must be installed once manually on `debian-server`:
+
+```bash
+sudo apt-get install -y libgbm1 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
+  libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
+  libxrandr2 libxext6 libx11-xcb1 libpango-1.0-0 libasound2
+```
+
+Without these, Playwright will fail with: `error while loading shared libraries: libgbm.so.1: cannot open shared object file: No such file or directory`.
+
+**Do not attempt to re-add Auto Barn scraping from any cloud environment.** The block is IP-level and is not affected by user-agent, headers, or request timing.
 
 Autopro (`autopro.com.au`) shares the same SKU codes and platform but does NOT block Render IPs — Autopro is scraped via the Render cron at 05:00 UTC.
 
@@ -182,6 +194,10 @@ Both also share the same robots.txt restrictions: 10s crawl delay, 04:00–08:45
 
 Plain-fetch scrapers (no Playwright, prices in server-rendered HTML) share identical logic: `httpsGet`, first-`$XX.XX` price regex, `<s>/<del>` was-price regex, crawl window check, cache check, DB write. This is extracted into `createFetchScraper()` in `scrapers/fetch-scraper.ts`.
 
+Key config fields:
+- `homepageUrl` — pre-fetched before the product loop to obtain session cookies. Without these, Auto Barn drops connections after a few requests.
+- `playwrightFallback` — when `true`, products that throw or return non-200 in the HTTP pass are collected into a `failed` array, then retried via `createStealthContext()` after the loop. Only suitable for environments where Playwright/Chromium system dependencies are installed (self-hosted runner, not Render).
+
 To add a new plain-fetch retailer:
 
 ```ts
@@ -190,6 +206,7 @@ import { createFetchScraper } from './fetch-scraper.js';
 
 const { scrapeToArray, scrapeAll: scrapeMyRetailer } = createFetchScraper({
   retailer: 'my-retailer',  // must be in the schema enum
+  homepageUrl: 'https://www.my-retailer.com.au/',
   rateLimitMs: 15_000,
   cacheHours: 6,
   crawlWindow: { startHour: 4, endHour: 8, endMinute: 45 },
