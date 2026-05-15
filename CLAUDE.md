@@ -33,7 +33,8 @@ corolla-zr-maintenance-app/
 │   │   ├── routes/
 │   │   │   ├── products.ts # GET /api/products — all products with latest prices per retailer
 │   │   │   ├── prices.ts   # POST /api/prices — ingest scraper results
-│   │   │   └── alerts.ts   # GET /api/alerts, GET /api/prices/current
+│   │   │   ├── alerts.ts   # GET /api/alerts, GET /api/prices/current
+│   │   │   └── auth.ts     # Auth + sync: POST /api/auth/request|verify|logout, GET /api/auth/me, GET|POST /api/sync
 │   │   ├── scrapers/
 │   │   │   ├── fetch-scraper.ts # createFetchScraper() factory — shared plain-fetch logic for Autopro (+ unused autobarn)
 │   │   │   ├── autobarn.ts      # thin wrapper — Auto Barn blocks all cloud IPs, not called from any cron
@@ -43,8 +44,10 @@ corolla-zr-maintenance-app/
 │   │   │   ├── index.ts         # scrapeAllRetailers() — unused in production (kept for local use)
 │   │   │   └── run-and-push.ts  # GitHub Actions entry point: Supercheap + Repco → POST to backend
 │   │   └── lib/
-│   │       ├── browser.ts  # createStealthContext() — shared Playwright setup
-│   │       └── sale-detector.ts
+│   │       ├── browser.ts       # createStealthContext() — shared Playwright setup
+│   │       ├── sale-detector.ts
+│   │       ├── auth.ts          # generateToken, hashToken, sessionMiddleware
+│   │       └── email.ts         # sendMagicLink() via Resend
 │   └── package.json
 └── .github/workflows/
     ├── deploy.yml          # Deploys index.html/app.js/styles.css to GitHub Pages
@@ -61,7 +64,7 @@ corolla-zr-maintenance-app/
 
 ### CORS
 
-The backend allows two origins: `https://osann.github.io` and `https://corolla.jhosan.top`. Both must be present in `backend/src/index.ts`. If the custom domain changes, update the CORS allowlist first or live prices will silently fail to load.
+The backend allows two origins: `https://osann.github.io` and `https://corolla.jhosan.top`. Both must be present in `backend/src/index.ts`. `credentials: true` is set so the session cookie can be sent cross-origin. If the custom domain changes, update the CORS allowlist first or live prices and sync will silently fail to load.
 
 ### Environment variables (Render)
 
@@ -70,6 +73,10 @@ The backend allows two origins: `https://osann.github.io` and `https://corolla.j
 | `TURSO_URL` | `libsql://corolla-detailing-osann.aws-ap-northeast-1.turso.io` |
 | `TURSO_TOKEN` | Auth token from Turso dashboard |
 | `SCRAPE_SECRET` | Shared secret for `POST /api/prices` from GitHub Actions |
+| `RESEND_API_KEY` | Resend API key for magic link emails |
+| `RESEND_FROM` | `Corolla Detailing <sync@corolla.jhosan.top>` (must be a verified Resend domain) |
+| `OWNER_EMAIL` | `joh.10@pm.me` — only this address gets a real email; others silently accepted |
+| `APP_URL` | `https://corolla.jhosan.top` — base URL embedded in magic link |
 
 ### GitHub secrets
 
@@ -92,11 +99,15 @@ npm run scrape:push  # GitHub Actions path: scrape Supercheap + Repco, POST to R
 
 ## Database schema
 
-Three tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Locally falls back to `file:./db.sqlite` when `TURSO_URL` is not set:
+Seven tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Locally falls back to `file:./db.sqlite` when `TURSO_URL` is not set:
 
 - **`products`** — `id, name, slug, phase, created_at`. Phase 0 = tracked for pricing but not shown in the kit checklist.
 - **`retailer_urls`** — `product_id, retailer, url`. One row per product per retailer. Full URLs stored directly (templates don't work for Supercheap or Repco).
 - **`price_history`** — `product_id, retailer, price_cents, on_sale, observed_at`. Append-only log of every scrape result.
+- **`users`** — `id, email, created_at`. Single owner row in practice.
+- **`magic_tokens`** — `id, token_hash, user_id, expires_at, used_at, created_at`. Raw token never stored — SHA-256 hash only. 15-minute TTL, single-use.
+- **`sessions`** — `id, session_id, user_id, expires_at, created_at`. Session ID stored plaintext (travels only via HttpOnly cookie). 30-day TTL.
+- **`user_data`** — `id, user_id, key, value_json, updated_at`. One row per storage key per user. Upserted on every `syncPush` call.
 
 **To add a product or retailer URL**, edit `backend/src/db/seed.ts`. The seed is idempotent — re-running it upserts without duplicating. Run `npm run seed` to apply locally, or let the next Render deploy pick it up.
 
@@ -119,9 +130,13 @@ Scraper order for GitHub Actions: Supercheap → Repco (Repco is slower and more
 `app.js` is vanilla JS, no framework. Key conventions:
 
 - `storageGet(key)` / `storageSet(key, val)` — storage abstraction that tries `window.storage` (Claude artifact runtime) then falls back to `localStorage`. All persistence goes through these.
+- `syncPush(key, value)` — fire-and-forget POST to `/api/sync/:key` after every `storageSet`. No-ops when `syncEnabled` is false or backend URL is unset.
 - `render*()` functions write to the DOM from state
 - `apply*()` functions mutate the DOM based on current settings
-- `init()` on load: `loadChecklist → loadLog → loadBudget → loadSettings → loadPriceData()` (non-blocking)
+- `init()` on load: `loadChecklist → loadLog → loadBudget → loadSettings → checkAuthAndSync() → loadPriceData()` (non-blocking)
+- `checkAuthAndSync()` — runs after `loadSettings`. Checks for `?token=` in URL (magic link landing), then calls `GET /api/auth/me`. If authenticated: sets `syncEnabled = true`, pulls all keys from `GET /api/sync`, overwrites localStorage, and re-runs all `load*()` functions. Fails silently if backend is unreachable.
+- `applyCarInfo()` — updates `<h1 id="header-h1">` with year + model from `settings.car`, then calls `applyColourAccent()`.
+- `applyColourAccent(colourText)` — keyword-matches the car colour string and sets `--accent`, `--accent-dark`, `--accent-tint` as inline styles on `:root`. Handles light/dark mode separately via `window.matchMedia`. Resets to CSS defaults on no match (white, pearl, glacier, unrecognised). Re-fires on `prefers-color-scheme` change.
 - `itemData` array is built at startup from `.item` DOM elements — includes `slug` for matching against live price data
 - `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
 - The `__BACKEND_URL__` guard uses `BACKEND_URL.startsWith('__')` — not strict equality. The `sed` substitution in `deploy.yml` replaces `__BACKEND_URL__` globally, which would corrupt a `=== '__BACKEND_URL__'` check into `=== '<real-url>'`. Never revert this to a string equality check.
@@ -133,7 +148,7 @@ Scraper order for GitHub Actions: Supercheap → Repco (Repco is slower and more
 | `corolla-detailing-app-v4` | `{ "item-0": true, ... }` | Checklist state |
 | `corolla-washlog-v1` | `Array<{id, date, type, steps[], notes}>` | Wash log |
 | `corolla-budget-v1` | `{ target: number }` | Budget target |
-| `corolla-settings-v1` | `{ freq, routines, prefs, car }` | Settings |
+| `corolla-settings-v1` | `{ freq, routines, prefs, car: { model, year, colour, displayName } }` | Settings |
 
 Bump the version suffix on breaking shape changes rather than writing migrations.
 
@@ -144,14 +159,14 @@ Each `<label class="item">` has `data-price` (integer AUD), `data-slug` (matches
 ### CSS conventions
 
 - All design tokens in `:root` CSS variables, with `prefers-color-scheme: dark` overrides
-- Two fonts: **Fraunces** (serif, headings) and **Inter** (sans, body)
+- One font: **Inter** across all elements (headings at weight 600, body at 400–500)
 - Light theme: warm cream `#faf8f3`; dark theme: `#15171a`
-- Accent: forest green `--accent` (`#2d7d5a`)
+- Default accent: forest green `--accent` (`#2d7d5a`). When a car colour is set, `applyColourAccent()` overrides `--accent`, `--accent-dark`, and `--accent-tint` as inline styles on `:root`. Removing the colour resets to the CSS default. Do not hardcode accent values — always use the CSS variables.
 - Reuse existing tokens — don't introduce new colours or size scales
 
 ## Things to preserve
 
-1. **Aesthetic restraint.** Minimalist Fraunces serif headings. No dashboard gauges, no charts where prose works. One person, quiet interface.
+1. **Aesthetic restraint.** Minimalist Inter sans-serif headings at high weight. No dashboard gauges, no charts where prose works. One person, quiet interface.
 2. **Australian-specific advice.** All retailers, prices, and sale timing are AU-specific. Don't generalise.
 3. **Bowden's-first framing.** The technique guide is opinionated around the Bowden's range. Non-Bowden products are exceptions, not equals.
 4. **Graceful degradation.** The app works offline/standalone without a backend — live prices enhance but don't gate any functionality.
