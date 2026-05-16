@@ -1219,11 +1219,18 @@
 
   // ─── Init ────────────────────────────────────────
   async function init() {
+    const minWait = new Promise(r => setTimeout(r, 700));
     await loadChecklist();
     await loadLog();
     await loadBudget();
     await loadSettings();
     await checkAuthAndSync();
+    await minWait;
+    const loader = document.getElementById('loading-screen');
+    if (loader) {
+      loader.classList.add('done');
+      loader.addEventListener('transitionend', () => loader.remove(), { once: true });
+    }
     loadPriceData();
   }
   init();
