@@ -217,39 +217,72 @@
     const container = document.getElementById('prices-list');
     if (!container) return;
 
-    const phaseNames = {
-      1: 'Phase 1 — Wash, dry, glass, sealant',
-      2: 'Phase 2 — Wheels, tyres, leather, Ultrasuede',
-      3: 'Phase 3 — Daily-use bulk',
-      4: 'Phase 4 — Long-term preservation',
-    };
+    const PRICE_CATEGORIES = [
+      {
+        label: 'Equipment',
+        slugs: [
+          'debugger-cloth', 'plush-daddy', 'the-square-bear', 'inta-mitt',
+          'shagtastic-wash-pad', 'big-softie-pair', 'twisted-pro-sucker',
+          'the-big-green-sucker', 'plush-brush', '2-bucket-wash-kit',
+          'microfibre-bucket-lid', 'pumpy-pump', 'microfibre-wash-1l',
+          'the-essentials-starters-kit',
+        ],
+      },
+      {
+        label: 'Pressure Washer Equipment',
+        slugs: ['happy-ending-cannon-bottle', 'snow-blow-cannon', 'karcher-k2'],
+      },
+      {
+        label: 'Exterior Wash',
+        slugs: [
+          'flash-prep-500ml', 'naked-glass-500ml', 'orange-agent-500ml',
+          'naked-glass-770ml', 'snow-job-1l', 'naked-inta-mitt-pack',
+          'nanolicious-wash-pack-ultimate', 'nanolicious-shag-pack',
+          'nanolicious-wash-5l', 'snow-job-5l',
+        ],
+      },
+      {
+        label: 'Exterior Protection',
+        slugs: [
+          'bead-machine-500ml', 'boss-gloss-770ml', 'wet-dreams-770ml',
+          'happy-ending-1l', 'boss-gloss-5l', 'wet-dreams-5l',
+          'happy-ending-5l', 'wet-dreams-pack', 'boss-gloss-pack',
+        ],
+      },
+      {
+        label: 'Interior Clean',
+        sections: [
+          { label: 'Leather', slugs: ['leather-love-v2-500ml', 'bolp-leather-care-pack'] },
+          { label: 'Fabric', slugs: ['fabra-cadabra-500ml'] },
+        ],
+      },
+      {
+        label: 'Interior Protect',
+        sections: [
+          { label: 'Leather', slugs: ['leather-guard-500ml'] },
+          { label: 'Fabric & Suede', slugs: ['fabratection'] },
+          { label: 'Plastic, Vinyl & Rubber', slugs: ['303-aerospace'] },
+        ],
+      },
+      {
+        label: 'Wheels',
+        slugs: [
+          'little-chubby-v2', 'the-little-stiffy', 'the-flat-head',
+          'the-chubby-wheel-brush-v2', 'wheely-clean-v2-500ml',
+          'wheely-clean-770ml', 'wheely-clean-v2-5l',
+        ],
+      },
+    ];
 
-    const byPhase = {};
-    for (const product of liveProducts) {
-      const retailers = Object.entries(product.latestPrice ?? {});
-      if (retailers.length === 0) continue;
-      const key = product.phase ?? 0;
-      (byPhase[key] ??= []).push({ product, retailers });
-    }
+    const productBySlug = Object.fromEntries(liveProducts.map(p => [p.slug, p]));
 
-    if (Object.keys(byPhase).length === 0) {
-      container.innerHTML = '<p class="prices-empty">No prices loaded yet.</p>';
-      return;
-    }
-
-    const phaseKeys = Object.keys(byPhase)
-      .map(Number)
-      .sort((a, b) => (a === 0 ? 1 : b === 0 ? -1 : a - b));
-
-    container.innerHTML = '';
-
-    for (const phase of phaseKeys) {
-      const card = document.createElement('div');
-      card.className = 'phase-spend-card';
-      const label = phaseNames[phase] ?? 'Other';
-
-      let rows = '';
-      for (const { product, retailers } of byPhase[phase]) {
+    function renderRows(slugs) {
+      let html = '';
+      for (const slug of slugs) {
+        const product = productBySlug[slug];
+        if (!product) continue;
+        const retailers = Object.entries(product.latestPrice ?? {});
+        if (retailers.length === 0) continue;
         const history = priceHistories[product.id] ?? [];
         for (const [retailer, data] of retailers) {
           const price = `$${(data.priceCents / 100).toFixed(2)}`;
@@ -260,7 +293,7 @@
             ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
             : '<span class="price-row-link-none"></span>';
           const sparkline = buildSparklineSVG(history, retailer);
-          rows += `
+          html += `
             <div class="price-row">
               <span class="price-row-name">${product.name}</span>
               <div class="price-row-right">
@@ -272,13 +305,40 @@
             </div>`;
         }
       }
+      return html;
+    }
 
+    container.innerHTML = '';
+    let anyCard = false;
+
+    for (const category of PRICE_CATEGORIES) {
+      let rows = '';
+      if (category.sections) {
+        for (let i = 0; i < category.sections.length; i++) {
+          const sec = category.sections[i];
+          const secRows = renderRows(sec.slugs);
+          if (!secRows) continue;
+          const headClass = i === 0 ? 'prices-section-head' : 'prices-section-head prices-section-head--gap';
+          rows += `<div class="${headClass}">${sec.label}</div>${secRows}`;
+        }
+      } else {
+        rows = renderRows(category.slugs);
+      }
+      if (!rows) continue;
+
+      const card = document.createElement('div');
+      card.className = 'phase-spend-card';
       card.innerHTML = `
         <div class="phase-spend-head">
-          <div class="phase-spend-name">${label}</div>
+          <div class="phase-spend-name">${category.label}</div>
         </div>
         ${rows}`;
       container.appendChild(card);
+      anyCard = true;
+    }
+
+    if (!anyCard) {
+      container.innerHTML = '<p class="prices-empty">No prices loaded yet.</p>';
     }
   }
 
