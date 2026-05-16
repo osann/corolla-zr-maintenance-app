@@ -6,6 +6,7 @@ import productsRouter from './routes/products.js';
 import alertsRouter from './routes/alerts.js';
 import pricesRouter from './routes/prices.js';
 import authRouter from './routes/auth.js';
+import weatherRouter from './routes/weather.js';
 import { scrapeAutopro } from './scrapers/autopro.js';
 import { initDb } from './db/init.js';
 import { seed } from './db/seed.js';
@@ -30,6 +31,7 @@ app.route('/api', productsRouter);
 app.route('/api', alertsRouter);
 app.route('/api', pricesRouter);
 app.route('/api', authRouter);
+app.route('/api', weatherRouter);
 
 // Autopro: daily at 05:00 UTC — within robots.txt crawl window (04:00–08:45 UTC).
 // Render node-cron fires punctually; GitHub Actions scheduled runs can be delayed.

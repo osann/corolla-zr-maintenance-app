@@ -1561,23 +1561,15 @@
 
   async function fetchBomForecast(postcode) {
     if (!/^\d{4}$/.test(postcode)) return null;
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return null;
     try {
-      const locRes = await fetch(
-        `https://api.weather.bom.gov.au/v1/locations?q=${encodeURIComponent(postcode)}`,
-        { signal: AbortSignal.timeout(5000) }
+      const res = await fetch(
+        `${BACKEND_URL}/api/weather?postcode=${encodeURIComponent(postcode)}`,
+        { signal: AbortSignal.timeout(10000) }
       );
-      if (!locRes.ok) return null;
-      const locData = await locRes.json();
-      const geohash = locData?.data?.[0]?.geohash;
-      if (!geohash) return null;
-
-      const fcRes = await fetch(
-        `https://api.weather.bom.gov.au/v1/locations/${geohash}/forecasts/daily`,
-        { signal: AbortSignal.timeout(5000) }
-      );
-      if (!fcRes.ok) return null;
-      const fcData = await fcRes.json();
-      return Array.isArray(fcData?.data) ? fcData.data : null;
+      if (!res.ok) return null;
+      const data = await res.json();
+      return Array.isArray(data) ? data : null;
     } catch {
       return null;
     }
