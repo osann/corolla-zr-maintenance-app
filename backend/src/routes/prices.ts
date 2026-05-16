@@ -104,7 +104,7 @@ router.post('/prices', async (c) => {
 
         sendTickTickTask(
           notifSettings.ticktickEmail,
-          `🔥 ${productName} on sale at ${retailerName} — ${currentPrice}`,
+          `🔥 ${productName} on sale at ${retailerName} — ${currentPrice} ^Car #Corolla today`,
           `Current price: ${currentPrice}\n${prevLine}`,
         ).catch(console.error);
       }

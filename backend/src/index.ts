@@ -102,7 +102,7 @@ cron.schedule('0 7 * * *', async () => {
 
     await sendTickTickTask(
       notifSettings.ticktickEmail,
-      '🚗 Corolla wash due',
+      '🚗 Corolla wash due ^Car #Corolla today !Medium',
       overdueDays > 0
         ? `Last wash: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'} (every ${intervalDays} days)`
         : `Last wash: ${lastDateStr}\nDue today (every ${intervalDays} days)`,
