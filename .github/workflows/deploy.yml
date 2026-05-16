@@ -25,8 +25,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject backend URL
-        run: sed -i "s|__BACKEND_URL__|${{ secrets.BACKEND_URL }}|g" app.js
+      - name: Inject backend URL and build date
+        run: |
+          sed -i "s|__BACKEND_URL__|${{ secrets.BACKEND_URL }}|g" app.js
+          sed -i "s|__BUILD_DATE__|$(date +'%-d %B %Y')|g" app.js
 
       - uses: actions/configure-pages@v5
 

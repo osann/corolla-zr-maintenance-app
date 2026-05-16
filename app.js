@@ -1,5 +1,6 @@
   // ─── Backend ─────────────────────────────────────
-  const BACKEND_URL = '__BACKEND_URL__';
+  const BACKEND_URL  = '__BACKEND_URL__';
+  const BUILD_DATE   = '__BUILD_DATE__';
   let syncEnabled   = false;
   let syncEmail     = null;
   let lastSyncedAt  = null;
@@ -37,6 +38,12 @@
       lastSyncedAt = new Date();
       updateFooterSync();
     } catch {}
+  }
+
+  function updateFooterVersion() {
+    const el = document.getElementById('footer-version');
+    if (!el) return;
+    el.textContent = BUILD_DATE.startsWith('__') ? '' : `Updated ${BUILD_DATE}`;
   }
 
   function updateFooterSync() {
@@ -1241,6 +1248,7 @@
     await loadBudget();
     await loadSettings();
     await checkAuthAndSync();
+    updateFooterVersion();
     loadPriceData();
   }
   init();
