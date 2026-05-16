@@ -1579,12 +1579,16 @@
     const result = { rainTomorrow: false, rainDay: null, heatWave: false, heatDay: null };
     if (!Array.isArray(forecast) || forecast.length < 2) return result;
 
-    if ((forecast[1]?.rain?.chance ?? 0) >= 50) {
+    const toWeekday = dateStr => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString('en-AU', { weekday: 'long' });
+    };
+
+    if ((forecast[1]?.rain_chance ?? 0) >= 50) {
       result.rainTomorrow = true;
       for (let i = 1; i < Math.min(forecast.length, 8); i++) {
-        if ((forecast[i]?.rain?.chance ?? 0) < 50) {
-          const [fy, fm, fd] = forecast[i].date.split('T')[0].split('-').map(Number);
-          result.rainDay = new Date(fy, fm - 1, fd).toLocaleDateString('en-AU', { weekday: 'long' });
+        if ((forecast[i]?.rain_chance ?? 0) < 50) {
+          result.rainDay = toWeekday(forecast[i].date);
           break;
         }
       }
@@ -1593,8 +1597,7 @@
     for (let i = 0; i < Math.min(forecast.length, 7); i++) {
       if ((forecast[i]?.temp_max ?? 0) >= 35) {
         result.heatWave = true;
-        const [fy, fm, fd] = forecast[i].date.split('T')[0].split('-').map(Number);
-        result.heatDay = new Date(fy, fm - 1, fd).toLocaleDateString('en-AU', { weekday: 'long' });
+        result.heatDay = toWeekday(forecast[i].date);
         break;
       }
     }
