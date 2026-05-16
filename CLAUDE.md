@@ -6,12 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market). Built around the Bowden's Own product ecosystem with a few non-Bowden additions (303 Aerospace Protectant, Kärcher pressure washer). All retailer references are Australian (Supercheap Auto, Repco, Auto Barn, Autopro) and pricing is in AUD.
 
-The app has seven tabs:
+The app has eight tabs:
 - **checklist** — kit purchase tracker, four phases, product prices
 - **guide** — per-product technique reference (mostly static)
 - **routine** — wash routines and ongoing maintenance schedule
 - **log** — wash session log with streak counter
 - **spend** — spend tracker, budget bar, live sale alerts
+- **prices** — read-only price sheet: all tracked products grouped by functional category, all retailers per product, with sparklines and sale badges
 - **refs** — links to manufacturer pages and community resources
 - **settings** — frequencies, routine steps, display preferences
 
@@ -136,6 +137,8 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 - `init()` on load: `loadChecklist → loadLog → loadBudget → loadSettings → loadPriceData()` (non-blocking)
 - `itemData` array is built at startup from `.item` DOM elements — includes `slug` for matching against live price data
 - `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
+- `loadPriceHistories()` is called from `loadPriceData()` after prices are applied. It fetches `GET /api/products/:id/prices` for every product with a scraped price, populates `priceHistories`, then calls `renderPriceList()` (spend tab) and `renderPricesTab()` (prices tab).
+- `renderPricesTab()` renders the **prices** tab. It iterates a hardcoded `PRICE_CATEGORIES` array (defined inside the function) that maps each functional category and sub-section to an ordered list of product slugs. It builds a `productBySlug` lookup from `liveProducts`, then for each slug renders a `.prices-product` block containing one `.prices-retailer-row` per retailer — each with price, 🔥 Sale badge, sparkline (or "No data yet." placeholder at the same fixed dimensions), and buy link. Categories and their sub-sections: Equipment (Microfibre / Wash Pads / Drying Towels / Other), Pressure Washer Equipment (Pressure Washers / Foam Cannons), Exterior Wash (Glass / Prep / Pre-Wash / Contact Wash), Exterior Protection (Sealant / Quick Detailer), Interior Clean (Leather / Fabric), Interior Protect (Leather / Fabric & Suede / Plastic, Vinyl & Rubber), Wheels (Equipment / Clean / Protect). A slug can appear in multiple categories. Products not in the mapping are silently omitted. Cards for categories where no product has a scraped price are not rendered.
 - The `__BACKEND_URL__` guard uses `BACKEND_URL.startsWith('__')` — not strict equality. The `sed` substitution in `deploy.yml` replaces `__BACKEND_URL__` globally, which would corrupt a `=== '__BACKEND_URL__'` check into `=== '<real-url>'`. Never revert this to a string equality check.
 
 ### Storage keys
