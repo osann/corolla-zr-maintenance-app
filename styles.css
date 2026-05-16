@@ -305,7 +305,8 @@
   .item.done .item-price { color: var(--ink-low); }
 
   /* ─── Checklist edit mode ───────────────────────── */
-  .phase-head { align-items: center; }
+  .phase-head { align-items: flex-start; }
+  .phase-head-left { flex: 1; min-width: 0; }
   .phase-head-right {
     display: flex;
     align-items: center;
@@ -387,6 +388,76 @@
     transition: opacity 0.15s;
   }
   .phase-edit-add-btn:hover { opacity: 0.88; }
+
+  .phase-delete-btn {
+    margin-top: 10px;
+    padding: 7px 14px;
+    background: none;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    color: var(--ink-low);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+  }
+  .phase-delete-btn:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-tint); }
+
+  /* Phase name/title editing inputs */
+  .phase-tag-input {
+    display: block;
+    width: 100%;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    font-weight: 500;
+    font-family: inherit;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--rule);
+    padding: 0 0 2px;
+    margin-bottom: 6px;
+    outline: none;
+  }
+  .phase-tag-input:focus { border-bottom-color: var(--accent); }
+  .phase-title-input {
+    display: block;
+    width: 100%;
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--ink);
+    line-height: 1.2;
+    font-variation-settings: 'opsz' 144;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--rule);
+    padding: 0 0 2px;
+    outline: none;
+    margin-top: 2px;
+  }
+  .phase-title-input:focus { border-bottom-color: var(--accent); }
+
+  /* Add phase button */
+  .add-phase-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 10px 18px;
+    background: none;
+    border: 1px dashed var(--rule);
+    border-radius: 10px;
+    color: var(--ink-low);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+    justify-content: center;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .add-phase-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-tint); }
 
   /* ─── Guide Panel ───────────────────────────────── */
   .guide-intro {

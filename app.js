@@ -60,8 +60,9 @@
   }
 
   // ─── Checklist ───────────────────────────────────
-  const CHECKLIST_KEY    = 'corolla-detailing-app-v4'; // legacy key, used only for migration
-  const CHECKLIST_V2_KEY = 'corolla-checklist-v2';
+  const CHECKLIST_KEY    = 'corolla-detailing-app-v4'; // v4: legacy positional IDs
+  const CHECKLIST_V2_KEY = 'corolla-checklist-v2';     // v2: slug-keyed, used for migration only
+  const CHECKLIST_V3_KEY = 'corolla-checklist-v3';     // v3: phases array with tag + title
 
   // Full product catalog — all phase 1–4 items + phase 0 extras available for the dropdown
   const CATALOG = [
@@ -121,72 +122,119 @@
     { slug: 'happy-ending-5l',               name: 'Happy Ending Foam 5L',                  desc: 'Post-wash finishing foam — 5L bulk',                                                                              price: 0   },
   ];
 
-  // Default phase assignments — order matches original HTML for v4 → v2 migration
-  const DEFAULT_CONFIG = {
-    '1': ['nanolicious-wash-pack-ultimate','wet-dreams-pack','2-bucket-wash-kit','boss-gloss-770ml','naked-glass-500ml','inta-mitt','karcher-k2','snow-blow-cannon','snow-job-1l'],
-    '2': ['wheely-clean-v2-500ml','the-little-stiffy','the-flat-head','fabra-cadabra-500ml','bolp-leather-care-pack','fabratection','303-aerospace'],
-    '3': ['pumpy-pump','nanolicious-wash-5l','microfibre-wash-1l'],
-    '4': ['plush-brush','flash-prep-500ml','bead-machine-500ml','big-softie-pair','snow-job-5l','wheely-clean-v2-5l'],
-  };
+  // Default phases — id order matches original HTML for v4/v2 → v3 migration
+  const DEFAULT_PHASES = [
+    { id: '1', tag: 'Phase 1 · foundation',                tag2: '', title: 'Wash, dry, glass, sealant, pre-wash',   items: ['nanolicious-wash-pack-ultimate','wet-dreams-pack','2-bucket-wash-kit','boss-gloss-770ml','naked-glass-500ml','inta-mitt','karcher-k2','snow-blow-cannon','snow-job-1l'] },
+    { id: '2', tag: 'Phase 2 · complete exterior + interior', tag2: '', title: 'Wheels, tyres, leather, Ultrasuede', items: ['wheely-clean-v2-500ml','the-little-stiffy','the-flat-head','fabra-cadabra-500ml','bolp-leather-care-pack','fabratection','303-aerospace'] },
+    { id: '3', tag: 'Phase 3 · daily-use bulk',             tag2: '', title: 'Cheaper washes, microfibre care',       items: ['pumpy-pump','nanolicious-wash-5l','microfibre-wash-1l'] },
+    { id: '4', tag: 'Phase 4 · full bulk + base sealant',   tag2: '', title: 'Long-term preservation',                items: ['plush-brush','flash-prep-500ml','bead-machine-500ml','big-softie-pair','snow-job-5l','wheely-clean-v2-5l'] },
+  ].map(({ tag2, ...p }) => p); // strip the dummy tag2 field (alignment hack)
 
   let itemData = []; // rebuilt by renderChecklist()
-  let checklistState = { config: { ...DEFAULT_CONFIG }, checked: {} };
+  let checklistState = { phases: DEFAULT_PHASES.map(p => ({ ...p, items: [...p.items] })), nextId: 5, checked: {} };
   const editingPhases = new Set();
 
-  // Phase metadata
-  const phaseNames = {
-    '1': 'Phase 1 — Wash, dry, glass, sealant',
-    '2': 'Phase 2 — Wheels, tyres, leather, Ultrasuede',
-    '3': 'Phase 3 — Daily-use bulk',
-    '4': 'Phase 4 — Long-term preservation'
-  };
+  function getPhaseName(id) {
+    const p = checklistState.phases.find(p => p.id === id);
+    return p ? p.title : `Phase ${id}`;
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
   async function loadChecklist() {
-    let saved = await storageGet(CHECKLIST_V2_KEY);
+    let saved = await storageGet(CHECKLIST_V3_KEY);
     if (!saved) {
-      // Migrate from v4 positional-ID format if it exists
-      const old = await storageGet(CHECKLIST_KEY);
-      if (old) {
-        const allSlugs = Object.values(DEFAULT_CONFIG).flat();
-        const checked = {};
-        Object.entries(old).forEach(([id, val]) => {
-          const idx = parseInt(id.replace('item-', ''), 10);
-          if (!isNaN(idx) && allSlugs[idx]) checked[allSlugs[idx]] = val;
-        });
-        saved = { config: DEFAULT_CONFIG, checked };
-        await storageSet(CHECKLIST_V2_KEY, saved);
+      // Try migrating from v2
+      const v2 = await storageGet(CHECKLIST_V2_KEY);
+      if (v2 && v2.config) {
+        const phases = DEFAULT_PHASES.map(p => ({
+          ...p, items: [...(v2.config[p.id] || p.items)],
+        }));
+        saved = { phases, nextId: 5, checked: v2.checked || {} };
+        await storageSet(CHECKLIST_V3_KEY, saved);
+      } else {
+        // Try migrating from v4 (positional IDs)
+        const v4 = await storageGet(CHECKLIST_KEY);
+        if (v4) {
+          const allSlugs = DEFAULT_PHASES.flatMap(p => p.items);
+          const checked = {};
+          Object.entries(v4).forEach(([id, val]) => {
+            const idx = parseInt(id.replace('item-', ''), 10);
+            if (!isNaN(idx) && allSlugs[idx]) checked[allSlugs[idx]] = val;
+          });
+          saved = { phases: DEFAULT_PHASES.map(p => ({ ...p, items: [...p.items] })), nextId: 5, checked };
+          await storageSet(CHECKLIST_V3_KEY, saved);
+        }
       }
     }
-    checklistState = {
-      config: (saved && saved.config) ? saved.config : { ...DEFAULT_CONFIG },
-      checked: (saved && saved.checked) ? saved.checked : {},
-    };
+    checklistState = saved
+      ? { phases: saved.phases || DEFAULT_PHASES.map(p => ({ ...p, items: [...p.items] })), nextId: saved.nextId || 5, checked: saved.checked || {} }
+      : { phases: DEFAULT_PHASES.map(p => ({ ...p, items: [...p.items] })), nextId: 5, checked: {} };
     renderChecklist();
     recompute();
   }
 
   async function saveChecklist() {
     itemData.forEach(item => { checklistState.checked[item.slug] = item.input.checked; });
-    await storageSet(CHECKLIST_V2_KEY, checklistState);
-    syncPush(CHECKLIST_V2_KEY, checklistState);
+    await storageSet(CHECKLIST_V3_KEY, checklistState);
+    syncPush(CHECKLIST_V3_KEY, checklistState);
+  }
+
+  function createPhaseEl(phase) {
+    const isEditing = editingPhases.has(phase.id);
+    const div = document.createElement('div');
+    div.className = 'phase' + (isEditing ? ' phase--editing' : '');
+    div.dataset.phase = phase.id;
+    div.innerHTML = `
+      <div class="phase-head">
+        <div class="phase-head-left">
+          ${isEditing
+            ? `<input class="phase-tag-input" data-phase="${phase.id}" value="${escHtml(phase.tag)}" placeholder="Phase label">`
+            : `<div class="phase-tag">${escHtml(phase.tag)}</div>`}
+          ${isEditing
+            ? `<input class="phase-title-input" data-phase="${phase.id}" value="${escHtml(phase.title)}" placeholder="Phase title">`
+            : `<h2 class="phase-title">${escHtml(phase.title)}</h2>`}
+        </div>
+        <div class="phase-head-right">
+          <span class="phase-status" data-phase-status="${phase.id}">0 of ${phase.items.length}</span>
+          <button class="phase-edit-btn" data-phase="${phase.id}" type="button">${isEditing ? 'Done' : 'Edit'}</button>
+        </div>
+      </div>
+      <div class="phase-items" id="phase-items-${phase.id}"></div>
+      <div class="phase-edit-panel" id="phase-edit-${phase.id}" ${isEditing ? '' : 'hidden'}>
+        <div class="phase-edit-add">
+          <select class="phase-edit-select" id="phase-edit-select-${phase.id}">
+            <option value="">— add a product —</option>
+          </select>
+          <button class="phase-edit-add-btn" data-phase="${phase.id}" type="button">Add</button>
+        </div>
+        <button class="phase-delete-btn" data-phase="${phase.id}" type="button">Delete phase</button>
+      </div>
+    `;
+    return div;
   }
 
   function renderChecklist() {
     itemData = [];
-    [1, 2, 3, 4].forEach(phase => {
-      const container = document.getElementById(`phase-items-${phase}`);
-      if (!container) return;
-      container.innerHTML = '';
-      const slugs = checklistState.config[phase] || checklistState.config[String(phase)] || [];
-      slugs.forEach(slug => {
+    const container = document.getElementById('phases-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    checklistState.phases.forEach(phase => {
+      const phaseEl = createPhaseEl(phase);
+      container.appendChild(phaseEl);
+      const itemsContainer = phaseEl.querySelector('.phase-items');
+
+      phase.items.forEach(slug => {
         const entry = CATALOG.find(c => c.slug === slug);
         if (!entry) return;
         const checked = checklistState.checked[slug] || false;
         const live = slugToBest[slug];
         let priceText;
         if (live) {
-          const dollars = (live.priceCents / 100).toFixed(2);
-          priceText = `$${dollars} · ${RETAILER_NAMES[live.retailer] || live.retailer}`;
+          priceText = `$${(live.priceCents / 100).toFixed(2)} · ${RETAILER_NAMES[live.retailer] || live.retailer}`;
         } else if (entry.price > 0) {
           priceText = `~$${entry.price}`;
         } else {
@@ -199,8 +247,8 @@
         label.innerHTML = `
           <input type="checkbox"${checked ? ' checked' : ''}>
           <div>
-            <div class="item-name">${entry.name}</div>
-            ${entry.desc ? `<div class="item-desc">${entry.desc}</div>` : ''}
+            <div class="item-name">${escHtml(entry.name)}</div>
+            ${entry.desc ? `<div class="item-desc">${escHtml(entry.desc)}</div>` : ''}
           </div>
           <div class="item-price">${priceText}</div>
           <button class="item-remove" type="button" title="Remove from phase">×</button>
@@ -210,29 +258,26 @@
         label.querySelector('.item-remove').addEventListener('click', e => {
           e.preventDefault();
           e.stopPropagation();
-          removeFromPhase(String(phase), slug);
+          removeFromPhase(phase.id, slug);
         });
-        container.appendChild(label);
+        itemsContainer.appendChild(label);
         itemData.push({
-          slug,
-          el: label,
-          input,
+          slug, el: label, input,
           price: live ? Math.round(live.priceCents / 100) : entry.price,
-          phase: String(phase),
+          phase: phase.id,
           name: entry.name,
         });
       });
-      updatePhaseEditDropdown(String(phase));
-      const phaseEl = container.closest('.phase');
-      if (phaseEl) phaseEl.classList.toggle('phase--editing', editingPhases.has(String(phase)));
+      updatePhaseEditDropdown(phase.id);
     });
     applyPrefs();
   }
 
-  function updatePhaseEditDropdown(phase) {
-    const select = document.getElementById(`phase-edit-select-${phase}`);
+  function updatePhaseEditDropdown(phaseId) {
+    const select = document.getElementById(`phase-edit-select-${phaseId}`);
     if (!select) return;
-    const inPhase = new Set(checklistState.config[phase] || []);
+    const phase = checklistState.phases.find(p => p.id === phaseId);
+    const inPhase = new Set(phase ? phase.items : []);
     const prev = select.value;
     select.innerHTML = '<option value="">— add a product —</option>';
     CATALOG.forEach(entry => {
@@ -245,52 +290,90 @@
     if (prev && !inPhase.has(prev)) select.value = prev;
   }
 
-  function addToPhase(phase, slug) {
-    if (!checklistState.config[phase]) checklistState.config[phase] = [];
-    if (checklistState.config[phase].includes(slug)) return;
-    checklistState.config[phase].push(slug);
+  function addToPhase(phaseId, slug) {
+    const phase = checklistState.phases.find(p => p.id === phaseId);
+    if (!phase || phase.items.includes(slug)) return;
+    phase.items.push(slug);
     saveChecklist();
     renderChecklist();
     recompute();
   }
 
-  function removeFromPhase(phase, slug) {
-    const cfg = checklistState.config[phase];
-    if (!cfg) return;
-    checklistState.config[phase] = cfg.filter(s => s !== slug);
+  function removeFromPhase(phaseId, slug) {
+    const phase = checklistState.phases.find(p => p.id === phaseId);
+    if (!phase) return;
+    phase.items = phase.items.filter(s => s !== slug);
     delete checklistState.checked[slug];
     saveChecklist();
     renderChecklist();
     recompute();
   }
 
-  function setupEditButtons() {
-    document.querySelectorAll('.phase-edit-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const phase = btn.dataset.phase;
-        const isEditing = editingPhases.has(phase);
-        if (isEditing) {
-          editingPhases.delete(phase);
-          btn.textContent = 'Edit';
-        } else {
-          editingPhases.add(phase);
-          btn.textContent = 'Done';
-        }
-        const phaseEl = btn.closest('.phase');
-        if (phaseEl) phaseEl.classList.toggle('phase--editing', !isEditing);
-        const panel = document.getElementById(`phase-edit-${phase}`);
-        if (panel) panel.hidden = isEditing;
-      });
-    });
+  function addPhase() {
+    const id = String(checklistState.nextId++);
+    checklistState.phases.push({ id, tag: `Phase ${checklistState.phases.length}`, title: 'New phase', items: [] });
+    editingPhases.add(id);
+    saveChecklist();
+    renderChecklist();
+    recompute();
+    setTimeout(() => {
+      const el = document.querySelector(`[data-phase="${id}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const titleInput = document.querySelector(`.phase-title-input[data-phase="${id}"]`);
+      if (titleInput) { titleInput.select(); }
+    }, 50);
+  }
 
-    document.querySelectorAll('.phase-edit-add-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const phase = btn.dataset.phase;
-        const select = document.getElementById(`phase-edit-select-${phase}`);
-        if (!select || !select.value) return;
-        addToPhase(phase, select.value);
+  function deletePhase(phaseId) {
+    const phase = checklistState.phases.find(p => p.id === phaseId);
+    if (!phase) return;
+    if (phase.items.length > 0 && !confirm(`Delete "${phase.title}" and remove its ${phase.items.length} item(s)?`)) return;
+    phase.items.forEach(slug => delete checklistState.checked[slug]);
+    checklistState.phases = checklistState.phases.filter(p => p.id !== phaseId);
+    editingPhases.delete(phaseId);
+    saveChecklist();
+    renderChecklist();
+    recompute();
+  }
+
+  function setupChecklist() {
+    const container = document.getElementById('phases-container');
+    if (container) {
+      container.addEventListener('click', e => {
+        const editBtn = e.target.closest('.phase-edit-btn');
+        if (editBtn) {
+          const id = editBtn.dataset.phase;
+          if (editingPhases.has(id)) editingPhases.delete(id);
+          else editingPhases.add(id);
+          renderChecklist();
+          return;
+        }
+        const addBtn = e.target.closest('.phase-edit-add-btn');
+        if (addBtn) {
+          const id = addBtn.dataset.phase;
+          const select = document.getElementById(`phase-edit-select-${id}`);
+          if (select && select.value) addToPhase(id, select.value);
+          return;
+        }
+        const deleteBtn = e.target.closest('.phase-delete-btn');
+        if (deleteBtn) { deletePhase(deleteBtn.dataset.phase); return; }
       });
-    });
+
+      // Tag / title live edits — update state without re-rendering so inputs keep focus
+      container.addEventListener('input', e => {
+        if (e.target.classList.contains('phase-tag-input')) {
+          const p = checklistState.phases.find(p => p.id === e.target.dataset.phase);
+          if (p) { p.tag = e.target.value; saveChecklist(); }
+        }
+        if (e.target.classList.contains('phase-title-input')) {
+          const p = checklistState.phases.find(p => p.id === e.target.dataset.phase);
+          if (p) { p.title = e.target.value; saveChecklist(); }
+        }
+      });
+    }
+
+    const addPhaseBtn = document.getElementById('add-phase-btn');
+    if (addPhaseBtn) addPhaseBtn.addEventListener('click', addPhase);
   }
 
   function recompute() {
@@ -421,7 +504,7 @@
 
       card.innerHTML = `
         <div class="phase-spend-head">
-          <div class="phase-spend-name">${phaseNames[p] || 'Phase ' + p}</div>
+          <div class="phase-spend-name">${getPhaseName(p)}</div>
           ${!hasLive ? '<div class="price-list-stale">Prices unavailable</div>' : ''}
         </div>
         ${rows}
@@ -1135,7 +1218,7 @@
 
   // Data management
   async function exportData() {
-    const checklistData = await storageGet(CHECKLIST_V2_KEY) || {};
+    const checklistData = await storageGet(CHECKLIST_V3_KEY) || {};
     const logData = await storageGet(LOG_KEY) || [];
     const budgetData = await storageGet(BUDGET_KEY) || {};
     const exportObj = {
@@ -1168,14 +1251,14 @@
     // Push empty values to remote first so the reset propagates to all devices
     if (syncEnabled) {
       await Promise.allSettled([
-        syncPush(CHECKLIST_V2_KEY, {}),
+        syncPush(CHECKLIST_V3_KEY, {}),
         syncPush(LOG_KEY, []),
         syncPush(BUDGET_KEY, {}),
         syncPush(SETTINGS_KEY, {}),
       ]);
       syncEnabled = false;
     }
-    await storageSet(CHECKLIST_V2_KEY, {});
+    await storageSet(CHECKLIST_V3_KEY, {});
     await storageSet(LOG_KEY, []);
     await storageSet(BUDGET_KEY, {});
     await storageSet(SETTINGS_KEY, {});
@@ -1419,7 +1502,7 @@
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V2_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
@@ -1437,7 +1520,7 @@
 
   // ─── Init ────────────────────────────────────────
   async function init() {
-    setupEditButtons();
+    setupChecklist();
     await loadChecklist();
     await loadLog();
     await loadBudget();
