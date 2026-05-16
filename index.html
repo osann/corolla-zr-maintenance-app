@@ -861,6 +861,24 @@
       </div>
     </div>
 
+    <!-- Weather hints — hidden until postcode set and BOM responds -->
+    <div id="weather-section" style="display:none;">
+      <div id="weather-rain-card" class="weather-card weather-card--rain" style="display:none;">
+        <span class="weather-card-icon">🌧</span>
+        <div class="weather-card-body">
+          <div class="weather-card-title">Hold off on washing</div>
+          <div class="weather-card-desc" id="weather-rain-desc"></div>
+        </div>
+      </div>
+      <div id="weather-heat-card" class="weather-card weather-card--heat" style="display:none;">
+        <span class="weather-card-icon">☀</span>
+        <div class="weather-card-body">
+          <div class="weather-card-title">Hot weather ahead — Bead Machine due?</div>
+          <div class="weather-card-desc" id="weather-heat-desc"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Log entry form -->
     <div class="log-form-card">
       <div class="log-form-title">Log a wash session</div>
@@ -1238,6 +1256,11 @@
         <div class="log-field">
           <label class="log-label" for="car-colour">Colour</label>
           <input class="log-input" type="text" id="car-colour" placeholder="e.g. Oxide Bronze">
+        </div>
+        <div class="log-field">
+          <label class="log-label" for="car-postcode">Postcode</label>
+          <input class="log-input" type="text" id="car-postcode"
+                 inputmode="numeric" maxlength="4" placeholder="e.g. 3000">
         </div>
       </div>
 

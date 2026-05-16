@@ -753,6 +753,30 @@
     return { streak, lastWash };
   }
 
+  function calcNextDue(freqKey) {
+    const label = FREQ_OPTIONS[freqKey]?.[settings.freq[freqKey] ?? FREQ_DEFAULTS[freqKey]];
+    const intervalDays = FREQ_DAYS[label];
+    if (!intervalDays) return null;
+
+    let lastDate = null;
+    if (freqKey === 'fullWash') {
+      const sorted = [...washLog].sort((a, b) => b.date.localeCompare(a.date));
+      if (sorted.length) lastDate = sorted[0].date;
+    } else {
+      const keyword = { beadMachine: 'Bead Machine' }[freqKey];
+      if (!keyword) return null;
+      const relevant = washLog
+        .filter(e => Array.isArray(e.steps) && e.steps.some(s => s.toLowerCase().includes(keyword.toLowerCase())))
+        .sort((a, b) => b.date.localeCompare(a.date));
+      if (!relevant.length) return null;
+      lastDate = relevant[0].date;
+    }
+
+    if (!lastDate) return null;
+    const [y, m, d] = lastDate.split('-').map(Number);
+    return new Date(y, m - 1, d + intervalDays);
+  }
+
   function renderLog() {
     const { streak, lastWash } = calcStreak();
     document.getElementById('streak-val').textContent = streak > 0 ? `${streak} week${streak !== 1 ? 's' : ''}` : '—';
@@ -761,6 +785,8 @@
 
     const label = document.getElementById('log-history-label');
     label.textContent = washLog.length > 0 ? `History (${washLog.length} session${washLog.length !== 1 ? 's' : ''})` : 'History';
+
+    if (weatherCache) renderWeatherCards(evalWeatherTriggers(weatherCache));
 
     const container = document.getElementById('log-entries');
     if (!washLog.length) {
@@ -830,6 +856,14 @@
   };
   const FREQ_DEFAULTS = {
     fullWash: 2, interiorDetail: 2, beadMachine: 2, aerospace: 2, leatherGuard: 3
+  };
+
+  const FREQ_DAYS = {
+    'Every 3 days': 3, 'Twice a week': 4, 'Weekly': 7,
+    'Fortnightly': 14, 'Monthly': 30,
+    'Every 2 weeks': 14, 'Every 4 weeks': 28, 'Every 6 weeks': 42,
+    'Every 2 months': 60, 'Every 3 months': 90,
+    'Every 4 months': 120, 'Every 6 months': 180,
   };
 
   // Default routine steps
@@ -1022,6 +1056,7 @@
     document.getElementById('car-year').value = settings.car.year || '';
     document.getElementById('car-colour').value = settings.car.colour || '';
     document.getElementById('car-display-name').value = settings.car.displayName || '';
+    document.getElementById('car-postcode').value = settings.car.postcode || '';
   }
 
   function applyCarInfo() {
@@ -1137,6 +1172,7 @@
       settings.car.year = document.getElementById('car-year').value.trim();
       settings.car.colour = document.getElementById('car-colour').value.trim();
       settings.car.displayName = document.getElementById('car-display-name').value.trim();
+      settings.car.postcode = document.getElementById('car-postcode').value.trim();
     }
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
@@ -1151,6 +1187,7 @@
       if (el) { el.classList.add('visible'); setTimeout(() => el.classList.remove('visible'), 2200); }
     });
     if (section === 'car') renderAuthUI();
+    if (section === 'car') loadWeather();
   }
 
   async function loadSettings() {
@@ -1166,7 +1203,7 @@
         };
       }
       if (saved.prefs) settings.prefs = { ...DEFAULT_PREFS, ...saved.prefs };
-      if (saved.car)  settings.car  = { model:'', year:'', colour:'', displayName:'', ...saved.car };
+      if (saved.car)  settings.car  = { model:'', year:'', colour:'', displayName:'', postcode:'', ...saved.car };
     }
     renderFreqDisplays();
     renderAllRoutineEditors();
@@ -1176,6 +1213,7 @@
     applyCarInfo();
     applyLogStepChips();
     applySchedule();
+    loadWeather();
   }
 
   // Reset helpers
@@ -1516,6 +1554,110 @@
     } catch {
       renderAuthUI();
     }
+  }
+
+  // ─── Weather ─────────────────────────────────────
+  let weatherCache = null;
+
+  async function fetchBomForecast(postcode) {
+    if (!/^\d{4}$/.test(postcode)) return null;
+    try {
+      const locRes = await fetch(
+        `https://api.weather.bom.gov.au/v1/locations?q=${encodeURIComponent(postcode)}`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      if (!locRes.ok) return null;
+      const locData = await locRes.json();
+      const geohash = locData?.data?.[0]?.geohash;
+      if (!geohash) return null;
+
+      const fcRes = await fetch(
+        `https://api.weather.bom.gov.au/v1/locations/${geohash}/forecasts/daily`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+      if (!fcRes.ok) return null;
+      const fcData = await fcRes.json();
+      return Array.isArray(fcData?.data) ? fcData.data : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function evalWeatherTriggers(forecast) {
+    const result = { rainTomorrow: false, rainDay: null, heatWave: false, heatDay: null };
+    if (!Array.isArray(forecast) || forecast.length < 2) return result;
+
+    if ((forecast[1]?.rain?.chance ?? 0) >= 50) {
+      result.rainTomorrow = true;
+      for (let i = 1; i < Math.min(forecast.length, 8); i++) {
+        if ((forecast[i]?.rain?.chance ?? 0) < 50) {
+          const [fy, fm, fd] = forecast[i].date.split('T')[0].split('-').map(Number);
+          result.rainDay = new Date(fy, fm - 1, fd).toLocaleDateString('en-AU', { weekday: 'long' });
+          break;
+        }
+      }
+    }
+
+    for (let i = 0; i < Math.min(forecast.length, 7); i++) {
+      if ((forecast[i]?.temp_max ?? 0) >= 35) {
+        result.heatWave = true;
+        const [fy, fm, fd] = forecast[i].date.split('T')[0].split('-').map(Number);
+        result.heatDay = new Date(fy, fm - 1, fd).toLocaleDateString('en-AU', { weekday: 'long' });
+        break;
+      }
+    }
+
+    return result;
+  }
+
+  function isBeadMachineDueSoon() {
+    const due = calcNextDue('beadMachine');
+    if (due === null) return true;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return Math.ceil((due - today) / 86400000) <= 14;
+  }
+
+  function renderWeatherCards(triggers) {
+    const section = document.getElementById('weather-section');
+    if (!section) return;
+
+    const rainCard = document.getElementById('weather-rain-card');
+    const rainDesc = document.getElementById('weather-rain-desc');
+    const heatCard = document.getElementById('weather-heat-card');
+    const heatDesc = document.getElementById('weather-heat-desc');
+
+    if (triggers.rainTomorrow) {
+      rainDesc.textContent = triggers.rainDay
+        ? `Rain is likely tomorrow — wait until ${triggers.rainDay} for the next wash.`
+        : `Rain is likely tomorrow — check the forecast before washing.`;
+      rainCard.style.display = '';
+    } else {
+      rainCard.style.display = 'none';
+    }
+
+    const showHeat = triggers.heatWave && isBeadMachineDueSoon();
+    if (showHeat) {
+      const peak = triggers.heatDay ? ` Temperatures reaching 35°C+ are expected ${triggers.heatDay}.` : '';
+      heatDesc.textContent = `High UV and heat accelerate sealant breakdown.${peak} Consider a Bead Machine reapplication before the heat arrives.`;
+      heatCard.style.display = '';
+    } else {
+      heatCard.style.display = 'none';
+    }
+
+    section.style.display = (triggers.rainTomorrow || showHeat) ? '' : 'none';
+  }
+
+  async function loadWeather() {
+    const postcode = settings.car?.postcode?.trim();
+    const section = document.getElementById('weather-section');
+    if (!postcode || !section) {
+      if (section) section.style.display = 'none';
+      return;
+    }
+    const forecast = await fetchBomForecast(postcode);
+    if (!forecast) { section.style.display = 'none'; return; }
+    weatherCache = forecast;
+    renderWeatherCards(evalWeatherTriggers(forecast));
   }
 
   // ─── Init ────────────────────────────────────────

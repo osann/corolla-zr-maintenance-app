@@ -1417,6 +1417,32 @@
   .color-chip.active { border-color: var(--ink); }
 
   /* ─── Print ─────────────────────────────────────── */
+  /* ─── Weather Cards ─────────────────────────────── */
+  #weather-section { margin-bottom: 4px; }
+
+  .weather-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--rule);
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .weather-card--rain {
+    background: var(--bg-elev);
+    border-left: 3px solid #4a9ad4;
+  }
+  .weather-card--heat {
+    background: var(--warn-tint);
+    border-left: 3px solid var(--warn);
+  }
+  .weather-card-icon { font-size: 22px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+  .weather-card-title { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
+  .weather-card-desc { font-size: 13.5px; color: var(--ink-mid); line-height: 1.5; }
+  .weather-card--heat .weather-card-title { color: var(--warn); }
+
   @media print {
     .tabs, .reset-btn { display: none; }
     .panel { display: block !important; }
