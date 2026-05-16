@@ -71,14 +71,18 @@ Know when you're running low on a product before you run out.
 
 ---
 
-## 6. Weather-aware wash recommendations
+## 6. Weather-aware wash recommendations ✅
 
 Don't recommend a wash when rain is forecast; surface protection reminders before hot weather.
 
-- [ ] Store user postcode in settings
-- [ ] Integrate BOM forecast API (`api.weather.bom.gov.au`)
-- [ ] If rain forecast in next 24h, show "wait until [day]" hint on wash-due card
-- [ ] If 35°C+ forecast for the week, surface Bead Machine reapplication banner if due soon
+- [x] Store user postcode in settings (Vehicle details section)
+- [x] Integrate weather forecast API — Nominatim (postcode → lat/lon) + Open-Meteo (daily forecast); proxied through backend to avoid CORS
+- [x] If rain forecast in next 24h, show "wait until [day]" hint on wash-due card
+- [x] If 35°C+ forecast for the week, surface Bead Machine reapplication banner if due soon
+
+**Notes:**
+- BOM (`api.weather.bom.gov.au`) was attempted but blocks both browser requests (CORS) and Render's datacenter IPs. Open-Meteo geocoding also doesn't support postcode lookups. Final stack: Nominatim for AU postcode → lat/lon, Open-Meteo for 7-day forecast. Backend caches results for 3 hours.
+- Weather cards are in the log tab below the streak bar. Section stays hidden if no postcode is set or the API is unreachable.
 
 ---
 
