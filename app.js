@@ -220,33 +220,34 @@
     const PRICE_CATEGORIES = [
       {
         label: 'Equipment',
-        slugs: [
-          'debugger-cloth', 'plush-daddy', 'the-square-bear', 'inta-mitt',
-          'shagtastic-wash-pad', 'big-softie-pair', 'twisted-pro-sucker',
-          'the-big-green-sucker', 'plush-brush', '2-bucket-wash-kit',
-          'microfibre-bucket-lid', 'pumpy-pump', 'microfibre-wash-1l',
-          'the-essentials-starters-kit',
+        sections: [
+          { label: 'Microfibre', slugs: ['debugger-cloth', 'inta-mitt', 'plush-daddy', 'big-softie-pair'] },
+          { label: 'Wash Pads', slugs: ['shagtastic-wash-pad'] },
+          { label: 'Drying Towels', slugs: ['twisted-pro-sucker', 'the-big-green-sucker'] },
+          { label: 'Other', slugs: ['the-square-bear', 'plush-brush', '2-bucket-wash-kit', 'microfibre-bucket-lid', 'pumpy-pump', 'microfibre-wash-1l', 'the-essentials-starters-kit'] },
         ],
       },
       {
         label: 'Pressure Washer Equipment',
-        slugs: ['happy-ending-cannon-bottle', 'snow-blow-cannon', 'karcher-k2'],
+        sections: [
+          { label: 'Pressure Washers', slugs: ['karcher-k2'] },
+          { label: 'Foam Cannons', slugs: ['snow-blow-cannon', 'happy-ending-cannon-bottle'] },
+        ],
       },
       {
         label: 'Exterior Wash',
-        slugs: [
-          'flash-prep-500ml', 'naked-glass-500ml', 'orange-agent-500ml',
-          'naked-glass-770ml', 'snow-job-1l', 'naked-inta-mitt-pack',
-          'nanolicious-wash-pack-ultimate', 'nanolicious-shag-pack',
-          'nanolicious-wash-5l', 'snow-job-5l',
+        sections: [
+          { label: 'Glass', slugs: ['naked-glass-500ml', 'naked-glass-770ml', 'naked-inta-mitt-pack'] },
+          { label: 'Prep', slugs: ['flash-prep-500ml', 'orange-agent-500ml'] },
+          { label: 'Pre-Wash', slugs: ['snow-job-1l', 'snow-job-5l'] },
+          { label: 'Contact Wash', slugs: ['nanolicious-wash-pack-ultimate', 'nanolicious-shag-pack', 'nanolicious-wash-5l'] },
         ],
       },
       {
         label: 'Exterior Protection',
-        slugs: [
-          'bead-machine-500ml', 'boss-gloss-770ml', 'wet-dreams-770ml',
-          'happy-ending-1l', 'boss-gloss-5l', 'wet-dreams-5l',
-          'happy-ending-5l', 'wet-dreams-pack', 'boss-gloss-pack',
+        sections: [
+          { label: 'Sealant', slugs: ['bead-machine-500ml', 'wet-dreams-770ml', 'wet-dreams-5l', 'happy-ending-1l', 'happy-ending-5l', 'wet-dreams-pack'] },
+          { label: 'Quick Detailer', slugs: ['boss-gloss-770ml', 'boss-gloss-5l', 'boss-gloss-pack'] },
         ],
       },
       {
@@ -266,17 +267,17 @@
       },
       {
         label: 'Wheels',
-        slugs: [
-          'little-chubby-v2', 'the-little-stiffy', 'the-flat-head',
-          'the-chubby-wheel-brush-v2', 'wheely-clean-v2-500ml',
-          'wheely-clean-770ml', 'wheely-clean-v2-5l',
+        sections: [
+          { label: 'Equipment', slugs: ['little-chubby-v2', 'the-little-stiffy', 'the-flat-head', 'the-chubby-wheel-brush-v2'] },
+          { label: 'Clean', slugs: ['wheely-clean-v2-500ml', 'wheely-clean-770ml', 'wheely-clean-v2-5l'] },
+          { label: 'Protect', slugs: [] },
         ],
       },
     ];
 
     const productBySlug = Object.fromEntries(liveProducts.map(p => [p.slug, p]));
 
-    function renderRows(slugs) {
+    function renderProducts(slugs) {
       let html = '';
       for (const slug of slugs) {
         const product = productBySlug[slug];
@@ -284,6 +285,7 @@
         const retailers = Object.entries(product.latestPrice ?? {});
         if (retailers.length === 0) continue;
         const history = priceHistories[product.id] ?? [];
+        let retailerRows = '';
         for (const [retailer, data] of retailers) {
           const price = `$${(data.priceCents / 100).toFixed(2)}`;
           const saleTag = data.onSale ? '<span class="price-on-sale">Sale</span>' : '';
@@ -293,17 +295,21 @@
             ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
             : '<span class="price-row-link-none"></span>';
           const sparkline = buildSparklineSVG(history, retailer);
-          html += `
-            <div class="price-row">
-              <span class="price-row-name">${product.name}</span>
+          retailerRows += `
+            <div class="prices-retailer-row">
+              <span class="prices-retailer-name">${retailerName}</span>
               <div class="price-row-right">
                 <div class="price-row-amount">${price}${saleTag}</div>
-                <div class="price-row-meta">${retailerName}</div>
                 ${sparkline}
               </div>
               ${linkEl}
             </div>`;
         }
+        html += `
+          <div class="prices-product">
+            <div class="prices-product-name">${product.name}</div>
+            ${retailerRows}
+          </div>`;
       }
       return html;
     }
@@ -312,19 +318,16 @@
     let anyCard = false;
 
     for (const category of PRICE_CATEGORIES) {
-      let rows = '';
-      if (category.sections) {
-        for (let i = 0; i < category.sections.length; i++) {
-          const sec = category.sections[i];
-          const secRows = renderRows(sec.slugs);
-          if (!secRows) continue;
-          const headClass = i === 0 ? 'prices-section-head' : 'prices-section-head prices-section-head--gap';
-          rows += `<div class="${headClass}">${sec.label}</div>${secRows}`;
-        }
-      } else {
-        rows = renderRows(category.slugs);
+      let body = '';
+      let firstSec = true;
+      for (const sec of category.sections) {
+        const secHtml = renderProducts(sec.slugs);
+        if (!secHtml) continue;
+        const headClass = firstSec ? 'prices-section-head' : 'prices-section-head prices-section-head--gap';
+        body += `<div class="${headClass}">${sec.label}</div>${secHtml}`;
+        firstSec = false;
       }
-      if (!rows) continue;
+      if (!body) continue;
 
       const card = document.createElement('div');
       card.className = 'phase-spend-card';
@@ -332,7 +335,7 @@
         <div class="phase-spend-head">
           <div class="phase-spend-name">${category.label}</div>
         </div>
-        ${rows}`;
+        ${body}`;
       container.appendChild(card);
       anyCard = true;
     }
