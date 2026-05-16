@@ -295,7 +295,7 @@
             ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
             : '<span class="price-row-link-none"></span>';
           const sparkline = buildSparklineSVG(history, retailer)
-            || '<span class="prices-no-data">Not enough data.</span>';
+            || '<span class="prices-no-data">No data yet.</span>';
           retailerRows += `
             <div class="prices-retailer-row">
               <span class="prices-retailer-name">${retailerName}</span>
