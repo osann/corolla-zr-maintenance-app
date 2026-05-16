@@ -221,10 +221,10 @@
       {
         label: 'Equipment',
         sections: [
-          { label: 'Microfibre', slugs: ['debugger-cloth', 'inta-mitt', 'plush-daddy', 'big-softie-pair'] },
+          { label: 'Microfibre', slugs: ['debugger-cloth', 'inta-mitt', 'plush-daddy', 'big-softie-pair', 'the-square-bear'] },
           { label: 'Wash Pads', slugs: ['shagtastic-wash-pad'] },
           { label: 'Drying Towels', slugs: ['twisted-pro-sucker', 'the-big-green-sucker'] },
-          { label: 'Other', slugs: ['the-square-bear', 'plush-brush', '2-bucket-wash-kit', 'microfibre-bucket-lid', 'pumpy-pump', 'microfibre-wash-1l', 'the-essentials-starters-kit'] },
+          { label: 'Other', slugs: ['plush-brush', '2-bucket-wash-kit', 'microfibre-bucket-lid', 'pumpy-pump', 'microfibre-wash-1l', 'the-essentials-starters-kit'] },
         ],
       },
       {
@@ -288,13 +288,14 @@
         let retailerRows = '';
         for (const [retailer, data] of retailers) {
           const price = `$${(data.priceCents / 100).toFixed(2)}`;
-          const saleTag = data.onSale ? '<span class="price-on-sale">Sale</span>' : '';
+          const saleTag = data.onSale ? '<span class="price-on-sale">🔥 Sale</span>' : '';
           const retailerName = RETAILER_NAMES[retailer] || retailer;
           const url = product.urls?.[retailer] || null;
           const linkEl = url
             ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
             : '<span class="price-row-link-none"></span>';
-          const sparkline = buildSparklineSVG(history, retailer);
+          const sparkline = buildSparklineSVG(history, retailer)
+            || '<span class="prices-no-data">Not enough data.</span>';
           retailerRows += `
             <div class="prices-retailer-row">
               <span class="prices-retailer-name">${retailerName}</span>
