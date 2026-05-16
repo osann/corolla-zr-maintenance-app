@@ -78,10 +78,12 @@ function mergeCookies(existing: string, setCookies: string[]): string {
 // First $XX.XX in the page is the product price.
 // Afterpay instalment text ("4 payments of $X.XX") appears after the main price.
 // Strike-through <s>/<del> tag indicates a was-price when on sale.
+// $0.00 is rejected — it indicates an out-of-stock or error page, not a real price.
 function parsePriceHtml(html: string): { priceCents: number; compareAtCents: number | null } | null {
   const priceMatch = html.match(/\$([0-9]+\.[0-9]{2})/);
   if (!priceMatch) return null;
   const priceCents = Math.round(parseFloat(priceMatch[1]) * 100);
+  if (priceCents === 0) return null;
   const wasMatch = html.match(/<(?:s|del)[^>]*>\s*\$?\s*([0-9]+(?:\.[0-9]{1,2})?)\s*<\/(?:s|del)>/i);
   const compareAtCents = wasMatch ? Math.round(parseFloat(wasMatch[1]) * 100) : null;
   return { priceCents, compareAtCents };
@@ -187,6 +189,8 @@ export function createFetchScraper(config: FetchScraperConfig) {
 
   // Playwright fallback for products that plain-fetch can't reach.
   // Launched once per scrape run, handles all failed products in one browser session.
+  // Uses a short fixed delay (8s) between requests rather than the HTTP rate-limit delay —
+  // failing products are blocked server-side, not rate-limited, so extra waiting doesn't help.
   async function playwrightScrape(failed: Row[]): Promise<PriceObservation[]> {
     console.log(`\n${retailer}: ${failed.length} products failed HTTP — retrying with Playwright...`);
     const { createStealthContext } = await import('../lib/browser.js');
@@ -208,14 +212,14 @@ export function createFetchScraper(config: FetchScraperConfig) {
           await page.close();
 
           const result = parsePriceHtml(html);
-          if (!result) { console.warn(`  [playwright] No price found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
+          if (!result) { console.warn(`  [playwright] No price found: ${row.url}`); await sleep(8_000); continue; }
 
           results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
           console.log(`  [playwright ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
         } catch (err) {
-          console.error(`  [playwright error] ${row.name}:`, err);
+          console.error(`  [playwright error] ${row.name}:`, (err as Error).message.split('\n')[0]);
         }
-        await sleepJitter(rateLimitMs);
+        await sleep(8_000);
       }
     } finally {
       await close();
