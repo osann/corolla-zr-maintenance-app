@@ -136,13 +136,15 @@ On GitHub Actions, de-duplication happens server-side in the `POST /api/prices` 
 
 ---
 
-## Auto Barn: cloud IPs blocked, scraped via self-hosted runner with Playwright fallback
+## Auto Barn: cloud IPs blocked, scraped via self-hosted runner (HTTP only)
 
 Auto Barn (`autobarn.com.au`) returns HTTP 403 from GitHub Actions hosted runner IPs and Render's cloud IPs. It is scraped from `debian-server`, a home Debian Linux machine with a residential IP, via `scrape-autobarn.yml`.
 
-Even with a residential IP, roughly half (~20/40) of Auto Barn product URLs consistently timeout on plain HTTP (60s, the other half succeed in <15s). The pattern is per-URL — the same products fail on every run regardless of session cookies, headers, or timing. These failures are handled by `playwrightFallback: true` in `autobarn.ts`: after the plain-HTTP loop, all failed products are retried in a single Playwright browser session using `createStealthContext()`.
+Even with a residential IP, roughly 40–60% of Auto Barn product URLs consistently hang on plain HTTP (60s timeout). The products that succeed respond in <15s; the failures never respond regardless of timeout length. The failing set shifts slightly between runs depending on server load (homepage pre-fetch taking 70s instead of the usual 15s indicates a high-load day). Typically ~16–18/40 products are captured per run.
 
-**Self-hosted runner OS dependencies:** `npm ci` postinstall runs `npx playwright install chromium` which downloads the browser binary, but does NOT install the required system libraries. These must be installed once manually on `debian-server`:
+**Playwright fallback was tried and does not work:** the same product URLs that hang on plain HTTP also timeout in a Playwright browser session. Three runs of Playwright confirmed zero valid price captures. The failing URLs appear to hang at the server level — not a bot-detection issue. `playwrightFallback` is disabled on `autobarn.ts`. Do not re-enable it.
+
+The OS dependencies for Playwright are installed on `debian-server` (required by the existing `browser.ts` infrastructure used by Supercheap/Repco scrapers):
 
 ```bash
 sudo apt-get install -y libgbm1 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
@@ -150,7 +152,7 @@ sudo apt-get install -y libgbm1 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 
   libxrandr2 libxext6 libx11-xcb1 libpango-1.0-0 libasound2
 ```
 
-Without these, Playwright will fail with: `error while loading shared libraries: libgbm.so.1: cannot open shared object file: No such file or directory`.
+The missing ~22–24 Auto Barn products are covered by Autopro (same platform, same SKU codes, same prices). HTTP-only coverage of ~40% is acceptable.
 
 **Do not attempt to re-add Auto Barn scraping from any cloud environment.** The block is IP-level and is not affected by user-agent, headers, or request timing.
 
