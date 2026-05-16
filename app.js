@@ -116,6 +116,16 @@
   let liveProducts = [];
   let slugToBest = {};
   let priceHistories = {}; // productId → [{ retailer, priceCents, onSale, observedAt }, ...]
+  let pricesReady = false;
+
+  function showLoader() {
+    const el = document.getElementById('loading-screen');
+    if (el) el.classList.remove('done');
+  }
+  function dismissLoader() {
+    const el = document.getElementById('loading-screen');
+    if (el) el.classList.add('done');
+  }
 
   async function loadBudget() {
     const b = await storageGet(BUDGET_KEY);
@@ -343,6 +353,9 @@
 
     if (!anyCard) {
       container.innerHTML = '<p class="prices-empty">No prices loaded yet.</p>';
+    } else {
+      pricesReady = true;
+      dismissLoader();
     }
   }
 
@@ -494,6 +507,7 @@
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       tab.classList.add('active');
       document.getElementById(tab.dataset.tab).classList.add('active');
+      if (tab.dataset.tab === 'prices' && !pricesReady) showLoader();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
@@ -1226,11 +1240,7 @@
     await loadSettings();
     await checkAuthAndSync();
     await minWait;
-    const loader = document.getElementById('loading-screen');
-    if (loader) {
-      loader.classList.add('done');
-      loader.addEventListener('transitionend', () => loader.remove(), { once: true });
-    }
+    dismissLoader();
     loadPriceData();
   }
   init();
