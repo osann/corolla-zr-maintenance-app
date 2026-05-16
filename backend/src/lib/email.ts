@@ -1,9 +1,58 @@
 import { Resend } from 'resend';
+import { db } from '../db/connection.js';
+import { users, userData } from '../db/schema.js';
+import { and, eq } from 'drizzle-orm';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function sendTickTickTask(subject: string, body: string): Promise<void> {
-  const to = process.env.TICKTICK_EMAIL;
+export interface NotificationSettings {
+  ticktickEmail: string | null;
+  priceAlerts: boolean;
+  washReminders: boolean;
+}
+
+const NOTIF_DEFAULTS: NotificationSettings = {
+  ticktickEmail: null,
+  priceAlerts: true,
+  washReminders: true,
+};
+
+export async function getOwnerNotificationSettings(
+  ownerEmail: string
+): Promise<NotificationSettings> {
+  try {
+    const userRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, ownerEmail))
+      .limit(1);
+    if (userRows.length === 0) return { ...NOTIF_DEFAULTS };
+
+    const dataRows = await db
+      .select({ valueJson: userData.valueJson })
+      .from(userData)
+      .where(and(
+        eq(userData.userId, userRows[0].id),
+        eq(userData.key, 'corolla-settings-v1'),
+      ))
+      .limit(1);
+    if (dataRows.length === 0) return { ...NOTIF_DEFAULTS };
+
+    const parsed = JSON.parse(dataRows[0].valueJson);
+    const n = parsed?.notifications;
+    if (!n || typeof n !== 'object') return { ...NOTIF_DEFAULTS };
+
+    return {
+      ticktickEmail:  typeof n.ticktickEmail === 'string' && n.ticktickEmail ? n.ticktickEmail : null,
+      priceAlerts:    typeof n.priceAlerts   === 'boolean' ? n.priceAlerts   : true,
+      washReminders:  typeof n.washReminders === 'boolean' ? n.washReminders : true,
+    };
+  } catch {
+    return { ...NOTIF_DEFAULTS };
+  }
+}
+
+export async function sendTickTickTask(to: string, subject: string, body: string): Promise<void> {
   if (!to) return;
 
   await resend.emails.send({

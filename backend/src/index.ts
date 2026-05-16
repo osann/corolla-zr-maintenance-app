@@ -13,7 +13,7 @@ import { seed } from './db/seed.js';
 import { db } from './db/connection.js';
 import { users, userData } from './db/schema.js';
 import { and, eq } from 'drizzle-orm';
-import { sendTickTickTask } from './lib/email.js';
+import { sendTickTickTask, getOwnerNotificationSettings } from './lib/email.js';
 
 // Ensure schema and seed data exist on every startup (idempotent).
 // Handles first boot on a fresh Render deploy where the SQLite file doesn't exist yet.
@@ -48,9 +48,9 @@ cron.schedule('0 5 * * *', () => {
 
 // Wash reminder: daily at 07:00 UTC (after Autopro scrape window closes).
 cron.schedule('0 7 * * *', async () => {
-  if (!process.env.TICKTICK_EMAIL) return;
-
   const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
+  const notifSettings = await getOwnerNotificationSettings(ownerEmail);
+  if (!notifSettings.washReminders || !notifSettings.ticktickEmail) return;
 
   try {
     const userRows = await db
@@ -101,6 +101,7 @@ cron.schedule('0 7 * * *', async () => {
     const lastDateStr = lastDate.toISOString().slice(0, 10);
 
     await sendTickTickTask(
+      notifSettings.ticktickEmail,
       '🚗 Corolla wash due',
       overdueDays > 0
         ? `Last wash: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'} (every ${intervalDays} days)`

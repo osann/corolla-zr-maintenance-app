@@ -1270,6 +1270,51 @@
       </div>
     </div>
 
+    <!-- ── Notifications ── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Notifications</div>
+      <div class="settings-section-desc">Send tasks to TickTick when a wash is due or a product goes on sale. Find your personal address in TickTick → Settings → Email.</div>
+
+      <div class="log-form-grid" style="margin-bottom:0;">
+        <div class="log-field">
+          <label class="log-label" for="ticktick-email">TickTick email</label>
+          <input class="log-input" type="email" id="ticktick-email" placeholder="todo####@mail.ticktick.com">
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Price alerts</strong>
+          <span>Create a task when a product goes on sale</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-price-alerts" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Wash reminders</strong>
+          <span>Create a task when a wash is overdue</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-wash-reminders" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-save-bar">
+        <button class="settings-save-btn" onclick="saveSettings('notifications')">Save</button>
+        <button class="settings-reset-btn" onclick="resetNotifications()">Reset to defaults</button>
+        <span class="settings-saved-msg" id="notifications-saved">Saved ✓</span>
+      </div>
+    </div>
+
     <!-- ── Data management ── -->
     <div class="settings-section">
       <div class="settings-section-title">Data management</div>

@@ -912,11 +912,18 @@
     weeklyStreak: true
   };
 
+  const DEFAULT_NOTIFICATIONS = {
+    ticktickEmail: '',
+    priceAlerts: true,
+    washReminders: true,
+  };
+
   let settings = {
     freq: { ...FREQ_DEFAULTS },
     routines: JSON.parse(JSON.stringify(DEFAULT_STEPS)),
     prefs: { ...DEFAULT_PREFS },
-    car: { model: '', year: '', colour: '', rego: '', displayName: '' }
+    car: { model: '', year: '', colour: '', rego: '', displayName: '' },
+    notifications: { ...DEFAULT_NOTIFICATIONS },
   };
 
   // Frequency stepper
@@ -1059,6 +1066,12 @@
     document.getElementById('car-postcode').value = settings.car.postcode || '';
   }
 
+  function loadNotificationsUI() {
+    document.getElementById('ticktick-email').value          = settings.notifications.ticktickEmail || '';
+    document.getElementById('pref-price-alerts').checked    = settings.notifications.priceAlerts;
+    document.getElementById('pref-wash-reminders').checked  = settings.notifications.washReminders;
+  }
+
   function applyCarInfo() {
     const { model, year, colour } = settings.car;
     const m = model || 'Corolla ZR Hybrid';
@@ -1173,6 +1186,10 @@
       settings.car.colour = document.getElementById('car-colour').value.trim();
       settings.car.displayName = document.getElementById('car-display-name').value.trim();
       settings.car.postcode = document.getElementById('car-postcode').value.trim();
+    } else if (section === 'notifications') {
+      settings.notifications.ticktickEmail  = (document.getElementById('ticktick-email')?.value ?? '').trim();
+      settings.notifications.priceAlerts    = document.getElementById('pref-price-alerts')?.checked ?? true;
+      settings.notifications.washReminders  = document.getElementById('pref-wash-reminders')?.checked ?? true;
     }
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
@@ -1203,12 +1220,14 @@
         };
       }
       if (saved.prefs) settings.prefs = { ...DEFAULT_PREFS, ...saved.prefs };
-      if (saved.car)  settings.car  = { model:'', year:'', colour:'', displayName:'', postcode:'', ...saved.car };
+      if (saved.car)           settings.car           = { model:'', year:'', colour:'', displayName:'', postcode:'', ...saved.car };
+      if (saved.notifications) settings.notifications = { ...DEFAULT_NOTIFICATIONS, ...saved.notifications };
     }
     renderFreqDisplays();
     renderAllRoutineEditors();
     loadPrefsUI();
     loadCarUI();
+    loadNotificationsUI();
     applyPrefs();
     applyCarInfo();
     applyLogStepChips();
@@ -1244,6 +1263,15 @@
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
     showSaved('prefs-saved');
+  }
+
+  async function resetNotifications() {
+    if (!confirm('Reset notification settings to defaults?')) return;
+    settings.notifications = { ...DEFAULT_NOTIFICATIONS };
+    loadNotificationsUI();
+    await storageSet(SETTINGS_KEY, settings);
+    syncPush(SETTINGS_KEY, settings);
+    showSaved('notifications-saved');
   }
 
   function showSaved(id) {

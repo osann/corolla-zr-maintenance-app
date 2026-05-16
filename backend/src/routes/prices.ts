@@ -3,7 +3,7 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
-import { sendTickTickTask } from '../lib/email.js';
+import { sendTickTickTask, getOwnerNotificationSettings } from '../lib/email.js';
 
 const router = new Hono();
 
@@ -35,6 +35,9 @@ router.post('/prices', async (c) => {
   if (!Array.isArray(body) || body.length === 0) {
     return c.json({ error: 'Expected non-empty array of observations' }, 400);
   }
+
+  const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
+  const notifSettings = await getOwnerNotificationSettings(ownerEmail);
 
   let inserted = 0;
   let skipped = 0;
@@ -92,7 +95,7 @@ router.post('/prices', async (c) => {
 
       const previouslyOnSale = recent[1]?.onSale ?? false;
 
-      if (!previouslyOnSale) {
+      if (!previouslyOnSale && notifSettings.priceAlerts && notifSettings.ticktickEmail) {
         const productName  = productRows[0].name;
         const currentPrice = `$${(priceCents / 100).toFixed(2)}`;
         const prevCents    = recent[1]?.priceCents;
@@ -100,6 +103,7 @@ router.post('/prices', async (c) => {
         const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
 
         sendTickTickTask(
+          notifSettings.ticktickEmail,
           `🔥 ${productName} on sale at ${retailerName} — ${currentPrice}`,
           `Current price: ${currentPrice}\n${prevLine}`,
         ).catch(console.error);
