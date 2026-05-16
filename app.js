@@ -1,7 +1,8 @@
   // ─── Backend ─────────────────────────────────────
   const BACKEND_URL = '__BACKEND_URL__';
-  let syncEnabled = false;
-  let syncEmail   = null;
+  let syncEnabled   = false;
+  let syncEmail     = null;
+  let lastSyncedAt  = null;
 
   // ─── Storage helpers ─────────────────────────────
   const hasStorage = typeof window.storage !== 'undefined';
@@ -33,7 +34,22 @@
         body: JSON.stringify(value),
         signal: AbortSignal.timeout(8000),
       });
+      lastSyncedAt = new Date();
+      updateFooterSync();
     } catch {}
+  }
+
+  function updateFooterSync() {
+    const el = document.getElementById('footer-sync');
+    if (!el) return;
+    if (syncEnabled && lastSyncedAt) {
+      const t = lastSyncedAt.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
+      el.textContent = `Synced · ${t}`;
+    } else if (syncEnabled) {
+      el.textContent = 'Synced';
+    } else {
+      el.textContent = 'Local only — sign in to sync across devices';
+    }
   }
 
   // ─── Checklist ───────────────────────────────────
@@ -726,12 +742,12 @@
 
   function applyCarInfo() {
     const { model, year, colour } = settings.car;
+    const m = model || 'Corolla ZR Hybrid';
+    const y = year  || '2025';
     const h1 = document.getElementById('header-h1');
-    if (h1) {
-      const m = model || 'Corolla ZR Hybrid';
-      const y = year  || '2025';
-      h1.innerHTML = `${y} <em>${m}</em><br>care guide`;
-    }
+    if (h1) h1.innerHTML = `${y} <em>${m}</em><br>care guide`;
+    const footerCtx = document.getElementById('footer-context');
+    if (footerCtx) footerCtx.textContent = `Kit & technique reference for the ${y} ${m}`;
     applyColourAccent(colour);
   }
 
@@ -1091,6 +1107,7 @@
       if (statusText)   statusText.textContent   = 'Not signed in — data is local only';
       if (navBtn) { navBtn.textContent = 'Sign in'; navBtn.classList.remove('syncing'); }
     }
+    updateFooterSync();
   }
 
   function navAuthClick() {
