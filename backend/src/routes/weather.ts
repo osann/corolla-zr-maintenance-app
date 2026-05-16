@@ -8,7 +8,11 @@ type DayForecast = { date: string; rain_chance: number; temp_max: number };
 const cache = new Map<string, { forecast: DayForecast[]; fetchedAt: number }>();
 const CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
 
-// GET /weather?postcode=3000 — returns 7-day forecast via Open-Meteo (no API key, no IP restrictions)
+const NOMINATIM_UA = 'corolla-detailing/1.0 (personal project; joh.10@pm.me)';
+
+// GET /weather?postcode=3000
+// Geocoding: Nominatim (supports AU postcodes, no key needed)
+// Forecast:  Open-Meteo (no key, no IP restrictions)
 router.get('/weather', async (c) => {
   const postcode = c.req.query('postcode') ?? '';
   if (!/^\d{4}$/.test(postcode)) return c.json(null);
@@ -19,20 +23,24 @@ router.get('/weather', async (c) => {
   }
 
   try {
-    // Step 1: geocode the Australian postcode to lat/lon
+    // Step 1: postcode → lat/lon via Nominatim
     const geoRes = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(postcode)}&count=1&countryCode=AU&language=en&format=json`,
-      { signal: AbortSignal.timeout(6000) }
+      `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(postcode)}&countrycodes=au&format=json&limit=1`,
+      {
+        headers: { 'User-Agent': NOMINATIM_UA, Accept: 'application/json' },
+        signal: AbortSignal.timeout(6000),
+      }
     );
     if (!geoRes.ok) return c.json(null);
 
-    const geoData = (await geoRes.json()) as { results?: { latitude: number; longitude: number }[] };
-    const loc = geoData?.results?.[0];
-    if (!loc) return c.json(null);
+    const geoData = (await geoRes.json()) as { lat: string; lon: string }[];
+    if (!geoData.length) return c.json(null);
 
-    // Step 2: fetch 7-day daily forecast
+    const { lat, lon } = geoData[0];
+
+    // Step 2: lat/lon → 7-day daily forecast via Open-Meteo
     const fcRes = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&daily=precipitation_probability_max,temperature_2m_max&timezone=auto&forecast_days=7`,
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_probability_max,temperature_2m_max&timezone=auto&forecast_days=7`,
       { signal: AbortSignal.timeout(6000) }
     );
     if (!fcRes.ok) return c.json(null);
