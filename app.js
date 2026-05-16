@@ -1375,13 +1375,12 @@
 
   async function loadPriceHistories() {
     if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
-    const targets = liveProducts.filter(p => Object.keys(p.latestPrice).length > 0);
-    await Promise.all(targets.map(async (p) => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/products/${p.id}/prices`);
-        if (res.ok) priceHistories[p.id] = await res.json();
-      } catch {}
-    }));
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/prices`);
+      if (!res.ok) return;
+      const bulk = await res.json();
+      Object.assign(priceHistories, bulk);
+    } catch {}
     renderPriceList();
     renderPricesTab();
   }

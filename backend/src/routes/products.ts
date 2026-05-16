@@ -56,7 +56,31 @@ router.get('/products', async (c) => {
   return c.json(result);
 });
 
-// GET /products/:id/prices — full price history for sparklines
+// GET /products/prices — all price histories in one call, grouped by productId
+// Must be registered before /:id/prices so "prices" isn't matched as an id.
+router.get('/products/prices', async (c) => {
+  const history = await db
+    .select({
+      productId: priceHistory.productId,
+      retailer: priceHistory.retailer,
+      priceCents: priceHistory.priceCents,
+      onSale: priceHistory.onSale,
+      observedAt: priceHistory.observedAt,
+    })
+    .from(priceHistory)
+    .where(sql`${priceHistory.observedAt} >= datetime('now', '-90 days')`)
+    .orderBy(desc(priceHistory.observedAt));
+
+  const byProduct: Record<number, typeof history> = {};
+  for (const row of history) {
+    if (!byProduct[row.productId]) byProduct[row.productId] = [];
+    byProduct[row.productId].push(row);
+  }
+
+  return c.json(byProduct);
+});
+
+// GET /products/:id/prices — full price history for a single product (kept for compatibility)
 router.get('/products/:id/prices', async (c) => {
   const id = parseInt(c.req.param('id'), 10);
   if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400);
