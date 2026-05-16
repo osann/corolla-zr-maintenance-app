@@ -304,6 +304,90 @@
   .item.done .item-desc { color: var(--ink-low); }
   .item.done .item-price { color: var(--ink-low); }
 
+  /* ─── Checklist edit mode ───────────────────────── */
+  .phase-head { align-items: center; }
+  .phase-head-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .phase-edit-btn {
+    font-size: 12px;
+    padding: 4px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 100px;
+    background: transparent;
+    color: var(--ink-mid);
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .phase-edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .phase--editing .phase-edit-btn { border-color: var(--accent); color: var(--accent); }
+
+  .phase--editing .item {
+    grid-template-columns: 20px minmax(0, 1fr) auto 28px;
+  }
+  .item-remove {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--ink-low);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    margin-top: 1px;
+    transition: color 0.12s, background 0.12s;
+  }
+  .phase--editing .item-remove { display: flex; }
+  .item-remove:hover { color: var(--danger); background: var(--danger-tint); }
+
+  .phase-edit-panel {
+    padding: 14px 0 4px;
+    border-top: 1px solid var(--rule);
+    margin-top: 8px;
+  }
+  .phase-edit-add {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .phase-edit-select {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .phase-edit-select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .phase-edit-add-btn {
+    padding: 8px 18px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+  .phase-edit-add-btn:hover { opacity: 0.88; }
+
   /* ─── Guide Panel ───────────────────────────────── */
   .guide-intro {
     font-family: 'Fraunces', Georgia, serif;

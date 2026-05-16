@@ -60,17 +60,78 @@
   }
 
   // ─── Checklist ───────────────────────────────────
-  const CHECKLIST_KEY = 'corolla-detailing-app-v4';
-  const items = document.querySelectorAll('.item');
-  const itemData = Array.from(items).map((el, i) => ({
-    id: 'item-' + i,
-    el,
-    input: el.querySelector('input'),
-    price: parseInt(el.dataset.price, 10),
-    phase: el.closest('.phase').dataset.phase,
-    name: el.querySelector('.item-name').textContent.trim(),
-    slug: el.dataset.slug ?? null,
-  }));
+  const CHECKLIST_KEY    = 'corolla-detailing-app-v4'; // legacy key, used only for migration
+  const CHECKLIST_V2_KEY = 'corolla-checklist-v2';
+
+  // Full product catalog — all phase 1–4 items + phase 0 extras available for the dropdown
+  const CATALOG = [
+    // Phase 1
+    { slug: 'nanolicious-wash-pack-ultimate', name: 'Nanolicious Wash Pack Ultimate',       desc: 'Includes Nanolicious, Wash Pad for Shags, Big Green Sucker, Boss Gloss 125ml',                                    price: 95  },
+    { slug: 'wet-dreams-pack',                name: 'Wet Dreams Pack',                       desc: 'Hydrophobic spray sealant — apply to wet car post-rinse every wash',                                              price: 54  },
+    { slug: '2-bucket-wash-kit',              name: '2 Bucket Wash Kit',                     desc: 'Two 15L buckets + Great Barrier Thingy grit guards',                                                              price: 55  },
+    { slug: 'boss-gloss-770ml',               name: 'Boss Gloss 770ml',                      desc: 'Drying aid, quick detailer, clay bar lubricant',                                                                  price: 23  },
+    { slug: 'naked-glass-500ml',              name: 'Naked Glass 500ml',                     desc: 'Ammonia-free, tint-safe glass cleaner',                                                                           price: 17  },
+    { slug: 'inta-mitt',                      name: 'Inta-Mitt',                             desc: 'Purpose-built dual-sided glass cleaning mitt with flat profile for windscreen corners',                           price: 22  },
+    { slug: 'karcher-k2',                     name: 'Kärcher K2 Premium Pressure Washer',    desc: '1750 PSI · 6.2L/min · Kärcher K-series adapter compatible out-of-box with Snow Blow Cannon',                    price: 189 },
+    { slug: 'snow-blow-cannon',               name: "Bowden's Own Snow Blow Cannon",         desc: 'Brass fittings, 1L anti-tip bottle, top air adjustment knob',                                                     price: 99  },
+    { slug: 'snow-job-1l',                    name: 'Snow Job 1L',                           desc: 'Pre-wash snow foam — use before every contact wash',                                                              price: 25  },
+    // Phase 2
+    { slug: 'wheely-clean-v2-500ml',          name: 'Wheely Clean V2 500ml',                 desc: 'pH-neutral wheel cleaner — protects alloys from brake dust corrosion',                                           price: 22  },
+    { slug: 'the-little-stiffy',              name: 'The Little Stiffy',                     desc: 'Tyre brush — stiff bristles for sidewall texture',                                                                price: 15  },
+    { slug: 'the-flat-head',                  name: 'The Flat Head',                         desc: "Wheel brush for ZR's 18\" alloy barrels. Non-slip handle, knuckle protector",                                   price: 30  },
+    { slug: 'fabra-cadabra-500ml',            name: 'Fabra Cadabra 500ml',                   desc: 'Solvent-free Ultrasuede cleaner — non-negotiable for ZR seat inserts',                                          price: 23  },
+    { slug: 'bolp-leather-care-pack',         name: 'BOLP — Leather Care Pack',              desc: 'Leather Love + Leather Guard + Square Bear + Plush Daddy',                                                       price: 78  },
+    { slug: 'fabratection',                   name: 'Fabratection',                          desc: 'Water-based protector for Ultrasuede seats, carpet floor mats, fabric headlining — apply while new',            price: 47  },
+    { slug: '303-aerospace',                  name: '303 Aerospace Protectant 473ml',        desc: 'UV protection for interior plastics, dashboard, rubber/all-weather floor mats — SPF 40 equivalent. From BCF, Detailing Shed', price: 30 },
+    // Phase 3
+    { slug: 'pumpy-pump',                     name: 'Pumpy Pump',                            desc: "Screws into any Bowden's 5L bottle — 25ml per pump",                                                             price: 14  },
+    { slug: 'nanolicious-wash-5l',            name: 'Nanolicious Wash 5L',                   desc: 'Wait for 30% off sale at Supercheap/Repco before buying',                                                        price: 68  },
+    { slug: 'microfibre-wash-1l',             name: 'Microfibre Wash 1L',                    desc: 'Keeps Big Green Sucker and Inta-Mitt absorbent — never fabric softener',                                        price: 28  },
+    // Phase 4
+    { slug: 'plush-brush',                    name: 'Plush Brush',                           desc: 'Soft-bristle brush for Ultrasuede pile and piano black trim',                                                    price: 18  },
+    { slug: 'flash-prep-500ml',               name: 'Flash Prep 500ml',                      desc: 'Required prep before Bead Machine — strips waxes, sealants, oils for proper bonding',                          price: 25  },
+    { slug: 'bead-machine-500ml',             name: 'Bead Machine 500ml',                    desc: "Most protective product in Bowden's range — synthetic sealant lasting 3–6 months",                              price: 50  },
+    { slug: 'big-softie-pair',                name: 'Big Softie pair (blue + orange)',        desc: 'Two cloths required for Bead Machine application + buffing. Useful as dedicated paint cloths',                  price: 32  },
+    { slug: 'snow-job-5l',                    name: 'Snow Job 5L',                           desc: 'Bulk pre-wash refill — wait for 30% off sale',                                                                   price: 78  },
+    { slug: 'wheely-clean-v2-5l',             name: 'Wheely Clean V2 5L',                    desc: 'Bulk wheel cleaner refill — wait for 30% off sale',                                                              price: 83  },
+    // Phase 0 extras (pricing-only in default kit, available to add to any phase)
+    { slug: 'shagtastic-wash-pad',            name: 'Shagtastic Wash Pad',                   desc: 'Wash pad for Nanolicious — thick shaggy microfibre',                                                             price: 0   },
+    { slug: 'happy-ending-cannon-bottle',     name: 'Happy Ending Cannon Bottle',            desc: 'Snow foam cannon bottle sized for Happy Ending formula',                                                          price: 0   },
+    { slug: 'the-chubby-wheel-brush-v2',      name: 'The Chubby Wheel Brush V2',             desc: 'Wheel spoke and barrel brush',                                                                                    price: 0   },
+    { slug: 'naked-inta-mitt-pack',           name: 'Naked Inta-Mitt Glass Cleaning Pack',   desc: 'Naked Glass + Inta-Mitt bundle',                                                                                  price: 0   },
+    { slug: 'twisted-pro-sucker',             name: 'Twisted Pro Sucker Drying Towel',       desc: 'Plush twisted-loop drying towel',                                                                                 price: 0   },
+    { slug: 'leather-love-v2-500ml',          name: 'Leather Love V2 500ml',                 desc: 'Leather cleaner — sold individually (also in BOLP pack)',                                                        price: 0   },
+    { slug: 'the-square-bear',                name: 'The Square Bear Interior Applicator',   desc: 'Interior applicator pad for leather and trim',                                                                    price: 0   },
+    { slug: 'the-big-green-sucker',           name: 'The Big Green Sucker Drying Towel',     desc: 'Waffle-weave drying towel (also in Nanolicious Wash Pack)',                                                      price: 0   },
+    { slug: 'leather-guard-500ml',            name: 'Leather Guard 500ml',                   desc: 'Leather protectant — sold individually (also in BOLP pack)',                                                     price: 0   },
+    { slug: 'plush-daddy',                    name: 'Plush Daddy Interior Microfibre',       desc: 'Interior microfibre cloth for leather and trim',                                                                  price: 0   },
+    { slug: 'wet-dreams-770ml',               name: 'Wet Dreams Sealant 770ml',              desc: 'Hydrophobic spray sealant — larger 770ml bottle',                                                                 price: 0   },
+    { slug: 'happy-ending-1l',               name: 'Happy Ending Foam 1L',                  desc: 'Post-wash finishing foam — seals and protects',                                                                   price: 0   },
+    { slug: 'wheely-clean-770ml',             name: 'Wheely Clean 770ml',                    desc: 'Wheel cleaner 770ml (Supercheap size)',                                                                           price: 0   },
+    { slug: 'naked-glass-770ml',              name: 'Naked Glass 770ml',                     desc: 'Glass cleaner 770ml (Supercheap size)',                                                                           price: 0   },
+    { slug: 'little-chubby-v2',              name: 'Little Chubby Brush V2',                desc: 'Small barrel and spoke detailing brush',                                                                          price: 0   },
+    { slug: 'nanolicious-shag-pack',          name: 'Nanolicious Shag Pack',                 desc: 'Nanolicious Wash + Shagtastic wash pad bundle',                                                                   price: 0   },
+    { slug: 'the-essentials-starters-kit',   name: 'The Essentials Starters Kit',           desc: 'Entry-level starter kit bundle',                                                                                  price: 0   },
+    { slug: 'microfibre-bucket-lid',          name: 'Microfibre Bucket With Lid',            desc: 'Dedicated microfibre washing bucket',                                                                             price: 0   },
+    { slug: 'orange-agent-500ml',             name: 'Orange Agent 500ml',                    desc: 'All-purpose citrus-based cleaner and degreaser',                                                                  price: 0   },
+    { slug: 'debugger-cloth',                 name: 'Debugger Cloth',                        desc: 'Glass cleaning cloth',                                                                                            price: 0   },
+    { slug: 'wet-dreams-5l',                  name: 'Wet Dreams Sealant 5L',                 desc: 'Hydrophobic spray sealant — 5L bulk',                                                                             price: 0   },
+    { slug: 'boss-gloss-5l',                  name: 'Boss Gloss 5L',                         desc: 'Detailing spray — 5L bulk',                                                                                       price: 0   },
+    { slug: 'boss-gloss-pack',                name: 'Boss Gloss Pack',                       desc: 'Boss Gloss bundle pack',                                                                                          price: 0   },
+    { slug: 'happy-ending-5l',               name: 'Happy Ending Foam 5L',                  desc: 'Post-wash finishing foam — 5L bulk',                                                                              price: 0   },
+  ];
+
+  // Default phase assignments — order matches original HTML for v4 → v2 migration
+  const DEFAULT_CONFIG = {
+    '1': ['nanolicious-wash-pack-ultimate','wet-dreams-pack','2-bucket-wash-kit','boss-gloss-770ml','naked-glass-500ml','inta-mitt','karcher-k2','snow-blow-cannon','snow-job-1l'],
+    '2': ['wheely-clean-v2-500ml','the-little-stiffy','the-flat-head','fabra-cadabra-500ml','bolp-leather-care-pack','fabratection','303-aerospace'],
+    '3': ['pumpy-pump','nanolicious-wash-5l','microfibre-wash-1l'],
+    '4': ['plush-brush','flash-prep-500ml','bead-machine-500ml','big-softie-pair','snow-job-5l','wheely-clean-v2-5l'],
+  };
+
+  let itemData = []; // rebuilt by renderChecklist()
+  let checklistState = { config: { ...DEFAULT_CONFIG }, checked: {} };
+  const editingPhases = new Set();
 
   // Phase metadata
   const phaseNames = {
@@ -81,18 +142,155 @@
   };
 
   async function loadChecklist() {
-    const state = await storageGet(CHECKLIST_KEY) || {};
-    itemData.forEach(item => {
-      if (state[item.id] !== undefined) item.input.checked = state[item.id];
-    });
+    let saved = await storageGet(CHECKLIST_V2_KEY);
+    if (!saved) {
+      // Migrate from v4 positional-ID format if it exists
+      const old = await storageGet(CHECKLIST_KEY);
+      if (old) {
+        const allSlugs = Object.values(DEFAULT_CONFIG).flat();
+        const checked = {};
+        Object.entries(old).forEach(([id, val]) => {
+          const idx = parseInt(id.replace('item-', ''), 10);
+          if (!isNaN(idx) && allSlugs[idx]) checked[allSlugs[idx]] = val;
+        });
+        saved = { config: DEFAULT_CONFIG, checked };
+        await storageSet(CHECKLIST_V2_KEY, saved);
+      }
+    }
+    checklistState = {
+      config: (saved && saved.config) ? saved.config : { ...DEFAULT_CONFIG },
+      checked: (saved && saved.checked) ? saved.checked : {},
+    };
+    renderChecklist();
     recompute();
   }
 
   async function saveChecklist() {
-    const state = {};
-    itemData.forEach(item => { state[item.id] = item.input.checked; });
-    await storageSet(CHECKLIST_KEY, state);
-    syncPush(CHECKLIST_KEY, state);
+    itemData.forEach(item => { checklistState.checked[item.slug] = item.input.checked; });
+    await storageSet(CHECKLIST_V2_KEY, checklistState);
+    syncPush(CHECKLIST_V2_KEY, checklistState);
+  }
+
+  function renderChecklist() {
+    itemData = [];
+    [1, 2, 3, 4].forEach(phase => {
+      const container = document.getElementById(`phase-items-${phase}`);
+      if (!container) return;
+      container.innerHTML = '';
+      const slugs = checklistState.config[phase] || checklistState.config[String(phase)] || [];
+      slugs.forEach(slug => {
+        const entry = CATALOG.find(c => c.slug === slug);
+        if (!entry) return;
+        const checked = checklistState.checked[slug] || false;
+        const live = slugToBest[slug];
+        let priceText;
+        if (live) {
+          const dollars = (live.priceCents / 100).toFixed(2);
+          priceText = `$${dollars} · ${RETAILER_NAMES[live.retailer] || live.retailer}`;
+        } else if (entry.price > 0) {
+          priceText = `~$${entry.price}`;
+        } else {
+          priceText = '—';
+        }
+        const label = document.createElement('label');
+        label.className = 'item';
+        label.dataset.price = String(entry.price);
+        label.dataset.slug = slug;
+        label.innerHTML = `
+          <input type="checkbox"${checked ? ' checked' : ''}>
+          <div>
+            <div class="item-name">${entry.name}</div>
+            ${entry.desc ? `<div class="item-desc">${entry.desc}</div>` : ''}
+          </div>
+          <div class="item-price">${priceText}</div>
+          <button class="item-remove" type="button" title="Remove from phase">×</button>
+        `;
+        const input = label.querySelector('input');
+        input.addEventListener('change', () => { recompute(); saveChecklist(); });
+        label.querySelector('.item-remove').addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          removeFromPhase(String(phase), slug);
+        });
+        container.appendChild(label);
+        itemData.push({
+          slug,
+          el: label,
+          input,
+          price: live ? Math.round(live.priceCents / 100) : entry.price,
+          phase: String(phase),
+          name: entry.name,
+        });
+      });
+      updatePhaseEditDropdown(String(phase));
+      const phaseEl = container.closest('.phase');
+      if (phaseEl) phaseEl.classList.toggle('phase--editing', editingPhases.has(String(phase)));
+    });
+    applyPrefs();
+  }
+
+  function updatePhaseEditDropdown(phase) {
+    const select = document.getElementById(`phase-edit-select-${phase}`);
+    if (!select) return;
+    const inPhase = new Set(checklistState.config[phase] || []);
+    const prev = select.value;
+    select.innerHTML = '<option value="">— add a product —</option>';
+    CATALOG.forEach(entry => {
+      if (inPhase.has(entry.slug)) return;
+      const opt = document.createElement('option');
+      opt.value = entry.slug;
+      opt.textContent = entry.name;
+      select.appendChild(opt);
+    });
+    if (prev && !inPhase.has(prev)) select.value = prev;
+  }
+
+  function addToPhase(phase, slug) {
+    if (!checklistState.config[phase]) checklistState.config[phase] = [];
+    if (checklistState.config[phase].includes(slug)) return;
+    checklistState.config[phase].push(slug);
+    saveChecklist();
+    renderChecklist();
+    recompute();
+  }
+
+  function removeFromPhase(phase, slug) {
+    const cfg = checklistState.config[phase];
+    if (!cfg) return;
+    checklistState.config[phase] = cfg.filter(s => s !== slug);
+    delete checklistState.checked[slug];
+    saveChecklist();
+    renderChecklist();
+    recompute();
+  }
+
+  function setupEditButtons() {
+    document.querySelectorAll('.phase-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const phase = btn.dataset.phase;
+        const isEditing = editingPhases.has(phase);
+        if (isEditing) {
+          editingPhases.delete(phase);
+          btn.textContent = 'Edit';
+        } else {
+          editingPhases.add(phase);
+          btn.textContent = 'Done';
+        }
+        const phaseEl = btn.closest('.phase');
+        if (phaseEl) phaseEl.classList.toggle('phase--editing', !isEditing);
+        const panel = document.getElementById(`phase-edit-${phase}`);
+        if (panel) panel.hidden = isEditing;
+      });
+    });
+
+    document.querySelectorAll('.phase-edit-add-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const phase = btn.dataset.phase;
+        const select = document.getElementById(`phase-edit-select-${phase}`);
+        if (!select || !select.value) return;
+        addToPhase(phase, select.value);
+      });
+    });
   }
 
   function recompute() {
@@ -119,16 +317,12 @@
       if (done === count) { el.textContent = 'Complete'; el.classList.add('done'); }
       else { el.textContent = `${done} of ${count}`; el.classList.remove('done'); }
     });
-    // Also refresh spend panel if visible
     renderSpendPanel(spent, total);
   }
 
-  items.forEach(item => {
-    item.querySelector('input').addEventListener('change', () => { recompute(); saveChecklist(); });
-  });
-
   function resetAll() {
     if (!confirm('Reset all purchases?')) return;
+    checklistState.checked = {};
     itemData.forEach(item => { item.input.checked = false; });
     recompute(); saveChecklist();
   }
@@ -941,13 +1135,13 @@
 
   // Data management
   async function exportData() {
-    const checklistState = await storageGet(CHECKLIST_KEY) || {};
+    const checklistData = await storageGet(CHECKLIST_V2_KEY) || {};
     const logData = await storageGet(LOG_KEY) || [];
     const budgetData = await storageGet(BUDGET_KEY) || {};
     const exportObj = {
       exported: new Date().toISOString(),
       app: 'Corolla ZR Detailing Guide',
-      checklist: checklistState,
+      checklist: checklistData,
       washLog: logData,
       budget: budgetData,
       settings
@@ -974,14 +1168,14 @@
     // Push empty values to remote first so the reset propagates to all devices
     if (syncEnabled) {
       await Promise.allSettled([
-        syncPush(CHECKLIST_KEY, {}),
+        syncPush(CHECKLIST_V2_KEY, {}),
         syncPush(LOG_KEY, []),
         syncPush(BUDGET_KEY, {}),
         syncPush(SETTINGS_KEY, {}),
       ]);
       syncEnabled = false;
     }
-    await storageSet(CHECKLIST_KEY, {});
+    await storageSet(CHECKLIST_V2_KEY, {});
     await storageSet(LOG_KEY, []);
     await storageSet(BUDGET_KEY, {});
     await storageSet(SETTINGS_KEY, {});
@@ -1225,7 +1419,7 @@
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY];
+      const keys = [CHECKLIST_V2_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
@@ -1243,6 +1437,7 @@
 
   // ─── Init ────────────────────────────────────────
   async function init() {
+    setupEditButtons();
     await loadChecklist();
     await loadLog();
     await loadBudget();
