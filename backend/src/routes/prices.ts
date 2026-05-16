@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
-import { and, eq, gt, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
+import { sendTickTickTask } from '../lib/email.js';
 
 const router = new Hono();
 
@@ -47,7 +48,7 @@ router.post('/prices', async (c) => {
     }
 
     const productRows = await db
-      .select({ id: products.id })
+      .select({ id: products.id, name: products.name })
       .from(products)
       .where(eq(products.slug, slug))
       .limit(1);
@@ -77,6 +78,33 @@ router.post('/prices', async (c) => {
       priceCents,
       onSale,
     });
+
+    if (onSale) {
+      const recent = await db
+        .select({ onSale: priceHistory.onSale, priceCents: priceHistory.priceCents })
+        .from(priceHistory)
+        .where(and(
+          eq(priceHistory.productId, productId),
+          eq(priceHistory.retailer, retailer as 'bowdens' | 'supercheap' | 'repco' | 'autopro' | 'autobarn'),
+        ))
+        .orderBy(desc(priceHistory.observedAt))
+        .limit(2);
+
+      const previouslyOnSale = recent[1]?.onSale ?? false;
+
+      if (!previouslyOnSale) {
+        const productName  = productRows[0].name;
+        const currentPrice = `$${(priceCents / 100).toFixed(2)}`;
+        const prevCents    = recent[1]?.priceCents;
+        const prevLine     = prevCents ? `Previous price: $${(prevCents / 100).toFixed(2)}\n` : '';
+        const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
+
+        sendTickTickTask(
+          `🔥 ${productName} on sale at ${retailerName} — ${currentPrice}`,
+          `Current price: ${currentPrice}\n${prevLine}`,
+        ).catch(console.error);
+      }
+    }
 
     inserted++;
   }

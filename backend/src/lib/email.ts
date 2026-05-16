@@ -2,6 +2,18 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+export async function sendTickTickTask(subject: string, body: string): Promise<void> {
+  const to = process.env.TICKTICK_EMAIL;
+  if (!to) return;
+
+  await resend.emails.send({
+    from:    process.env.RESEND_FROM ?? 'Corolla Detailing <sync@corolla.jhosan.top>',
+    to,
+    subject,
+    text: body,
+  });
+}
+
 export async function sendMagicLink(to: string, token: string): Promise<void> {
   const appUrl = process.env.APP_URL ?? 'https://corolla.jhosan.top';
   const link   = `${appUrl}?token=${token}`;
