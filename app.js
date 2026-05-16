@@ -1213,7 +1213,6 @@
     applyCarInfo();
     applyLogStepChips();
     applySchedule();
-    loadWeather();
   }
 
   // Reset helpers
@@ -1665,5 +1664,6 @@
     await checkAuthAndSync();
     updateFooterVersion();
     loadPriceData();
+    loadWeather();
   }
   init();
