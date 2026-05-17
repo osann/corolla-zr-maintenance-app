@@ -1285,13 +1285,32 @@
       <div class="settings-row">
         <div class="settings-row-label">
           <strong>Price alerts</strong>
-          <span>Create a task when a product goes on sale</span>
+          <span>Create a task when a product goes on sale or hits your threshold</span>
         </div>
         <div class="settings-control">
           <label class="toggle-wrap">
             <input type="checkbox" id="pref-price-alerts" checked>
             <span class="toggle-track"></span>
           </label>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Price alert via</strong>
+          <span>How price alerts are delivered</span>
+        </div>
+        <div class="settings-control">
+          <div class="alert-channel-toggle">
+            <label class="channel-option">
+              <input type="radio" name="price-alert-channel" id="pac-ticktick" value="ticktick" checked>
+              <span>TickTick</span>
+            </label>
+            <label class="channel-option">
+              <input type="radio" name="price-alert-channel" id="pac-email" value="email">
+              <span>Email</span>
+            </label>
+          </div>
         </div>
       </div>
 

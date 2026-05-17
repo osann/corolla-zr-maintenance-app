@@ -3,7 +3,12 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
-import { sendTickTickTask, getOwnerNotificationSettings } from '../lib/email.js';
+import {
+  sendTickTickTask,
+  sendDirectEmail,
+  getOwnerNotificationSettings,
+  getOwnerAlertThresholds,
+} from '../lib/email.js';
 
 const router = new Hono();
 
@@ -13,6 +18,8 @@ export interface PriceObservation {
   priceCents: number;
   compareAtCents: number | null;
 }
+
+type RetailerEnum = 'bowdens' | 'supercheap' | 'repco' | 'autopro' | 'autobarn';
 
 // POST /api/prices — ingest scraper results from GitHub Actions
 // Requires: Authorization: Bearer <SCRAPE_SECRET>
@@ -37,7 +44,10 @@ router.post('/prices', async (c) => {
   }
 
   const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
-  const notifSettings = await getOwnerNotificationSettings(ownerEmail);
+  const [notifSettings, alertThresholds] = await Promise.all([
+    getOwnerNotificationSettings(ownerEmail),
+    getOwnerAlertThresholds(ownerEmail),
+  ]);
 
   let inserted = 0;
   let skipped = 0;
@@ -68,7 +78,7 @@ router.post('/prices', async (c) => {
       .from(priceHistory)
       .where(and(
         eq(priceHistory.productId, productId),
-        eq(priceHistory.retailer, retailer as 'bowdens' | 'supercheap' | 'repco' | 'autopro' | 'autobarn'),
+        eq(priceHistory.retailer, retailer as RetailerEnum),
         gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
       ));
     const rollingAvg = avgRows[0]?.avg ?? null;
@@ -77,36 +87,54 @@ router.post('/prices', async (c) => {
 
     await db.insert(priceHistory).values({
       productId,
-      retailer: retailer as 'bowdens' | 'supercheap' | 'repco' | 'autopro' | 'autobarn',
+      retailer: retailer as RetailerEnum,
       priceCents,
       onSale,
     });
 
-    if (onSale) {
+    const threshold = alertThresholds[slug];
+    const thresholdBreached = threshold?.thresholdCents != null && priceCents <= threshold.thresholdCents;
+
+    if ((onSale || thresholdBreached) && notifSettings.priceAlerts) {
       const recent = await db
         .select({ onSale: priceHistory.onSale, priceCents: priceHistory.priceCents })
         .from(priceHistory)
         .where(and(
           eq(priceHistory.productId, productId),
-          eq(priceHistory.retailer, retailer as 'bowdens' | 'supercheap' | 'repco' | 'autopro' | 'autobarn'),
+          eq(priceHistory.retailer, retailer as RetailerEnum),
         ))
         .orderBy(desc(priceHistory.observedAt))
         .limit(2);
 
-      const previouslyOnSale = recent[1]?.onSale ?? false;
+      const productName  = productRows[0].name;
+      const currentPrice = `$${(priceCents / 100).toFixed(2)}`;
+      const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
 
-      if (!previouslyOnSale && notifSettings.priceAlerts && notifSettings.ticktickEmail) {
-        const productName  = productRows[0].name;
-        const currentPrice = `$${(priceCents / 100).toFixed(2)}`;
-        const prevCents    = recent[1]?.priceCents;
-        const prevLine     = prevCents ? `Previous price: $${(prevCents / 100).toFixed(2)}\n` : '';
-        const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
+      // On-sale alert (transition only)
+      if (onSale) {
+        const previouslyOnSale = recent[1]?.onSale ?? false;
+        if (!previouslyOnSale) {
+          const prevCents = recent[1]?.priceCents;
+          const prevLine  = prevCents ? `Previous price: $${(prevCents / 100).toFixed(2)}\n` : '';
+          const baseSubject = `🔥 ${productName} on sale at ${retailerName} — ${currentPrice}`;
+          const bodyText    = `Current price: ${currentPrice}\n${prevLine}`;
+          sendViaChannel(notifSettings.priceAlertChannel, notifSettings.ticktickEmail, ownerEmail,
+            `${baseSubject} ^Car #Corolla today`, baseSubject, bodyText);
+        }
+      }
 
-        sendTickTickTask(
-          notifSettings.ticktickEmail,
-          `🔥 ${productName} on sale at ${retailerName} — ${currentPrice} ^Car #Corolla today`,
-          `Current price: ${currentPrice}\n${prevLine}`,
-        ).catch(console.error);
+      // Threshold alert (transition only — prev price was above threshold)
+      if (thresholdBreached) {
+        const prevPriceCents = recent[1]?.priceCents;
+        const prevWasAbove   = prevPriceCents == null || prevPriceCents > threshold.thresholdCents;
+        if (prevWasAbove) {
+          const thresholdDollar = `$${(threshold.thresholdCents / 100).toFixed(2)}`;
+          const baseSubject = `⬇️ ${productName} below ${thresholdDollar} at ${retailerName} — ${currentPrice}`;
+          const bodyText    = `Your alert threshold: ${thresholdDollar}\nCurrent price: ${currentPrice}`;
+          const channel = threshold.channel === 'global' ? notifSettings.priceAlertChannel : threshold.channel;
+          sendViaChannel(channel, notifSettings.ticktickEmail, ownerEmail,
+            `${baseSubject} ^Car #Corolla today`, baseSubject, bodyText);
+        }
       }
     }
 
@@ -115,5 +143,20 @@ router.post('/prices', async (c) => {
 
   return c.json({ inserted, skipped });
 });
+
+function sendViaChannel(
+  channel: 'ticktick' | 'email',
+  ticktickEmail: string | null,
+  ownerEmail: string,
+  ticktickSubject: string,
+  emailSubject: string,
+  body: string,
+): void {
+  if (channel === 'ticktick' && ticktickEmail) {
+    sendTickTickTask(ticktickEmail, ticktickSubject, body).catch(console.error);
+  } else if (channel === 'email') {
+    sendDirectEmail(ownerEmail, emailSubject, body).catch(console.error);
+  }
+}
 
 export default router;

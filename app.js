@@ -606,9 +606,27 @@
               ${linkEl}
             </div>`;
         }
+        const hasAlert = !!priceAlerts[slug];
+        const alertTitle = hasAlert ? 'Alert set — click to edit' : 'Set price alert';
         html += `
           <div class="prices-product">
-            <div class="prices-product-name">${product.name}</div>
+            <div class="prices-product-name">
+              ${product.name}
+              <button class="alert-btn${hasAlert ? ' active' : ''}" id="alert-btn-${slug}" onclick="toggleAlertForm('${slug}')" title="${alertTitle}">🔔</button>
+            </div>
+            <div class="alert-inline-form" id="alert-form-${slug}" style="display:none;">
+              <div class="alert-form-row">
+                <span>Alert when below</span>
+                <div class="alert-threshold-wrap"><span class="alert-dollar">$</span><input type="number" class="alert-threshold-input" id="alert-threshold-${slug}" min="0.01" step="0.01" placeholder="0.00"></div>
+                <select class="alert-channel-select" id="alert-channel-${slug}">
+                  <option value="global">Global setting</option>
+                  <option value="ticktick">TickTick</option>
+                  <option value="email">Email</option>
+                </select>
+                <button class="alert-set-btn" onclick="saveAlert('${slug}')">Set</button>
+                <button class="alert-clear-btn" onclick="clearAlert('${slug}')">Clear</button>
+              </div>
+            </div>
             ${retailerRows}
           </div>`;
       }
@@ -915,8 +933,12 @@
   const DEFAULT_NOTIFICATIONS = {
     ticktickEmail: '',
     priceAlerts: true,
+    priceAlertChannel: 'ticktick',
     washReminders: true,
   };
+
+  const ALERTS_KEY = 'corolla-price-alerts-v1';
+  let priceAlerts = {};
 
   let settings = {
     freq: { ...FREQ_DEFAULTS },
@@ -1067,9 +1089,17 @@
   }
 
   function loadNotificationsUI() {
-    document.getElementById('ticktick-email').value          = settings.notifications.ticktickEmail || '';
-    document.getElementById('pref-price-alerts').checked    = settings.notifications.priceAlerts;
-    document.getElementById('pref-wash-reminders').checked  = settings.notifications.washReminders;
+    document.getElementById('ticktick-email').value         = settings.notifications.ticktickEmail || '';
+    document.getElementById('pref-price-alerts').checked   = settings.notifications.priceAlerts;
+    document.getElementById('pref-wash-reminders').checked = settings.notifications.washReminders;
+    const channel = settings.notifications.priceAlertChannel || 'ticktick';
+    const radio = document.querySelector(`input[name="price-alert-channel"][value="${channel}"]`);
+    if (radio) radio.checked = true;
+  }
+
+  async function loadAlerts() {
+    const saved = await storageGet(ALERTS_KEY);
+    if (saved && typeof saved === 'object') priceAlerts = saved;
   }
 
   function applyCarInfo() {
@@ -1187,9 +1217,11 @@
       settings.car.displayName = document.getElementById('car-display-name').value.trim();
       settings.car.postcode = document.getElementById('car-postcode').value.trim();
     } else if (section === 'notifications') {
-      settings.notifications.ticktickEmail  = (document.getElementById('ticktick-email')?.value ?? '').trim();
-      settings.notifications.priceAlerts    = document.getElementById('pref-price-alerts')?.checked ?? true;
-      settings.notifications.washReminders  = document.getElementById('pref-wash-reminders')?.checked ?? true;
+      settings.notifications.ticktickEmail      = (document.getElementById('ticktick-email')?.value ?? '').trim();
+      settings.notifications.priceAlerts        = document.getElementById('pref-price-alerts')?.checked ?? true;
+      settings.notifications.washReminders      = document.getElementById('pref-wash-reminders')?.checked ?? true;
+      const channelEl = document.querySelector('input[name="price-alert-channel"]:checked');
+      settings.notifications.priceAlertChannel  = channelEl?.value ?? 'ticktick';
     }
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
@@ -1274,6 +1306,44 @@
     showSaved('notifications-saved');
   }
 
+  function toggleAlertForm(slug) {
+    const form = document.getElementById(`alert-form-${slug}`);
+    if (!form) return;
+    const opening = form.style.display === 'none' || form.style.display === '';
+    form.style.display = opening ? 'block' : 'none';
+    if (opening) {
+      const alert = priceAlerts[slug];
+      const inp = document.getElementById(`alert-threshold-${slug}`);
+      const sel = document.getElementById(`alert-channel-${slug}`);
+      if (inp) inp.value = alert ? (alert.thresholdCents / 100).toFixed(2) : '';
+      if (sel) sel.value = alert?.channel || 'global';
+    }
+  }
+
+  async function saveAlert(slug) {
+    const inp = document.getElementById(`alert-threshold-${slug}`);
+    const sel = document.getElementById(`alert-channel-${slug}`);
+    const val = parseFloat(inp?.value ?? '');
+    if (!val || val <= 0) { inp?.focus(); return; }
+    priceAlerts[slug] = { thresholdCents: Math.round(val * 100), channel: sel?.value || 'global' };
+    await storageSet(ALERTS_KEY, priceAlerts);
+    syncPush(ALERTS_KEY, priceAlerts);
+    const btn = document.getElementById(`alert-btn-${slug}`);
+    if (btn) { btn.classList.add('active'); btn.title = 'Alert set — click to edit'; }
+    const form = document.getElementById(`alert-form-${slug}`);
+    if (form) form.style.display = 'none';
+  }
+
+  async function clearAlert(slug) {
+    delete priceAlerts[slug];
+    await storageSet(ALERTS_KEY, priceAlerts);
+    syncPush(ALERTS_KEY, priceAlerts);
+    const btn = document.getElementById(`alert-btn-${slug}`);
+    if (btn) { btn.classList.remove('active'); btn.title = 'Set price alert'; }
+    const form = document.getElementById(`alert-form-${slug}`);
+    if (form) form.style.display = 'none';
+  }
+
   function showSaved(id) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -1320,6 +1390,7 @@
         syncPush(LOG_KEY, []),
         syncPush(BUDGET_KEY, {}),
         syncPush(SETTINGS_KEY, {}),
+        syncPush(ALERTS_KEY, {}),
       ]);
       syncEnabled = false;
     }
@@ -1327,6 +1398,7 @@
     await storageSet(LOG_KEY, []);
     await storageSet(BUDGET_KEY, {});
     await storageSet(SETTINGS_KEY, {});
+    await storageSet(ALERTS_KEY, {});
     location.reload();
   }
 
@@ -1566,7 +1638,7 @@
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
@@ -1576,6 +1648,7 @@
       await loadLog();
       await loadBudget();
       await loadSettings();
+      await loadAlerts();
       renderAuthUI();
     } catch {
       renderAuthUI();
@@ -1688,6 +1761,7 @@
     await loadLog();
     await loadBudget();
     await loadSettings();
+    await loadAlerts();
     await checkAuthAndSync();
     updateFooterVersion();
     loadPriceData();
