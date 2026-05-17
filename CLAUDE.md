@@ -25,7 +25,7 @@ corolla-zr-maintenance-app/
 ├── styles.css              # All CSS
 ├── backend/
 │   ├── src/
-│   │   ├── index.ts        # Hono server + node-cron: Autopro scrape (05:00 UTC), wash reminder (07:00 UTC)
+│   │   ├── index.ts        # Hono server + node-cron: Autopro scrape (05:00 UTC), wash reminder (07:00 UTC), price digest (08:00 UTC)
 │   │   ├── db/
 │   │   │   ├── schema.ts   # Drizzle schema (products, retailer_urls, price_history, users, sessions, magicTokens, userData)
 │   │   │   ├── seed.ts     # Product catalogue + retailer URLs — edit this to add products
@@ -52,7 +52,7 @@ corolla-zr-maintenance-app/
 │   │       ├── browser.ts       # createStealthContext() — shared Playwright setup
 │   │       ├── sale-detector.ts
 │   │       ├── auth.ts          # generateToken, hashToken, sessionMiddleware
-│   │       └── email.ts         # sendMagicLink(), sendTickTickTask(), getOwnerNotificationSettings() via Resend
+│   │       └── email.ts         # sendMagicLink(), sendTickTickTask(), sendDirectEmail(), sendDigestEmail(), getOwnerNotificationSettings(), getOwnerAlertThresholds() via Resend
 │   └── package.json
 └── .github/workflows/
     ├── deploy.yml                    # Deploys index.html/app.js/styles.css to GitHub Pages
@@ -64,7 +64,7 @@ corolla-zr-maintenance-app/
 ### Hosting
 
 - **Frontend:** GitHub Pages, served via CNAME at `https://corolla.jhosan.top`. `deploy.yml` replaces the `__BACKEND_URL__` placeholder in `app.js` with the `BACKEND_URL` secret before deploying.
-- **Backend:** Render. `npm start` runs the Hono server. Two node-cron jobs fire daily: 05:00 UTC (Autopro scrape, within robots.txt crawl window) and 07:00 UTC (wash reminder — checks owner's wash log and sends a TickTick task if overdue). Auto Barn blocks Render's cloud IPs but is scraped via a self-hosted GitHub Actions runner on a home Linux machine (residential IP). Repco and Supercheap use Playwright which is not reliably available at Render runtime — those are handled entirely by GitHub Actions. Bowden's Own is not scraped — Cloudflare JS challenge on GitHub Actions, hard 403 on Render.
+- **Backend:** Render. `npm start` runs the Hono server. Three node-cron jobs fire daily: 05:00 UTC (Autopro scrape, within robots.txt crawl window), 07:00 UTC (wash reminder — checks owner's wash log and sends via TickTick and/or email if overdue), 08:00 UTC (price digest — emails a summary of on-sale items and threshold breaches if the user has opted in). Auto Barn blocks Render's cloud IPs but is scraped via a self-hosted GitHub Actions runner on a home Linux machine (residential IP). Repco and Supercheap use Playwright which is not reliably available at Render runtime — those are handled entirely by GitHub Actions. Bowden's Own is not scraped — Cloudflare JS challenge on GitHub Actions, hard 403 on Render.
 - **Self-hosted runner:** `debian-server` — a home Debian Linux machine running the GitHub Actions self-hosted runner under `jhadmin`. Its residential IP bypasses Auto Barn's cloud IP block. ~40–60% of Auto Barn product URLs hang server-side regardless of client method — Playwright was tried and also times out on those URLs. HTTP-only scraping gets ~16–18/40 products; the rest are covered by Autopro. Required system libraries for Playwright (used by Supercheap/Repco locally) must be installed once: `sudo apt-get install -y libgbm1 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxext6 libx11-xcb1 libpango-1.0-0 libasound2`.
 - **Keep-alive:** Render free tier spins down after 15 minutes idle, which prevents node-cron from firing. A cron-job.org monitor pings `GET /api/health` every 10 minutes to keep the service awake. If the pinger ever lapses, recreate it at cron-job.org — no code changes needed.
 - **Database:** Turso (cloud libSQL). Falls back to `file:./db.sqlite` locally when `TURSO_URL` is unset. Render requires `TURSO_URL` and `TURSO_TOKEN` env vars — without them price history is ephemeral (wiped on restart).
@@ -145,7 +145,7 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 - `itemData` array is rebuilt by `renderChecklist()` on every render — includes `slug`, `phase` (phase ID string), `price`, `el`, `input`
 - `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
 - `loadPriceHistories()` is called from `loadPriceData()` after prices are applied. It fetches `GET /api/products/prices` (bulk, 90-day window) in a single call, populates `priceHistories` keyed by product ID, then calls `renderPriceList()` (spend tab) and `renderPricesTab()` (prices tab). The old per-product `GET /api/products/:id/prices` endpoint is kept but no longer called by the frontend.
-- `renderPricesTab()` renders the **prices** tab. It iterates a hardcoded `PRICE_CATEGORIES` array (defined inside the function) that maps each functional category and sub-section to an ordered list of product slugs. It builds a `productBySlug` lookup from `liveProducts`, then for each slug renders a `.prices-product` block containing one `.prices-retailer-row` per retailer — each with price, 🔥 Sale badge, sparkline (or "No data yet." placeholder at the same fixed dimensions), and buy link. Categories and their sub-sections: Equipment (Microfibre / Wash Pads / Drying Towels / Other), Pressure Washer Equipment (Pressure Washers / Foam Cannons), Exterior Wash (Glass / Prep / Pre-Wash / Contact Wash), Exterior Protection (Sealant / Quick Detailer), Interior Clean (Leather / Fabric), Interior Protect (Leather / Fabric & Suede / Plastic, Vinyl & Rubber), Wheels (Equipment / Clean / Protect). A slug can appear in multiple categories. Products not in the mapping are silently omitted. Cards for categories where no product has a scraped price are not rendered.
+- `renderPricesTab()` renders the **prices** tab. It iterates a hardcoded `PRICE_CATEGORIES` array (defined inside the function) that maps each functional category and sub-section to an ordered list of product slugs. It builds a `productBySlug` lookup from `liveProducts`, then for each slug renders a `.prices-product` block containing one `.prices-retailer-row` per retailer — each with price, 🔥 Sale badge, sparkline (or "No data yet." placeholder at the same fixed dimensions), and buy link. Each product name row also has a 🔔 bell button (`toggleAlertForm(slug)`) that opens an inline threshold form. At the end of `renderPricesTab()`, `renderAlertsPanel()` is called to refresh the active-alerts summary card at the top of the tab (`#prices-alerts-summary`). The panel is hidden when no alerts are configured. Categories and their sub-sections: Equipment (Microfibre / Wash Pads / Drying Towels / Other), Pressure Washer Equipment (Pressure Washers / Foam Cannons), Exterior Wash (Glass / Prep / Pre-Wash / Contact Wash), Exterior Protection (Sealant / Quick Detailer), Interior Clean (Leather / Fabric), Interior Protect (Leather / Fabric & Suede / Plastic, Vinyl & Rubber), Wheels (Equipment / Clean / Protect). A slug can appear in multiple categories. Products not in the mapping are silently omitted. Cards for categories where no product has a scraped price are not rendered.
 - The `__BACKEND_URL__` guard uses `BACKEND_URL.startsWith('__')` — not strict equality. The `sed` substitution in `deploy.yml` replaces `__BACKEND_URL__` globally, which would corrupt a `=== '__BACKEND_URL__'` check into `=== '<real-url>'`. Never revert this to a string equality check.
 
 ### Storage keys
@@ -156,6 +156,7 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 | `corolla-washlog-v1` | `Array<{id, date, type, steps[], notes}>` | Wash log |
 | `corolla-budget-v1` | `{ target: number }` | Budget target |
 | `corolla-settings-v1` | `{ freq, routines, prefs, car: {model, year, colour, rego, displayName, postcode}, notifications }` | Settings |
+| `corolla-price-alerts-v1` | `{ [slug]: { thresholdCents: number, channel: 'global' \| 'ticktick' \| 'email' } }` | Per-product price alert thresholds |
 
 Bump the version suffix on breaking shape changes rather than writing migrations. The checklist key has gone through three versions: `corolla-detailing-app-v4` (positional `item-N` IDs) → `corolla-checklist-v2` (slug-keyed config) → `corolla-checklist-v3` (phases array with metadata). Each `loadChecklist()` migrates forward automatically on first load.
 
@@ -174,33 +175,57 @@ To add a new product to the catalog: add it to `CATALOG` in `app.js` AND to `see
 - Light theme: warm cream `#faf8f3`; dark theme: `#15171a`
 - Accent: forest green `--accent` (`#2d7d5a`)
 - Reuse existing tokens — don't introduce new colours or size scales
+- `.section-head` / `.section-head--gap` — green uppercase subsection divider used in the Prices tab and Notifications settings. Previously named `.prices-section-head`; renamed global when reused in settings.
 
-## Notifications (TickTick integration)
+## Notifications
 
-The app sends tasks to TickTick via email-to-task (`todo####@mail.ticktick.com` accepts from any sender). Delivery uses the existing Resend setup. No OAuth or API tokens — the destination address is the only credential.
+The app delivers notifications via two channels: TickTick (email-to-task) and direct email. Both use Resend. No OAuth or API tokens for TickTick — the user's personal `todo####@mail.ticktick.com` address is the only credential.
 
-**Configuration:** stored in `settings.notifications` within `corolla-settings-v1` (synced via `userData`). Set in Settings → Notifications. Fields:
-- `ticktickEmail` — the user's personal TickTick inbox address (TickTick → Settings → Email)
-- `priceAlerts` — boolean, default true
-- `washReminders` — boolean, default true
+**Configuration:** stored in `settings.notifications` within `corolla-settings-v1` (synced via `userData`). Set in Settings → Notifications, which is split into TickTick and Email subsections. Fields:
 
-**Two triggers:**
+| Field | Default | Meaning |
+|---|---|---|
+| `ticktickEmail` | `null` | User's TickTick inbox address (TickTick → Settings → Email) |
+| `ticktickAlerts` | `true` | Send TickTick task for price alerts |
+| `ticktickMetadata` | `'^Car #Corolla today'` | Suffix appended to all TickTick task subjects (project/tag/date/priority syntax) |
+| `washReminders` | `true` | Send TickTick task when wash is overdue |
+| `emailAlerts` | `false` | Send direct email for price alerts |
+| `emailWashReminders` | `false` | Send direct email when wash is overdue |
+| `emailDigest` | `false` | Send daily digest email (08:00 UTC) with sale items and threshold breaches |
 
-1. **Price alert** (`routes/prices.ts`) — fires when `POST /api/prices` ingests an observation where `onSale=true` and the prior row for that product+retailer was not on sale (dedup: no repeat sends while a product stays on sale). Notification config is fetched once per request before the observation loop via `getOwnerNotificationSettings()`. Subject format:
+**Per-product thresholds:** stored separately in `corolla-price-alerts-v1` (also synced). Shape: `{ [slug]: { thresholdCents, channel: 'global' | 'ticktick' | 'email' } }`. Managed via the 🔔 bell icon on each product card in the Prices tab. An "Active alerts" summary panel at the top of the Prices tab shows all configured thresholds with inline edit and remove.
+
+**Four triggers:**
+
+1. **On-sale price alert** (`routes/prices.ts`) — fires when `POST /api/prices` ingests an observation where `onSale=true` and the prior row for that product+retailer was not on sale (transition only — no repeat sends while a product stays on sale). Routed via `sendViaChannel('global', ...)`. Subject format:
    ```
    🔥 {Product name} on sale at {Retailer} — ${price} ^Car #Corolla today
    ```
 
-2. **Wash reminder** (`index.ts` cron, 07:00 UTC daily) — reads the owner's `corolla-washlog-v1` and `corolla-settings-v1` from `userData`, calculates days since last wash vs `freq.fullWash` interval, sends if overdue. Returns early (no DB queries) if `ticktickEmail` is unset or `washReminders` is false. Subject format:
+2. **Threshold breach alert** (`routes/prices.ts`) — fires when the new price is at or below the user's configured threshold and the prior price was above it (transition only). Channel follows the per-product `channel` setting. Subject format:
+   ```
+   ⬇️ {Product name} below ${threshold} at {Retailer} — ${price} ^Car #Corolla today
+   ```
+
+3. **Wash reminder** (`index.ts` cron, 07:00 UTC daily) — reads the owner's `corolla-washlog-v1` and `corolla-settings-v1` from `userData`, calculates days since last wash vs `freq.fullWash` interval, sends if overdue. Sends TickTick if `washReminders && ticktickEmail`, sends email if `emailWashReminders`. Returns early if neither channel is active. TickTick subject:
    ```
    🚗 Corolla wash due ^Car #Corolla today !Medium
    ```
 
-**Key functions** (`backend/src/lib/email.ts`):
-- `getOwnerNotificationSettings(ownerEmail)` — looks up owner's `corolla-settings-v1` from `userData`, returns `{ ticktickEmail, priceAlerts, washReminders }` with safe defaults if missing
-- `sendTickTickTask(to, subject, body)` — sends plain-text email via Resend; no-op if `to` is falsy
+4. **Daily price digest** (`index.ts` cron, 08:00 UTC daily) — queries the latest price per product+retailer for on-sale items and threshold breaches. Sends nothing if both lists are empty. Email only (no TickTick). Gated on `emailDigest`. Subject format:
+   ```
+   🏷️ {N} price alerts — {day, date month}
+   ```
 
-**To force a test price alert:** `POST /api/prices` with a real product slug, `priceCents` below the rolling average (or `compareAtCents` higher than `priceCents`), and a prior off-sale row in the DB. **To force a test wash reminder:** temporarily change the cron to `* * * * *`, deploy, wait 60s, revert.
+**Key functions** (`backend/src/lib/email.ts`):
+- `getOwnerNotificationSettings(ownerEmail)` — reads `corolla-settings-v1`, returns full `NotificationSettings` with safe defaults
+- `getOwnerAlertThresholds(ownerEmail)` — reads `corolla-price-alerts-v1`, returns `Record<slug, AlertThreshold>`
+- `sendTickTickTask(to, subject, body)` — plain-text email via Resend; no-op if `to` is falsy
+- `sendDirectEmail(to, subject, bodyText)` — styled HTML email via Resend
+- `sendDigestEmail(to, saleItems, thresholdItems)` — digest HTML email with section headers matching the app's green accent style; no-op if both lists empty
+- `sendViaChannel(channel, notifSettings, ownerEmail, baseSubject, body)` — routes to TickTick (appends `ticktickMetadata` to subject) and/or email based on channel and toggle state
+
+**To force a test price alert:** `POST /api/prices` with a real product slug, `priceCents` below the rolling average (or `compareAtCents` higher than `priceCents`), and a prior off-sale row in the DB. **To force a test wash reminder or digest:** temporarily change the respective cron to `* * * * *`, deploy, wait 60s, revert.
 
 ## Weather (client-side, via backend proxy)
 

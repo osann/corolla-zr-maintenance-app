@@ -4,7 +4,7 @@ Backlog items ranked by usefulness × feasibility. Work top-to-bottom — each i
 
 ---
 
-## 1. Price tracking + alerts ✅
+## 1. Price tracking + alerts + notifications ✅
 
 Know when products drop in price at Australian retailers.
 
@@ -17,8 +17,8 @@ Know when products drop in price at Australian retailers.
 - [x] Detect "on sale": compare-at price in DOM, or >15% drop below 30-day rolling average
 - [x] API endpoints: `GET /api/products`, `GET /api/products/:id/prices`, `GET /api/alerts`
 - [x] Spend tab UI: sparkline per item, flame icon for on-sale items, sale badge in price list
-- [ ] Per-item alert thresholds (e.g. "notify me when Nanolicious 5L drops below $55")
-- [ ] Email digest notifications — at most once per day
+- [x] Per-item alert thresholds (e.g. "notify me when Nanolicious 5L drops below $55")
+- [x] Email digest notifications — at most once per day
 
 **Notes:**
 - Bowden's Own cannot be scraped from any cloud environment — Cloudflare JS challenge on GitHub Actions, hard 403 on Render. All Bowden's products have Repco/Supercheap fallback URLs.
