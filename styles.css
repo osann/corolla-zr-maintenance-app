@@ -1389,7 +1389,9 @@
   .alert-summary-row:first-of-type { border-top: none; }
   .alert-summary-name { flex: 1; font-size: 13.5px; font-weight: 500; color: var(--ink); }
   .alert-summary-meta { font-size: 13px; color: var(--ink-mid); white-space: nowrap; }
-  .alert-summary-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .alert-summary-view-side { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .alert-summary-edit-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .alert-summary-actions { display: flex; gap: 6px; }
 
   /* Channel radio in settings */
   .alert-channel-toggle { display: flex; gap: 16px; }

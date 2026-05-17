@@ -687,15 +687,32 @@
     for (const slug of slugs) {
       const alert = priceAlerts[slug];
       const name = productBySlug[slug]?.name ?? slug;
-      const threshold = `$${(alert.thresholdCents / 100).toFixed(2)}`;
+      const thresholdVal = (alert.thresholdCents / 100).toFixed(2);
+      const threshold = `$${thresholdVal}`;
       const channel = CHANNEL_LABELS[alert.channel] ?? 'Global setting';
       rows += `
         <div class="alert-summary-row">
           <span class="alert-summary-name">${name}</span>
-          <span class="alert-summary-meta">${threshold} · ${channel}</span>
-          <div class="alert-summary-actions">
-            <button class="alert-clear-btn" onclick="editAlertFromSummary('${slug}')">Edit</button>
-            <button class="alert-clear-btn" onclick="clearAlert('${slug}')">Remove</button>
+          <div class="alert-summary-view-side" id="alert-summary-view-${slug}">
+            <span class="alert-summary-meta">${threshold} · ${channel}</span>
+            <div class="alert-summary-actions">
+              <button class="alert-clear-btn" onclick="editAlertInSummary('${slug}')">Edit</button>
+              <button class="alert-clear-btn" onclick="clearAlert('${slug}')">Remove</button>
+            </div>
+          </div>
+          <div class="alert-summary-edit-side" id="alert-summary-edit-${slug}" style="display:none;">
+            <div class="alert-form-inputs">
+              <div class="alert-threshold-wrap"><span class="alert-dollar">$</span><input type="number" class="alert-threshold-input" id="alert-summary-threshold-${slug}" value="${thresholdVal}" min="0.01" step="0.01"></div>
+              <select class="alert-channel-select" id="alert-summary-channel-${slug}">
+                <option value="global"${alert.channel === 'global' ? ' selected' : ''}>Global setting</option>
+                <option value="ticktick"${alert.channel === 'ticktick' ? ' selected' : ''}>TickTick</option>
+                <option value="email"${alert.channel === 'email' ? ' selected' : ''}>Email</option>
+              </select>
+            </div>
+            <div class="alert-form-actions">
+              <button class="alert-set-btn" onclick="saveAlertFromSummary('${slug}')">Save</button>
+              <button class="alert-clear-btn" onclick="cancelAlertEdit('${slug}')">Cancel</button>
+            </div>
           </div>
         </div>`;
     }
@@ -708,11 +725,27 @@
       </div>`;
   }
 
-  function editAlertFromSummary(slug) {
-    const form = document.getElementById(`alert-form-${slug}`);
-    if (!form) return;
-    if (form.style.display === 'none' || form.style.display === '') toggleAlertForm(slug);
-    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  function editAlertInSummary(slug) {
+    document.getElementById(`alert-summary-view-${slug}`).style.display = 'none';
+    document.getElementById(`alert-summary-edit-${slug}`).style.display = '';
+  }
+
+  function cancelAlertEdit(slug) {
+    document.getElementById(`alert-summary-edit-${slug}`).style.display = 'none';
+    document.getElementById(`alert-summary-view-${slug}`).style.display = '';
+  }
+
+  async function saveAlertFromSummary(slug) {
+    const inp = document.getElementById(`alert-summary-threshold-${slug}`);
+    const sel = document.getElementById(`alert-summary-channel-${slug}`);
+    const val = parseFloat(inp?.value ?? '');
+    if (!val || val <= 0) { inp?.focus(); return; }
+    priceAlerts[slug] = { thresholdCents: Math.round(val * 100), channel: sel?.value || 'global' };
+    await storageSet(ALERTS_KEY, priceAlerts);
+    syncPush(ALERTS_KEY, priceAlerts);
+    const btn = document.getElementById(`alert-btn-${slug}`);
+    if (btn) btn.title = 'Alert set — click to edit';
+    renderAlertsPanel();
   }
 
   // ─── Wash Log ────────────────────────────────────
