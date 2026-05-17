@@ -913,10 +913,11 @@
     saveLog();
     renderLog();
 
-    // Reset form
+    // Reset form and switch to History sub-tab
     document.getElementById('log-notes').value = '';
     document.querySelectorAll('.step-chip input').forEach(cb => { cb.checked = false; });
     document.querySelectorAll('.step-chip').forEach(c => c.classList.remove('checked'));
+    document.querySelector('.log-sub-tab[data-log-tab="history"]')?.click();
   }
 
   function deleteLogEntry(id) {
@@ -1038,6 +1039,16 @@
       document.querySelectorAll('.spend-sub-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('spend-sub-' + btn.dataset.spendTab).classList.add('active');
+    });
+  });
+
+  // ─── Log sub-tab navigation ────────────────────────
+  document.querySelectorAll('.log-sub-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.log-sub-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.log-sub-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('log-sub-' + btn.dataset.logTab).classList.add('active');
     });
   });
 
