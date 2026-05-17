@@ -208,16 +208,16 @@
       subtext: '',
       types: ['maintenance'],
       steps: [
-        { product: 'Full wash',                              action: 'Nanolicious + Wet Dreams + dry with Boss Gloss aid', enabled: true, sched: 'fullWash' },
+        { product: 'Full wash',                              action: 'Nanolicious + Wet Dreams + dry with Boss Gloss aid', enabled: true },
         { product: 'Interior wipe-down',                     action: 'Plush Daddy on high-touch surfaces (wheel, shifter, door pulls, screen)', enabled: true },
         { product: 'Deep wheel clean',                       action: 'Iron remover check, full tyre brush clean, dress tyres', enabled: true },
-        { product: 'Full interior detail',                   action: 'Fabra Cadabra + Leather Love + Leather Guard', enabled: true, sched: 'interiorDetail' },
-        { product: 'Apply 303 Aerospace',                    action: 'Interior plastics + rubber mats. More frequent in summer', enabled: true, sched: 'aerospace' },
+        { product: 'Full interior detail',                   action: 'Fabra Cadabra + Leather Love + Leather Guard', enabled: true },
+        { product: 'Apply 303 Aerospace',                    action: 'Interior plastics + rubber mats. More frequent in summer', enabled: true },
         { product: 'Tyre pressure check',                    action: 'More critical for tyre life than any cleaning product', enabled: true },
-        { product: 'Reapply Bead Machine',                   action: 'Use Flash Prep first. When water beading flattens, time to reapply', enabled: true, sched: 'beadMachine' },
+        { product: 'Reapply Bead Machine',                   action: 'Use Flash Prep first. When water beading flattens, time to reapply', enabled: true },
         { product: 'Reapply Fabratection — carpet mats',     action: "Driver's mat especially — gets the most wear", enabled: true },
         { product: 'Reapply Fabratection — Ultrasuede',      action: 'After bead test fails', enabled: true },
-        { product: 'Reapply Leather Guard',                  action: 'Focus on bolsters and seat base — highest contact wear areas', enabled: true, sched: 'leatherGuard' },
+        { product: 'Reapply Leather Guard',                  action: 'Focus on bolsters and seat base — highest contact wear areas', enabled: true },
         { product: 'Replace mitts',                          action: 'If matted, stiff, or discoloured', enabled: true },
       ],
       alerts: [],
@@ -1457,10 +1457,9 @@ Output only the CSV starting with the header row.`;
       const section = document.createElement('div');
       section.className = 'product-section';
       const typeLabel = (routine.types || []).map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
-      const rows = enabledSteps.map((step, i) => {
-        const schedAttr = step.sched ? ` data-sched="${step.sched}"` : '';
-        return `<tr><td${schedAttr}>${i + 1}</td><td>${escHtml(step.product)}</td><td>${escHtml(step.action)}</td></tr>`;
-      }).join('');
+      const rows = enabledSteps.map((step, i) =>
+        `<tr><td>${i + 1}</td><td>${escHtml(step.product)}</td><td>${escHtml(step.action)}</td></tr>`
+      ).join('');
       const alertsHtml = (routine.alerts || []).map(a => {
         const label = a.label ? `<span class="callout-label">${escHtml(a.label)}</span>` : '';
         return `<div class="callout ${a.severity}">${label}${escHtml(a.text)}</div>`;
@@ -1477,7 +1476,6 @@ Output only the CSV starting with the header row.`;
       `;
       container.appendChild(section);
     });
-    applySchedule();
   }
 
   let routineDragSrc = null;
