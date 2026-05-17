@@ -936,6 +936,7 @@
     ticktickMetadata: '^Car #Corolla today',
     emailAlerts: false,
     washReminders: true,
+    emailWashReminders: false,
   };
 
   const ALERTS_KEY = 'corolla-price-alerts-v1';
@@ -1096,6 +1097,7 @@
     document.getElementById('ticktick-metadata-row').style.display = settings.notifications.ticktickAlerts ? '' : 'none';
     document.getElementById('pref-email-alerts').checked          = settings.notifications.emailAlerts;
     document.getElementById('pref-wash-reminders').checked        = settings.notifications.washReminders;
+    document.getElementById('pref-email-wash-reminders').checked  = settings.notifications.emailWashReminders;
   }
 
   async function loadAlerts() {
@@ -1221,8 +1223,9 @@
       settings.notifications.ticktickEmail    = (document.getElementById('ticktick-email')?.value ?? '').trim();
       settings.notifications.ticktickAlerts   = document.getElementById('pref-ticktick-alerts')?.checked ?? true;
       settings.notifications.ticktickMetadata = (document.getElementById('ticktick-metadata')?.value ?? '').trim();
-      settings.notifications.emailAlerts      = document.getElementById('pref-email-alerts')?.checked ?? false;
-      settings.notifications.washReminders    = document.getElementById('pref-wash-reminders')?.checked ?? true;
+      settings.notifications.emailAlerts         = document.getElementById('pref-email-alerts')?.checked ?? false;
+      settings.notifications.washReminders       = document.getElementById('pref-wash-reminders')?.checked ?? true;
+      settings.notifications.emailWashReminders  = document.getElementById('pref-email-wash-reminders')?.checked ?? false;
     }
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);

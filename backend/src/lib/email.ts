@@ -11,6 +11,7 @@ export interface NotificationSettings {
   ticktickMetadata: string;
   emailAlerts: boolean;
   washReminders: boolean;
+  emailWashReminders: boolean;
 }
 
 const NOTIF_DEFAULTS: NotificationSettings = {
@@ -19,6 +20,7 @@ const NOTIF_DEFAULTS: NotificationSettings = {
   ticktickMetadata: '^Car #Corolla today',
   emailAlerts: false,
   washReminders: true,
+  emailWashReminders: false,
 };
 
 export interface AlertThreshold {
@@ -54,9 +56,10 @@ export async function getOwnerNotificationSettings(
     return {
       ticktickEmail:    typeof n.ticktickEmail === 'string' && n.ticktickEmail ? n.ticktickEmail : null,
       ticktickAlerts:   typeof n.ticktickAlerts  === 'boolean' ? n.ticktickAlerts  : true,
-      ticktickMetadata: typeof n.ticktickMetadata === 'string' ? n.ticktickMetadata : '^Car #Corolla today',
-      emailAlerts:      typeof n.emailAlerts    === 'boolean' ? n.emailAlerts    : false,
-      washReminders:    typeof n.washReminders  === 'boolean' ? n.washReminders  : true,
+      ticktickMetadata:    typeof n.ticktickMetadata    === 'string'  ? n.ticktickMetadata    : '^Car #Corolla today',
+      emailAlerts:         typeof n.emailAlerts         === 'boolean' ? n.emailAlerts         : false,
+      washReminders:       typeof n.washReminders       === 'boolean' ? n.washReminders       : true,
+      emailWashReminders:  typeof n.emailWashReminders  === 'boolean' ? n.emailWashReminders  : false,
     };
   } catch {
     return { ...NOTIF_DEFAULTS };

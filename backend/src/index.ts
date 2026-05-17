@@ -13,7 +13,7 @@ import { seed } from './db/seed.js';
 import { db } from './db/connection.js';
 import { users, userData } from './db/schema.js';
 import { and, eq } from 'drizzle-orm';
-import { sendTickTickTask, getOwnerNotificationSettings } from './lib/email.js';
+import { sendTickTickTask, sendDirectEmail, getOwnerNotificationSettings } from './lib/email.js';
 
 // Ensure schema and seed data exist on every startup (idempotent).
 // Handles first boot on a fresh Render deploy where the SQLite file doesn't exist yet.
@@ -50,7 +50,8 @@ cron.schedule('0 5 * * *', () => {
 cron.schedule('0 7 * * *', async () => {
   const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
   const notifSettings = await getOwnerNotificationSettings(ownerEmail);
-  if (!notifSettings.washReminders || !notifSettings.ticktickEmail) return;
+  const canSendWash = (notifSettings.washReminders && !!notifSettings.ticktickEmail) || notifSettings.emailWashReminders;
+  if (!canSendWash) return;
 
   try {
     const userRows = await db
@@ -100,13 +101,20 @@ cron.schedule('0 7 * * *', async () => {
     const overdueDays = Math.floor((todayUtc.getTime() - dueDate.getTime()) / 86_400_000);
     const lastDateStr = lastDate.toISOString().slice(0, 10);
 
-    await sendTickTickTask(
-      notifSettings.ticktickEmail,
-      '🚗 Corolla wash due ^Car #Corolla today !Medium',
-      overdueDays > 0
-        ? `Last wash: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'} (every ${intervalDays} days)`
-        : `Last wash: ${lastDateStr}\nDue today (every ${intervalDays} days)`,
-    );
+    const washBody = overdueDays > 0
+      ? `Last wash: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'} (every ${intervalDays} days)`
+      : `Last wash: ${lastDateStr}\nDue today (every ${intervalDays} days)`;
+
+    if (notifSettings.washReminders && notifSettings.ticktickEmail) {
+      await sendTickTickTask(
+        notifSettings.ticktickEmail,
+        '🚗 Corolla wash due ^Car #Corolla today !Medium',
+        washBody,
+      );
+    }
+    if (notifSettings.emailWashReminders) {
+      await sendDirectEmail(ownerEmail, '🚗 Corolla wash due', washBody);
+    }
 
     console.log(`Wash reminder sent — last wash: ${lastDateStr}, overdue: ${overdueDays}d`);
   } catch (err) {
