@@ -1384,6 +1384,13 @@
   .alert-set-btn { padding: 4px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; background: var(--accent); color: #fff; border: none; }
   .alert-clear-btn { padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; background: none; color: var(--ink-dim); border: 1px solid var(--rule); }
 
+  /* Active alerts summary panel */
+  .alert-summary-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--rule); }
+  .alert-summary-row:first-of-type { border-top: none; }
+  .alert-summary-name { flex: 1; font-size: 13.5px; font-weight: 500; color: var(--ink); }
+  .alert-summary-meta { font-size: 13px; color: var(--ink-mid); white-space: nowrap; }
+  .alert-summary-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
   /* Channel radio in settings */
   .alert-channel-toggle { display: flex; gap: 16px; }
   .channel-option { display: flex; align-items: center; gap: 5px; font-size: 14px; cursor: pointer; }

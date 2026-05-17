@@ -666,6 +666,53 @@
     if (!anyCard) {
       container.innerHTML = '<p class="prices-empty">No prices loaded yet.</p>';
     }
+
+    renderAlertsPanel();
+  }
+
+  function renderAlertsPanel() {
+    const panel = document.getElementById('prices-alerts-summary');
+    if (!panel) return;
+
+    const slugs = Object.keys(priceAlerts);
+    if (slugs.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    const productBySlug = Object.fromEntries(liveProducts.map(p => [p.slug, p]));
+    const CHANNEL_LABELS = { global: 'Global setting', ticktick: 'TickTick', email: 'Email' };
+
+    let rows = '';
+    for (const slug of slugs) {
+      const alert = priceAlerts[slug];
+      const name = productBySlug[slug]?.name ?? slug;
+      const threshold = `$${(alert.thresholdCents / 100).toFixed(2)}`;
+      const channel = CHANNEL_LABELS[alert.channel] ?? 'Global setting';
+      rows += `
+        <div class="alert-summary-row">
+          <span class="alert-summary-name">${name}</span>
+          <span class="alert-summary-meta">${threshold} · ${channel}</span>
+          <div class="alert-summary-actions">
+            <button class="alert-clear-btn" onclick="editAlertFromSummary('${slug}')">Edit</button>
+            <button class="alert-clear-btn" onclick="clearAlert('${slug}')">Remove</button>
+          </div>
+        </div>`;
+    }
+
+    panel.style.display = '';
+    panel.innerHTML = `
+      <div class="phase-spend-card" style="margin-bottom:16px;">
+        <div class="phase-spend-head"><div class="phase-spend-name">Active alerts</div></div>
+        ${rows}
+      </div>`;
+  }
+
+  function editAlertFromSummary(slug) {
+    const form = document.getElementById(`alert-form-${slug}`);
+    if (!form) return;
+    if (form.style.display === 'none' || form.style.display === '') toggleAlertForm(slug);
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   // ─── Wash Log ────────────────────────────────────
@@ -1338,6 +1385,7 @@
     if (btn) { btn.classList.add('active'); btn.title = 'Alert set — click to edit'; }
     const form = document.getElementById(`alert-form-${slug}`);
     if (form) form.style.display = 'none';
+    renderAlertsPanel();
   }
 
   async function clearAlert(slug) {
@@ -1348,6 +1396,7 @@
     if (btn) { btn.classList.remove('active'); btn.title = 'Set price alert'; }
     const form = document.getElementById(`alert-form-${slug}`);
     if (form) form.style.display = 'none';
+    renderAlertsPanel();
   }
 
   function showSaved(id) {
