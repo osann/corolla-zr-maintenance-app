@@ -1373,7 +1373,10 @@
   .alert-btn:hover { opacity: 0.7; }
   .alert-btn.active { opacity: 1; filter: saturate(2) brightness(0.9); }
   .alert-inline-form { margin: 2px 0 6px; padding: 10px 12px; background: var(--bg-elev); border: 1px solid var(--rule); border-radius: var(--radius); width: 100%; box-sizing: border-box; }
-  .alert-form-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--ink-mid); }
+  .alert-form-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--ink-mid); }
+  .alert-form-inputs { display: flex; align-items: center; gap: 8px; }
+  .alert-form-label { white-space: nowrap; }
+  .alert-form-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
   .alert-threshold-wrap { display: flex; align-items: center; }
   .alert-dollar { color: var(--ink-mid); font-size: 13px; padding-right: 2px; }
   .alert-threshold-input { width: 70px; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 13px; }

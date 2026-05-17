@@ -616,15 +616,19 @@
             </div>
             <div class="alert-inline-form" id="alert-form-${slug}" style="display:none;">
               <div class="alert-form-row">
-                <span>Alert when below</span>
-                <div class="alert-threshold-wrap"><span class="alert-dollar">$</span><input type="number" class="alert-threshold-input" id="alert-threshold-${slug}" min="0.01" step="0.01" placeholder="0.00"></div>
-                <select class="alert-channel-select" id="alert-channel-${slug}">
-                  <option value="global">Global setting</option>
-                  <option value="ticktick">TickTick</option>
-                  <option value="email">Email</option>
-                </select>
-                <button class="alert-set-btn" onclick="saveAlert('${slug}')">Set</button>
-                <button class="alert-clear-btn" onclick="clearAlert('${slug}')">Clear</button>
+                <div class="alert-form-inputs">
+                  <span class="alert-form-label">Alert when below</span>
+                  <div class="alert-threshold-wrap"><span class="alert-dollar">$</span><input type="number" class="alert-threshold-input" id="alert-threshold-${slug}" min="0.01" step="0.01" placeholder="0.00"></div>
+                  <select class="alert-channel-select" id="alert-channel-${slug}">
+                    <option value="global">Global setting</option>
+                    <option value="ticktick">TickTick</option>
+                    <option value="email">Email</option>
+                  </select>
+                </div>
+                <div class="alert-form-actions">
+                  <button class="alert-set-btn" onclick="saveAlert('${slug}')">Set</button>
+                  <button class="alert-clear-btn" onclick="clearAlert('${slug}')">Clear</button>
+                </div>
               </div>
             </div>
             ${retailerRows}
