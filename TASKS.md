@@ -26,7 +26,22 @@ Know when products drop in price at Australian retailers.
 
 ---
 
-## 2. Wash session reminders
+## 2. Routines overhaul ✅
+
+Fully customisable routine objects replacing static HTML tables.
+
+- ✅ New data model (`corolla-routines-v1`): name, subtext, types (exterior/interior/maintenance), product+action steps, severity-based alerts
+- ✅ Routines tab split into "Routines" (read-only view) and "Configure" (editor) sub-tabs
+- ✅ `PRODUCT_ACTIONS` map: 34 catalog slug → default action strings; auto-fills action when product matches catalog
+- ✅ Drag-to-reorder routine cards in Configure sub-tab
+- ✅ CSV export and import (append mode, fresh IDs); UTF-8 BOM for Excel compatibility
+- ✅ Claude prompt template (downloadable from Configure tab) for generating routines via AI
+- ✅ Wash frequency and routine step chip config moved from Settings into Configure sub-tab
+- ✅ Wash frequency decoupled from Maintenance routine display (`applySchedule()` retained for future Schedule page)
+
+---
+
+## 3. Wash session reminders
 
 Push notification when a wash is due based on frequency settings and last log entry.
 
@@ -38,7 +53,7 @@ Push notification when a wash is due based on frequency settings and last log en
 
 ---
 
-## 3. Photo log per session
+## 4. Photo log per session
 
 Attach before/after photos to wash log entries.
 
@@ -50,7 +65,7 @@ Attach before/after photos to wash log entries.
 
 ---
 
-## 4. Multi-device sync ✅
+## 5. Multi-device sync ✅
 
 Access data from phone + desktop after moving storage to the backend.
 
@@ -60,7 +75,7 @@ Access data from phone + desktop after moving storage to the backend.
 
 ---
 
-## 5. Inventory tracking with depletion forecast
+## 6. Inventory tracking with depletion forecast
 
 Know when you're running low on a product before you run out.
 
@@ -71,7 +86,7 @@ Know when you're running low on a product before you run out.
 
 ---
 
-## 6. Weather-aware wash recommendations ✅
+## 7. Weather-aware wash recommendations ✅
 
 Don't recommend a wash when rain is forecast; surface protection reminders before hot weather.
 
@@ -86,7 +101,7 @@ Don't recommend a wash when rain is forecast; surface protection reminders befor
 
 ---
 
-## 7. Product comparison + alternative suggestions
+## 8. Product comparison + alternative suggestions
 
 When a Bowden's product is unavailable, suggest an equivalent.
 
@@ -96,18 +111,19 @@ When a Bowden's product is unavailable, suggest an equivalent.
 
 ---
 
-## 8. Maintenance log beyond detailing
+## 9. Maintenance log + Schedule page
 
-Service records, tyre rotations, tyre pressure checks, rego renewal dates.
+Service records, tyre rotations, tyre pressure checks, rego renewal dates. Will include a dedicated Schedule page where wash frequency settings (currently in Routines → Configure) will live alongside maintenance reminders.
 
 - ☐ New "Maintenance" tab alongside the wash log
 - ☐ Same entry shape as wash log: date, type, notes
 - ☐ Recurring reminder support (rego renewal annually, etc.)
 - ☐ `.ics` export for calendar integration
+- ☐ Move wash frequency settings from Routines → Configure to the new Schedule page
 
 ---
 
-## 9. Export PDF report
+## 10. Export PDF report
 
 Printable kit-and-technique reference for offline / glovebox use.
 
@@ -118,7 +134,7 @@ Printable kit-and-technique reference for offline / glovebox use.
 
 ---
 
-## 10. Community sharing
+## 11. Community sharing
 
 Let other Australian car owners use this as a starting template.
 

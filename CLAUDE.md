@@ -9,12 +9,12 @@ A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hyb
 The app has eight tabs:
 - **checklist** — kit purchase tracker, customisable phases (add/rename/delete), product prices
 - **guide** — per-product technique reference (mostly static)
-- **routine** — wash routines and ongoing maintenance schedule
+- **routine** — fully customisable wash routines; two sub-tabs: "Routines" (read-only rendered view) and "Configure" (editor cards for name/subtext/type/steps/alerts, CSV import/export, drag reorder, wash frequency, log step chips)
 - **log** — wash session log with streak counter
 - **spend** — spend tracker, budget bar, live sale alerts
 - **prices** — read-only price sheet: all tracked products grouped by functional category, all retailers per product, with sparklines and sale badges
 - **refs** — links to manufacturer pages and community resources
-- **settings** — frequencies, routine steps, display preferences, notification config (TickTick), vehicle details (incl. postcode for weather)
+- **settings** — display preferences, notification config (TickTick + email), vehicle details (incl. postcode for weather). Wash frequency and routine step chips have moved to the Routines → Configure sub-tab.
 
 ## Current architecture
 
@@ -141,7 +141,7 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 - `storageGet(key)` / `storageSet(key, val)` — storage abstraction that tries `window.storage` (Claude artifact runtime) then falls back to `localStorage`. All persistence goes through these.
 - `render*()` functions write to the DOM from state
 - `apply*()` functions mutate the DOM based on current settings
-- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadSettings → checkAuthAndSync → loadPriceData() + loadWeather()` (both non-blocking, called after sync so they use the post-sync postcode and settings)
+- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadSettings → loadRoutines → checkAuthAndSync → loadPriceData() + loadWeather()` (price data and weather are non-blocking, called after sync so they use the post-sync postcode and settings)
 - `itemData` array is rebuilt by `renderChecklist()` on every render — includes `slug`, `phase` (phase ID string), `price`, `el`, `input`
 - `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
 - `loadPriceHistories()` is called from `loadPriceData()` after prices are applied. It fetches `GET /api/products/prices` (bulk, 90-day window) in a single call, populates `priceHistories` keyed by product ID, then calls `renderPriceList()` (spend tab) and `renderPricesTab()` (prices tab). The old per-product `GET /api/products/:id/prices` endpoint is kept but no longer called by the frontend.
@@ -157,6 +157,7 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 | `corolla-budget-v1` | `{ target: number }` | Budget target |
 | `corolla-settings-v1` | `{ freq, routines, prefs, car: {model, year, colour, rego, displayName, postcode}, notifications }` | Settings |
 | `corolla-price-alerts-v1` | `{ [slug]: { thresholdCents: number, channel: 'global' \| 'ticktick' \| 'email' } }` | Per-product price alert thresholds |
+| `corolla-routines-v1` | `Array<{ id, name, subtext, types: string[], steps: [{product, action, enabled}], alerts: [{severity, label, text}] }>` | Fully customisable routine objects |
 
 Bump the version suffix on breaking shape changes rather than writing migrations. The checklist key has gone through three versions: `corolla-detailing-app-v4` (positional `item-N` IDs) → `corolla-checklist-v2` (slug-keyed config) → `corolla-checklist-v3` (phases array with metadata). Each `loadChecklist()` migrates forward automatically on first load.
 
@@ -167,6 +168,45 @@ The checklist is fully dynamic — no `<label class="item">` elements exist in H
 The full product catalog is the `CATALOG` constant in `app.js` — 46 products (25 default kit items across phases 1–4, plus 21 phase-0 extras available to add). `DEFAULT_PHASES` defines the original four-phase arrangement; it is only used when no saved state exists or as a migration source.
 
 To add a new product to the catalog: add it to `CATALOG` in `app.js` AND to `seed.ts` in the backend (with retailer URLs). The user can then add it to any phase via the Edit UI.
+
+### Routine system
+
+The routine tab is fully dynamic — no static HTML tables. All routine data lives in `corolla-routines-v1`.
+
+**Constants (`app.js`):**
+- `ROUTINES_KEY` — storage key string `'corolla-routines-v1'`
+- `PRODUCT_ACTIONS` — map of 34 catalog slugs → default action strings. Used to auto-fill the action field when the user types a known product name in the step editor.
+- `DEFAULT_ROUTINES` — three routine objects (Exterior, Interior, Maintenance) matching the original static content. Used on first load and by `resetEverything()`.
+- `ROUTINE_CSV_TEMPLATE` — a Claude prompt template string, downloadable as `routine-template.txt`, for generating routines via an AI assistant.
+
+**State:** `let routines = []` — loaded from storage, falls back to deep copy of `DEFAULT_ROUTINES`.
+
+**Key functions:**
+- `loadRoutines()` — reads `corolla-routines-v1`, falls back to defaults, calls `buildCatalogDatalist()` + `renderRoutinesView()` + `renderRoutineConfigCards()`
+- `saveRoutines()` — writes to storage, calls `syncPush()`, re-renders both views, shows saved confirmation
+- `renderRoutinesView()` — renders into `#routines-view`. One `.product-section` per routine, only enabled steps, numbered rows, callout divs for alerts. Does **not** call `applySchedule()` — the routine view is fully static data.
+- `renderRoutineConfigCards()` — renders into `#routine-config-cards`. One `.routine-config-card` per routine with name/subtext inputs, type checkboxes, step editor rows (product datalist + action + enable toggle + delete), alert editor rows (severity select + label + text + delete), delete routine button. Cards are `draggable=true` for reordering.
+- `buildCatalogDatalist()` — populates `<datalist id="catalog-datalist">` from `CATALOG` names so the product input gets autocomplete
+- `updateRoutineMeta(rIdx, field, val)` — updates name or subtext
+- `toggleRoutineType(rIdx, type, checked)` — adds/removes type from `types[]`
+- `updateRoutineStep(rIdx, sIdx, field, val)` — updates a step field; auto-fills action from `PRODUCT_ACTIONS` when product changes and action is empty
+- `addRoutineStep(rIdx)` / `removeRoutineStep(rIdx, sIdx)` — add/remove steps
+- `updateRoutineAlert(rIdx, aIdx, field, val)` — updates severity, label, or text
+- `addRoutineAlert(rIdx)` / `removeRoutineAlert(rIdx, aIdx)` — add/remove alerts
+- `addRoutine()` — appends blank routine object with generated ID
+- `deleteRoutine(rIdx)` — removes routine after confirm
+
+**Drag-to-reorder:** `routineDragSrc` (separate from `dragSrc` used by step-level drag) tracks the source card index. `dragstart`/`drop` events on each card call `routines.splice()` + `renderRoutineConfigCards()`. Cards show `.drag-over` outline and `.dragging` opacity during drag.
+
+**CSV format:** flat rows with `row_type` in column 0. A `routine` row defines the routine metadata; following `step` and `alert` rows belong to the most recent `routine` row. 12 columns total: `row_type, routine_id, name, subtext, types, product, action, enabled, sched, severity, label, text`. Import appends to existing routines (never overwrites) and assigns new IDs.
+
+**Shared helpers:**
+- `escAttr(str)` — escapes `"`, `<`, `>`, `&` for safe embedding in HTML attribute values
+- `triggerDownload(content, filename, mime)` — creates a `Blob`, object URL, clicks a hidden `<a>`, revokes URL
+
+**`applySchedule()`** — retained in `app.js` for the future Schedule page. It reads `[data-sched]` attributes from the DOM and overwrites cell text with live frequency labels. It is no longer called from `renderRoutinesView()` — the Maintenance routine shows static step text, not dynamic frequency values.
+
+**`settings.routines`** (in `corolla-settings-v1`) — the simple name+enabled arrays for log step chips. Untouched by the routines overhaul; still drives the chip editor in Routines → Configure and the log step checklist.
 
 ### CSS conventions
 
