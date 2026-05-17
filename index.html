@@ -783,6 +783,14 @@
     <!-- ── Configure sub-panel ── -->
     <div class="routine-sub-panel" id="routine-sub-configure">
 
+      <!-- Import / export / template -->
+      <div class="settings-save-bar" style="margin-bottom:24px;">
+        <button class="settings-save-btn" onclick="exportRoutinesCSV()">Export CSV</button>
+        <button class="settings-reset-btn" onclick="importRoutinesCSV()">Import CSV</button>
+        <button class="settings-reset-btn" onclick="downloadRoutineTemplate()">Download template</button>
+        <input type="file" id="routine-csv-input" accept=".csv" style="display:none;">
+      </div>
+
       <!-- Section 1: Routine editor cards (JS-rendered) -->
       <datalist id="catalog-datalist"></datalist>
       <div id="routine-config-cards"></div>

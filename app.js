@@ -1258,6 +1258,173 @@
 
   // ─── Full routine objects (corolla-routines-v1) ───
 
+  const ROUTINE_CSV_TEMPLATE = `You are generating car detailing routines in CSV format for import into a detailing app.
+
+## CSV format
+
+One file, 12 columns, always include this exact header row:
+row_type,routine_id,name,subtext,types,product,action,enabled,sched,severity,label,text
+
+Row types:
+
+ROUTINE row — one per routine:
+  routine_id : unique snake_case identifier (e.g. "quick_rinse", "bead_machine_apply")
+  name       : display heading
+  subtext    : one sentence shown under the heading (leave blank if none)
+  types      : one or more of: exterior / interior / maintenance — separated by semicolons
+
+STEP row — one per step, grouped after its routine row:
+  routine_id : must match the parent routine
+  product    : product or tool name (free text)
+  action     : what to do — one concise sentence
+  enabled    : true or false
+  sched      : leave blank UNLESS this step tracks a recurring frequency (valid values: fullWash / interiorDetail / beadMachine / aerospace / leatherGuard)
+
+ALERT row — optional, shown as a coloured callout at the bottom of the routine:
+  routine_id : must match the parent routine
+  severity   : tip (green) | warn (orange) | danger (red)
+  label      : short all-caps label, e.g. "Critical" or "Note" — leave blank if none
+  text       : the alert message
+
+Rules:
+- Fields containing commas must be wrapped in double quotes
+- A literal double-quote inside a field is written as two double-quotes ("")
+- Group each routine's steps and alerts immediately after the routine row (steps first, then alerts)
+- Output raw CSV only — no markdown, no explanation, no code fences
+
+## Example (two routines)
+
+row_type,routine_id,name,subtext,types,product,action,enabled,sched,severity,label,text
+routine,quick_detail,Quick Detail,Fast finish between full washes,exterior,,,,,,,
+step,quick_detail,,,,Boss Gloss,Mist onto dry panels and buff off with a clean microfibre,true,,,,
+step,quick_detail,,,,Naked Glass + Inta-Mitt,Wipe interior windscreen and all windows,true,,,,
+alert,quick_detail,,,,,,,,tip,Note,Only use on a cool panel in shade — streaks in direct sun
+routine,bead_machine_apply,Bead Machine Application,"Apply after Flash Prep when water beading flattens",exterior,,,,,,,
+step,bead_machine_apply,,,,Flash Prep,Wipe every panel to strip old sealant and oils,true,,,,
+step,bead_machine_apply,,,,Bead Machine,"Spread thin coat, buff to a light haze, wipe off with clean Big Softie",true,beadMachine,,,
+alert,bead_machine_apply,,,,,,,,warn,Timing,Do not apply in direct sun or on a hot panel — product flashes too fast
+
+## Available products (use these names for best auto-fill in the app)
+
+Nanolicious Wash Pack Ultimate, Wet Dreams Pack, Boss Gloss 770ml, Naked Glass 500ml, Naked Glass 770ml, Inta-Mitt, Kärcher K2 Premium Pressure Washer, Bowden's Own Snow Blow Cannon, Snow Job 1L, Snow Job 5L, Wheely Clean V2 500ml, Wheely Clean V2 5L, Wheely Clean 770ml, The Little Stiffy, The Flat Head, Fabra Cadabra 500ml, BOLP — Leather Care Pack, Leather Love V2 500ml, Leather Guard 500ml, Fabratection, 303 Aerospace Protectant 473ml, Pumpy Pump, Nanolicious Wash 5L, Microfibre Wash 1L, Plush Brush, Flash Prep 500ml, Bead Machine 500ml, Big Softie pair (blue + orange), Shagtastic Wash Pad, Happy Ending Cannon Bottle, The Chubby Wheel Brush V2, Naked Inta-Mitt Glass Cleaning Pack, Twisted Pro Sucker Drying Towel, The Square Bear Interior Applicator, The Big Green Sucker Drying Towel, Plush Daddy Interior Microfibre, Wet Dreams Sealant 770ml, Happy Ending Foam 1L, Little Chubby Brush V2, Orange Agent 500ml, Wet Dreams Sealant 5L, Boss Gloss 5L, Happy Ending Foam 5L
+
+## Your task
+
+Generate [DESCRIBE THE ROUTINE(S) — e.g. "a quick post-rain rinse routine" or "a full Bead Machine reapplication routine with Flash Prep"].
+
+[OPTIONAL: Add any constraints — e.g. "time budget: 20 minutes", "only products I own: Snow Job, Nanolicious, Wet Dreams", "for Ultrasuede seats only"]
+
+Output only the CSV starting with the header row.`;
+
+  function csvField(val) {
+    const s = String(val ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  }
+
+  function exportRoutinesCSV() {
+    const rows = ['row_type,routine_id,name,subtext,types,product,action,enabled,sched,severity,label,text'];
+    routines.forEach(r => {
+      const types = (r.types || []).join(';');
+      rows.push([csvField('routine'), csvField(r.id), csvField(r.name), csvField(r.subtext || ''), csvField(types), '', '', '', '', '', '', ''].join(','));
+      (r.steps || []).forEach(s => {
+        rows.push([csvField('step'), csvField(r.id), '', '', '', csvField(s.product), csvField(s.action), csvField(s.enabled), csvField(s.sched || ''), '', '', ''].join(','));
+      });
+      (r.alerts || []).forEach(a => {
+        rows.push([csvField('alert'), csvField(r.id), '', '', '', '', '', '', '', csvField(a.severity), csvField(a.label || ''), csvField(a.text)].join(','));
+      });
+    });
+    const csv = '﻿' + rows.join('\r\n');
+    const date = new Date().toISOString().slice(0, 10);
+    triggerDownload(csv, `routines-${date}.csv`, 'text/csv;charset=utf-8;');
+  }
+
+  function parseRoutinesCSV(text) {
+    const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const headers = parseCSVRow(lines[0]);
+    const idx = {};
+    headers.forEach((h, i) => idx[h.trim()] = i);
+    const get = (row, col) => (row[idx[col]] ?? '').trim();
+
+    const routineMap = {};
+    const order = [];
+    lines.slice(1).forEach(line => {
+      const row = parseCSVRow(line);
+      const type = get(row, 'row_type');
+      const rid = get(row, 'routine_id');
+      if (!rid) return;
+      if (type === 'routine') {
+        const types = get(row, 'types').split(';').map(t => t.trim()).filter(Boolean);
+        const r = { id: rid, name: get(row, 'name'), subtext: get(row, 'subtext'), types, steps: [], alerts: [] };
+        routineMap[rid] = r;
+        order.push(rid);
+      } else if (type === 'step' && routineMap[rid]) {
+        const sched = get(row, 'sched');
+        const step = { product: get(row, 'product'), action: get(row, 'action'), enabled: get(row, 'enabled') !== 'false' };
+        if (sched) step.sched = sched;
+        routineMap[rid].steps.push(step);
+      } else if (type === 'alert' && routineMap[rid]) {
+        routineMap[rid].alerts.push({ severity: get(row, 'severity') || 'tip', label: get(row, 'label'), text: get(row, 'text') });
+      }
+    });
+    return order.map(rid => routineMap[rid]);
+  }
+
+  function parseCSVRow(line) {
+    const fields = [];
+    let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuote) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') inQuote = false;
+        else cur += ch;
+      } else {
+        if (ch === '"') inQuote = true;
+        else if (ch === ',') { fields.push(cur); cur = ''; }
+        else cur += ch;
+      }
+    }
+    fields.push(cur);
+    return fields;
+  }
+
+  function importRoutinesCSV() {
+    const input = document.getElementById('routine-csv-input');
+    if (!input) return;
+    input.value = '';
+    input.onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async ev => {
+        const parsed = parseRoutinesCSV(ev.target.result);
+        if (!parsed.length) { alert('No valid routines found in the CSV file.'); return; }
+        if (!confirm(`Import ${parsed.length} routine(s)? They will be added to your existing routines.`)) return;
+        const ts = Date.now();
+        parsed.forEach((r, i) => { r.id = `routine-import-${r.id}-${ts + i}`; });
+        routines.push(...parsed);
+        await saveRoutines();
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  function downloadRoutineTemplate() {
+    triggerDownload(ROUTINE_CSV_TEMPLATE, 'routine-template.txt', 'text/plain;charset=utf-8;');
+  }
+
+  function triggerDownload(content, filename, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function loadRoutines() {
     const saved = await storageGet(ROUTINES_KEY);
     if (saved && Array.isArray(saved) && saved.length) routines = saved;
