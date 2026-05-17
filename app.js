@@ -2337,12 +2337,16 @@ Output only the CSV starting with the header row.`;
       const nextDue = calcRoutineNextDue(schedule);
       const daysUntil = nextDue ? Math.ceil((nextDue - today) / 86400000) : null;
       const bestDay = weatherCache ? calcBestWashDay(nextDue, weatherCache) : null;
-      let statusText, isOverdue = false;
+      let statusText, subText = '', isOverdue = false;
       if (daysUntil === null)   statusText = 'No sessions logged yet';
       else if (daysUntil < 0)  { statusText = `Overdue by ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''}`; isOverdue = true; }
       else if (daysUntil === 0) statusText = 'Due today';
       else if (daysUntil === 1) statusText = 'Due tomorrow';
       else                      statusText = `Due in ${daysUntil} days`;
+      if (bestDay) {
+        subText = `🌧 Rain forecast`;
+        statusText = `Best day: ${bestDay}`;
+      }
       const hasTickTick = !!settings.notifications?.ticktickEmail;
       const card = document.createElement('div');
       card.className = `wash-reminder-card${isOverdue ? ' wash-reminder-card--overdue' : ''}`;
@@ -2351,7 +2355,7 @@ Output only the CSV starting with the header row.`;
           <div class="reminder-body">
             <div class="reminder-name">${escHtml(routine.name)}</div>
             <div class="reminder-status">${statusText}</div>
-            ${bestDay ? `<div class="reminder-weather">🌧 Rain forecast — best day: ${bestDay}</div>` : ''}
+            ${subText ? `<div class="reminder-weather">${subText}</div>` : ''}
           </div>
           <div class="reminder-actions">
             <button class="reminder-btn" onclick="goToRoutine('${escAttr(schedule.routineId)}')">View routine</button>
