@@ -642,7 +642,7 @@
       for (const sec of category.sections) {
         const secHtml = renderProducts(sec.slugs);
         if (!secHtml) continue;
-        const headClass = firstSec ? 'prices-section-head' : 'prices-section-head prices-section-head--gap';
+        const headClass = firstSec ? 'section-head' : 'section-head section-head--gap';
         body += `<div class="${headClass}">${sec.label}</div>${secHtml}`;
         firstSec = false;
       }

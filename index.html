@@ -1275,6 +1275,8 @@
       <div class="settings-section-title">Notifications</div>
       <div class="settings-section-desc">Send to TickTick or email when a product goes on sale, hits a price threshold, or a wash is due.</div>
 
+      <div class="section-head" style="margin-top:4px;">TickTick</div>
+
       <div class="log-form-grid" style="margin-bottom:0;">
         <div class="log-field">
           <label class="log-label" for="ticktick-email">TickTick email</label>
@@ -1284,8 +1286,8 @@
 
       <div class="settings-row">
         <div class="settings-row-label">
-          <strong>TickTick price alerts</strong>
-          <span>Send a TickTick task when a product goes on sale or hits your threshold</span>
+          <strong>Price alerts</strong>
+          <span>Send a task when a product goes on sale or hits your threshold</span>
         </div>
         <div class="settings-control">
           <label class="toggle-wrap">
@@ -1298,7 +1300,7 @@
 
       <div class="settings-row" id="ticktick-metadata-row">
         <div class="settings-row-label">
-          <strong>TickTick subject suffix</strong>
+          <strong>Subject suffix</strong>
           <span>Appended to task titles — use for project (^), tags (#), due date, priority (!)</span>
         </div>
         <div class="settings-control">
@@ -1308,7 +1310,22 @@
 
       <div class="settings-row">
         <div class="settings-row-label">
-          <strong>Email price alerts</strong>
+          <strong>Wash reminders</strong>
+          <span>Create a task when a wash is overdue</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-wash-reminders" checked>
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section-head section-head--gap">Email</div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Price alerts</strong>
           <span>Send a direct email when a product goes on sale or hits your threshold</span>
         </div>
         <div class="settings-control">
@@ -1321,20 +1338,7 @@
 
       <div class="settings-row">
         <div class="settings-row-label">
-          <strong>TickTick wash reminder</strong>
-          <span>Create a TickTick task when a wash is overdue</span>
-        </div>
-        <div class="settings-control">
-          <label class="toggle-wrap">
-            <input type="checkbox" id="pref-wash-reminders" checked>
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row-label">
-          <strong>Email wash reminder</strong>
+          <strong>Wash reminder</strong>
           <span>Send a direct email when a wash is overdue</span>
         </div>
         <div class="settings-control">
