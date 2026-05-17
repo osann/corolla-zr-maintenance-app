@@ -9,12 +9,12 @@ A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hyb
 The app has eight tabs:
 - **checklist** — kit purchase tracker, customisable phases (add/rename/delete), product prices
 - **guide** — per-product technique reference (mostly static)
-- **routine** — fully customisable wash routines; two sub-tabs: "Routines" (read-only rendered view) and "Configure" (editor cards for name/subtext/type/steps/alerts, CSV import/export, drag reorder, wash frequency, log step chips)
-- **log** — wash session log with streak counter
+- **routine** — fully customisable wash routines; three sub-tabs: "Routines" (read-only rendered view), "Schedules" (per-routine reminder interval config), and "Configure" (editor cards for name/subtext/type/steps/alerts, CSV import/export, drag reorder, log step chips)
+- **log** — wash session log with streak counter, reminder cards, and weather hints; two sub-tabs: "History" (default) and "New Session"
 - **spend** — spend tracker, budget bar, live sale alerts
 - **prices** — read-only price sheet: all tracked products grouped by functional category, all retailers per product, with sparklines and sale badges
 - **refs** — links to manufacturer pages and community resources
-- **settings** — display preferences, notification config (TickTick + email), vehicle details (incl. postcode for weather). Wash frequency and routine step chips have moved to the Routines → Configure sub-tab.
+- **settings** — display preferences, notification config (TickTick + email), vehicle details (incl. postcode for weather). Wash frequency config has moved to Routines → Schedules; routine step chips are in Routines → Configure.
 
 ## Current architecture
 
@@ -36,7 +36,7 @@ corolla-zr-maintenance-app/
 │   │   │   │               # GET /api/products/prices — bulk price history (all products, 90-day window)
 │   │   │   │               # GET /api/products/:id/prices — single product price history
 │   │   │   ├── prices.ts   # POST /api/prices — ingest scraper results
-│   │   │   ├── alerts.ts   # GET /api/alerts, GET /api/prices/current
+│   │   │   ├── alerts.ts   # GET /api/alerts, GET /api/prices/current, POST /api/notify/wash-reminder
 │   │   │   ├── auth.ts     # Auth + sync: POST /api/auth/request|verify|logout, GET /api/auth/me, GET|POST /api/sync
 │   │   │   └── weather.ts  # GET /api/weather?postcode= — Nominatim geocoding + Open-Meteo forecast, 3h cache
 │   │   ├── scrapers/
@@ -155,7 +155,7 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 | `corolla-checklist-v3` | `{ phases: [{id, tag, title, items: string[]}], nextId: number, checked: {[slug]: bool} }` | Checklist phases + checked state |
 | `corolla-washlog-v1` | `Array<{id, date, type, steps[], notes}>` | Wash log |
 | `corolla-budget-v1` | `{ target: number }` | Budget target |
-| `corolla-settings-v1` | `{ freq, routines, prefs, car: {model, year, colour, rego, displayName, postcode}, notifications }` | Settings |
+| `corolla-settings-v1` | `{ freq, routines, prefs, car: {model, year, colour, rego, displayName, postcode}, notifications, schedules: [{routineId, intervalValue, intervalUnit}] }` | Settings |
 | `corolla-price-alerts-v1` | `{ [slug]: { thresholdCents: number, channel: 'global' \| 'ticktick' \| 'email' } }` | Per-product price alert thresholds |
 | `corolla-routines-v1` | `Array<{ id, name, subtext, types: string[], steps: [{product, action, enabled}], alerts: [{severity, label, text}] }>` | Fully customisable routine objects |
 
@@ -182,9 +182,9 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 **State:** `let routines = []` — loaded from storage, falls back to deep copy of `DEFAULT_ROUTINES`.
 
 **Key functions:**
-- `loadRoutines()` — reads `corolla-routines-v1`, falls back to defaults, calls `buildCatalogDatalist()` + `renderRoutinesView()` + `renderRoutineConfigCards()`
+- `loadRoutines()` — reads `corolla-routines-v1`, falls back to defaults, calls `buildCatalogDatalist()` + `renderRoutinesView()` + `renderRoutineConfigCards()` + `renderSchedulesUI()`
 - `saveRoutines()` — writes to storage, calls `syncPush()`, re-renders both views, shows saved confirmation
-- `renderRoutinesView()` — renders into `#routines-view`. One `.product-section` per routine, only enabled steps, numbered rows, callout divs for alerts. Does **not** call `applySchedule()` — the routine view is fully static data.
+- `renderRoutinesView()` — renders into `#routines-view`. One `.product-section` per routine (with `id="routine-view-{id}"`), only enabled steps, numbered rows, callout divs for alerts. Does **not** call `applySchedule()` — the routine view is fully static data.
 - `renderRoutineConfigCards()` — renders into `#routine-config-cards`. One `.routine-config-card` per routine with name/subtext inputs, type checkboxes, step editor rows (product datalist + action + enable toggle + delete), alert editor rows (severity select + label + text + delete), delete routine button. Cards are `draggable=true` for reordering.
 - `buildCatalogDatalist()` — populates `<datalist id="catalog-datalist">` from `CATALOG` names so the product input gets autocomplete
 - `updateRoutineMeta(rIdx, field, val)` — updates name or subtext
@@ -207,6 +207,18 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 **`applySchedule()`** — retained in `app.js` for the future Schedule page. It reads `[data-sched]` attributes from the DOM and overwrites cell text with live frequency labels. It is no longer called from `renderRoutinesView()` — the Maintenance routine shows static step text, not dynamic frequency values.
 
 **`settings.routines`** (in `corolla-settings-v1`) — the simple name+enabled arrays for log step chips. Untouched by the routines overhaul; still drives the chip editor in Routines → Configure and the log step checklist.
+
+**`settings.schedules`** (in `corolla-settings-v1`) — array of `{ routineId, intervalValue, intervalUnit }` entries. Drives the reminder cards in the log tab and the 07:00 UTC wash reminder cron. Default: `[]`. Managed via Routines → Schedules sub-tab. `intervalUnit` is `'days' | 'weeks' | 'months' | 'years'`.
+
+**Wash reminder functions:**
+- `scheduleIntervalDays(schedule)` — converts `{ intervalValue, intervalUnit }` to a number of days
+- `calcRoutineNextDue(schedule)` — maps routine types to relevant log entry types, finds the most recent matching log entry, returns next due Date
+- `calcBestWashDay(dueDate, forecast)` — returns the `rainDay` name (e.g. `'Thursday'`) when rain is forecast and the due date is ≤ 2 days away; null otherwise
+- `renderWashReminderCards()` — renders `.wash-reminder-card` elements into `#wash-reminder-cards` (above sub-tabs in log tab); called from `renderLog()` and on every `saveSettings()` call
+- `goToRoutine(routineId)` — clicks the Routines tab and scrolls to `#routine-view-{id}`
+- `sendWashReminderToTickTick(routineId, routineName, btn)` — `POST /api/notify/wash-reminder`; shows "Sent ✓" / "Failed" on the button
+- `renderSchedulesUI()` — renders schedule entry rows (routine dropdown, interval input, unit select, remove button) into `#schedule-list`
+- `updateScheduleField(idx, field, val)` / `addScheduleEntry()` / `removeScheduleEntry(idx)` — mutate `settings.schedules` in-place and re-render
 
 ### CSS conventions
 
@@ -278,7 +290,7 @@ Weather-aware hints appear in the **log tab** below the streak bar when a postco
 **Data flow:**
 - Frontend calls `GET /api/weather?postcode={postcode}` on the Render backend (fires once in `init()` after sync, and again when car settings are saved).
 - Backend (`routes/weather.ts`): geocodes postcode via Nominatim (`nominatim.openstreetmap.org/search?postalcode=&countrycodes=au`), fetches 7-day forecast from Open-Meteo (`api.open-meteo.com/v1/forecast`), returns `[{ date, rain_chance, temp_max }]`. Results cached in memory for 3 hours per postcode.
-- Frontend `evalWeatherTriggers(forecast)` evaluates both triggers and `renderWeatherCards(triggers)` updates the DOM. `weatherCache` stores the last successful forecast; `renderLog()` re-evaluates from cache on every log render (no extra fetch).
+- Frontend `evalWeatherTriggers(forecast)` evaluates both triggers and `renderWeatherCards(triggers)` updates the DOM. `weatherCache` stores the last successful forecast; `renderLog()` re-evaluates from cache on every log render (no extra fetch). `weatherCache` is also used by `calcBestWashDay()` — if rain is forecast within 2 days of a routine's due date, the reminder card replaces the due date text with the best wash day.
 
 **Why proxied:** BOM (`api.weather.bom.gov.au`) blocks browser CORS requests and Render's datacenter IPs. Open-Meteo geocoding doesn't support Australian postcode lookups. Nominatim + Open-Meteo via Render is the working stack.
 

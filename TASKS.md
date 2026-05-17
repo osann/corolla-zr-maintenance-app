@@ -41,15 +41,18 @@ Fully customisable routine objects replacing static HTML tables.
 
 ---
 
-## 3. Wash session reminders
+## 3. Wash session reminders ✅
 
-Push notification when a wash is due based on frequency settings and last log entry.
+Per-routine reminder cards in the wash log, backed by a custom interval scheduler and schedule-aware backend cron.
 
-- ☐ Read `settings.freq.fullWash` and most recent `washLog` entry to calculate next-due date
-- ☐ Implement Web Push (Push API + service worker) or email via the same notification system as price alerts
-- ☐ Daily cron: check all users, send notifications for anything due today or overdue
-- ☐ "Snooze" button that adds 3 days to next-due date
-- ☐ Streak-protection alert: "don't break your N-week streak — wash due tomorrow" (reuse `calcStreak()`)
+- ✅ `settings.schedules` array: per-routine intervals (`{ routineId, intervalValue, intervalUnit }`) stored in `corolla-settings-v1`
+- ✅ Schedules sub-tab in the Routines tab (between Routines and Configure) — select routine + set interval (days/weeks/months/years)
+- ✅ Reminder cards at the top of the log tab — one per scheduled routine, always showing next due date or overdue status; overdue cards use accent border
+- ✅ Rain forecast replaces displayed due date when rain is forecast within 2 days of due (best wash day shown)
+- ✅ "View routine" button on each card — switches to Routines tab and scrolls to the correct routine
+- ✅ "Send to TickTick" button per card — `POST /api/notify/wash-reminder` (session-protected); shown only when TickTick is configured
+- ✅ Log tab split into History (default) and New Session sub-tabs; adding a session auto-switches to History
+- ✅ Backend cron (07:00 UTC) updated to schedule-aware path: iterates `settings.schedules`, type-maps routine types to log entry types, sends per-routine notification when overdue; falls back to legacy 14-day interval if no schedules configured
 
 ---
 
