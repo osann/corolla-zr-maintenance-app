@@ -122,6 +122,110 @@
     { slug: 'happy-ending-5l',               name: 'Happy Ending Foam 5L',                  desc: 'Post-wash finishing foam — 5L bulk',                                                                              price: 0   },
   ];
 
+  // ─── Routines ─────────────────────────────────────
+  const ROUTINES_KEY = 'corolla-routines-v1';
+
+  const PRODUCT_ACTIONS = {
+    'nanolicious-wash-pack-ultimate': 'Two-bucket contact wash, top to bottom, straight strokes',
+    'wet-dreams-pack':                'Spray onto wet car, dwell 20–30 sec, gentle rinse',
+    'wet-dreams-770ml':               'Spray onto wet car, dwell 20–30 sec, gentle rinse',
+    'wet-dreams-5l':                  'Spray onto wet car, dwell 20–30 sec, gentle rinse',
+    'boss-gloss-770ml':               'Mist on panel, buff off with clean microfibre',
+    'boss-gloss-5l':                  'Mist on panel, buff off with clean microfibre',
+    'boss-gloss-pack':                'Mist on panel, buff off with clean microfibre',
+    'naked-glass-500ml':              'Two-side technique — one side per panel, flip cloth',
+    'naked-glass-770ml':              'Two-side technique — one side per panel, flip cloth',
+    'inta-mitt':                      'Wipe interior windscreen and all windows, flip mitt each panel',
+    'snow-job-1l':                    'Apply via foam cannon, dwell 2–4 min, rinse top to bottom',
+    'snow-job-5l':                    'Apply via foam cannon, dwell 2–4 min, rinse top to bottom',
+    'wheely-clean-v2-500ml':          'Spray on wheels, agitate with Flat Head + Little Stiffy, rinse',
+    'wheely-clean-v2-5l':             'Spray on wheels, agitate with Flat Head + Little Stiffy, rinse',
+    'wheely-clean-770ml':             'Spray on wheels, agitate with Flat Head + Little Stiffy, rinse',
+    'the-little-stiffy':              'Agitate wheel barrels, spokes, and around lug nuts',
+    'the-flat-head':                  'Clean wheel face and around lug nuts with flat profile',
+    'fabra-cadabra-500ml':            'Spray on Ultrasuede, agitate with Plush Brush, blot with Plush Daddy',
+    'plush-brush':                    'Agitate fabric surfaces using circular then straight strokes',
+    'leather-love-v2-500ml':          'Apply via Square Bear in sections — seats, wheel, gear knob, doors',
+    'the-square-bear':                'Apply product in overlapping passes, flip pad between sections',
+    'bolp-leather-care-pack':         'Apply Leather Love via Square Bear, follow with Leather Guard',
+    'leather-guard-500ml':            'Apply thin layer after Leather Love. Buff gently when tacky',
+    'plush-daddy':                    'Wipe hard plastics, console, door pulls, climate controls with damp cloth',
+    'fabratection':                   'Apply to Ultrasuede after Fabra Cadabra. Buff when dry. Reapply annually or when bead test fails',
+    '303-aerospace':                  'Spray on dashboard, plastic trim, rubber mats. Buff lightly. Reapply every 4–8 weeks',
+    'bead-machine-500ml':             'Apply after Flash Prep. Spread thin, buff to haze, wipe off with clean microfibre',
+    'flash-prep-500ml':               'Wipe panel by panel to strip old sealant and contamination before Bead Machine',
+    'orange-agent-500ml':             'Dilute 1:10, spray on soiled surfaces, agitate, rinse thoroughly',
+    'the-big-green-sucker':           'Dry top to bottom in long sweeping passes',
+    'twisted-pro-sucker':             'Dry top to bottom in long sweeping passes',
+    'happy-ending-cannon-bottle':     'Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse',
+    'happy-ending-1l':                'Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse',
+    'happy-ending-5l':                'Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse',
+    'microfibre-wash-1l':             'Machine-wash on cold, no fabric softener. Air dry or low heat',
+  };
+
+  const DEFAULT_ROUTINES = [
+    {
+      id: 'routine-exterior',
+      name: 'Full Exterior Wash',
+      subtext: 'Follow this sequence every wash. Order matters — steps done out of sequence re-contaminate surfaces already cleaned.',
+      types: ['exterior'],
+      steps: [
+        { product: 'Plain water rinse',        action: 'Dislodge loose grit before any product contact', enabled: true },
+        { product: 'Wheely Clean V2',          action: 'Spray wheels, agitate with Flat Head + Little Stiffy, rinse', enabled: true },
+        { product: 'Snow Job (foam cannon)',    action: 'Apply pre-wash foam, dwell 2–4 min, rinse top to bottom', enabled: true },
+        { product: 'Nanolicious Wash',         action: 'Two-bucket contact wash, top to bottom, straight strokes', enabled: true },
+        { product: 'Final rinse',              action: 'Free-flow sheet rinse, remove nozzle, top to bottom', enabled: true },
+        { product: 'Wet Dreams',               action: 'Spray onto wet car, dwell 20–30 sec, gentle rinse', enabled: true },
+        { product: 'Happy Ending (foam cannon)', action: 'Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse', enabled: true },
+        { product: 'Big Green Sucker',         action: 'Dry with towel — paint will be noticeably slicker', enabled: true },
+        { product: 'Naked Glass + Inta-Mitt',  action: 'Exterior glass first, then interior windscreen', enabled: true },
+        { product: 'Boss Gloss (optional)',    action: 'Quick detail any remaining water spots or fingerprints', enabled: false },
+      ],
+      alerts: [],
+    },
+    {
+      id: 'routine-interior',
+      name: 'Interior Routine',
+      subtext: 'Separate from the wash. Monthly, or whenever visibly soiled.',
+      types: ['interior'],
+      steps: [
+        { product: 'Vacuum',                          action: 'Remove all grit before any liquid application — including floor mats', enabled: true },
+        { product: 'Fabra Cadabra + Plush Brush',     action: 'Clean Ultrasuede inserts in sections, blot with Plush Daddy', enabled: true },
+        { product: 'Leather Love V2 + Square Bear',   action: 'Clean leather seats, steering wheel, gear knob, doors', enabled: true },
+        { product: 'Plush Daddy (damp)',              action: 'Wipe hard plastics, console, door pulls, climate controls', enabled: true },
+        { product: 'Naked Glass + Inta-Mitt',         action: 'Interior windscreen and all windows', enabled: true },
+        { product: 'Leather Guard + Square Bear',     action: 'Apply protectant to leather surfaces (monthly)', enabled: true },
+        { product: '303 Aerospace Protectant',        action: 'UV protection on dashboard, plastic trim, rubber mats (every 4–8 weeks)', enabled: true },
+        { product: 'Fabratection',                    action: 'Reapply to Ultrasuede annually, carpet mats every 6 months', enabled: true },
+      ],
+      alerts: [
+        { severity: 'warn', label: 'Critical', text: 'Never use the same cloth on Ultrasuede that has touched leather product. Cross-contamination is the most common cause of interior damage.' },
+      ],
+    },
+    {
+      id: 'routine-maintenance',
+      name: 'Ongoing Schedule',
+      subtext: '',
+      types: ['maintenance'],
+      steps: [
+        { product: 'Full wash',                              action: 'Nanolicious + Wet Dreams + dry with Boss Gloss aid', enabled: true, sched: 'fullWash' },
+        { product: 'Interior wipe-down',                     action: 'Plush Daddy on high-touch surfaces (wheel, shifter, door pulls, screen)', enabled: true },
+        { product: 'Deep wheel clean',                       action: 'Iron remover check, full tyre brush clean, dress tyres', enabled: true },
+        { product: 'Full interior detail',                   action: 'Fabra Cadabra + Leather Love + Leather Guard', enabled: true, sched: 'interiorDetail' },
+        { product: 'Apply 303 Aerospace',                    action: 'Interior plastics + rubber mats. More frequent in summer', enabled: true, sched: 'aerospace' },
+        { product: 'Tyre pressure check',                    action: 'More critical for tyre life than any cleaning product', enabled: true },
+        { product: 'Reapply Bead Machine',                   action: 'Use Flash Prep first. When water beading flattens, time to reapply', enabled: true, sched: 'beadMachine' },
+        { product: 'Reapply Fabratection — carpet mats',     action: "Driver's mat especially — gets the most wear", enabled: true },
+        { product: 'Reapply Fabratection — Ultrasuede',      action: 'After bead test fails', enabled: true },
+        { product: 'Reapply Leather Guard',                  action: 'Focus on bolsters and seat base — highest contact wear areas', enabled: true, sched: 'leatherGuard' },
+        { product: 'Replace mitts',                          action: 'If matted, stiff, or discoloured', enabled: true },
+      ],
+      alerts: [],
+    },
+  ];
+
+  let routines = JSON.parse(JSON.stringify(DEFAULT_ROUTINES));
+
   // Default phases — id order matches original HTML for v4/v2 → v3 migration
   const DEFAULT_PHASES = [
     { id: '1', tag: 'Phase 1 · foundation',                tag2: '', title: 'Wash, dry, glass, sealant, pre-wash',   items: ['nanolicious-wash-pack-ultimate','wet-dreams-pack','2-bucket-wash-kit','boss-gloss-770ml','naked-glass-500ml','inta-mitt','karcher-k2','snow-blow-cannon','snow-job-1l'] },
@@ -936,6 +1040,16 @@
     });
   });
 
+  // ─── Routine sub-tab navigation ───────────────────
+  document.querySelectorAll('.routine-sub-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.routine-sub-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.routine-sub-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('routine-sub-' + btn.dataset.routineTab).classList.add('active');
+    });
+  });
+
   // ─── TOC smooth scroll handling ──────────────────
   document.querySelectorAll('.toc-list a').forEach(link => {
     link.addEventListener('click', (e) => {
@@ -1140,6 +1254,219 @@
     settings.routines[routineKey].push({ name: val, enabled: true });
     inp.value = '';
     renderRoutineEditor(routineKey);
+  }
+
+  // ─── Full routine objects (corolla-routines-v1) ───
+
+  async function loadRoutines() {
+    const saved = await storageGet(ROUTINES_KEY);
+    if (saved && Array.isArray(saved) && saved.length) routines = saved;
+    buildCatalogDatalist();
+    renderRoutinesView();
+    renderRoutineConfigCards();
+  }
+
+  async function saveRoutines() {
+    await storageSet(ROUTINES_KEY, routines);
+    syncPush(ROUTINES_KEY, routines);
+    renderRoutinesView();
+    renderRoutineConfigCards();
+    showSaved('routines-v1-saved');
+  }
+
+  function buildCatalogDatalist() {
+    const dl = document.getElementById('catalog-datalist');
+    if (!dl) return;
+    dl.innerHTML = CATALOG.map(p => `<option value="${p.name}">`).join('');
+  }
+
+  function renderRoutinesView() {
+    const container = document.getElementById('routines-view');
+    if (!container) return;
+    container.innerHTML = '';
+    routines.forEach(routine => {
+      const enabledSteps = routine.steps.filter(s => s.enabled);
+      if (enabledSteps.length === 0) return;
+      const section = document.createElement('div');
+      section.className = 'product-section';
+      const typeLabel = (routine.types || []).map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
+      const rows = enabledSteps.map((step, i) => {
+        const schedAttr = step.sched ? ` data-sched="${step.sched}"` : '';
+        return `<tr><td${schedAttr}>${i + 1}</td><td>${escHtml(step.product)}</td><td>${escHtml(step.action)}</td></tr>`;
+      }).join('');
+      const alertsHtml = (routine.alerts || []).map(a => {
+        const label = a.label ? `<span class="callout-label">${escHtml(a.label)}</span>` : '';
+        return `<div class="callout ${a.severity}">${label}${escHtml(a.text)}</div>`;
+      }).join('');
+      section.innerHTML = `
+        <div class="product-num">${typeLabel}</div>
+        <h2>${escHtml(routine.name)}</h2>
+        ${routine.subtext ? `<p class="product-intro">${escHtml(routine.subtext)}</p>` : ''}
+        <table class="routine-table">
+          <thead><tr><th>Step</th><th>Product</th><th>Action</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${alertsHtml}
+      `;
+      container.appendChild(section);
+    });
+    applySchedule();
+  }
+
+  function renderRoutineConfigCards() {
+    const container = document.getElementById('routine-config-cards');
+    if (!container) return;
+    container.innerHTML = '';
+    routines.forEach((routine, rIdx) => {
+      const card = document.createElement('div');
+      card.className = 'routine-config-card';
+      card.innerHTML = buildRoutineConfigCardHTML(routine, rIdx);
+      container.appendChild(card);
+    });
+  }
+
+  function buildRoutineConfigCardHTML(routine, rIdx) {
+    const typeKeys = ['exterior', 'interior', 'maintenance'];
+    const typeCheckboxes = typeKeys.map(t =>
+      `<label class="routine-type-label">
+        <input type="checkbox" ${(routine.types || []).includes(t) ? 'checked' : ''}
+          onchange="toggleRoutineType(${rIdx},'${t}',this.checked)">
+        ${t.charAt(0).toUpperCase() + t.slice(1)}
+      </label>`
+    ).join('');
+
+    const stepsHtml = routine.steps.map((step, sIdx) => `
+      <div class="step-editor-row">
+        <input list="catalog-datalist" value="${escAttr(step.product)}"
+          onchange="updateRoutineStep(${rIdx},${sIdx},'product',this.value)"
+          oninput="updateRoutineStep(${rIdx},${sIdx},'product',this.value)"
+          placeholder="Product…" class="step-product-input">
+        <input value="${escAttr(step.action)}"
+          id="step-action-${rIdx}-${sIdx}"
+          onchange="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
+          placeholder="Action…" class="step-action-input">
+        <label class="toggle-wrap step-toggle">
+          <input type="checkbox" ${step.enabled ? 'checked' : ''}
+            onchange="updateRoutineStep(${rIdx},${sIdx},'enabled',this.checked)">
+          <span class="toggle-track" style="border-radius:100px;"></span>
+        </label>
+        <button class="step-remove-btn" onclick="removeRoutineStep(${rIdx},${sIdx})" title="Remove">✕</button>
+      </div>
+    `).join('');
+
+    const alertsHtml = (routine.alerts || []).map((alert, aIdx) => `
+      <div class="alert-editor-row">
+        <select class="alert-severity-select" onchange="updateRoutineAlert(${rIdx},${aIdx},'severity',this.value)">
+          <option value="tip"    ${alert.severity === 'tip'    ? 'selected' : ''}>Tip</option>
+          <option value="warn"   ${alert.severity === 'warn'   ? 'selected' : ''}>Warning</option>
+          <option value="danger" ${alert.severity === 'danger' ? 'selected' : ''}>Danger</option>
+        </select>
+        <input value="${escAttr(alert.label || '')}"
+          onchange="updateRoutineAlert(${rIdx},${aIdx},'label',this.value)"
+          placeholder="Label (optional)…" class="alert-label-input">
+        <input value="${escAttr(alert.text)}"
+          onchange="updateRoutineAlert(${rIdx},${aIdx},'text',this.value)"
+          placeholder="Alert text…" class="alert-text-input">
+        <button class="step-remove-btn" onclick="removeRoutineAlert(${rIdx},${aIdx})" title="Remove">✕</button>
+      </div>
+    `).join('');
+
+    return `
+      <div class="routine-config-card-title">${escHtml(routine.name || 'Untitled routine')}</div>
+      <div class="routine-config-field">
+        <span class="routine-config-label">Name</span>
+        <input value="${escAttr(routine.name)}" oninput="updateRoutineMeta(${rIdx},'name',this.value)" style="width:100%;" class="log-input">
+      </div>
+      <div class="routine-config-field">
+        <span class="routine-config-label">Subtext</span>
+        <input value="${escAttr(routine.subtext || '')}" oninput="updateRoutineMeta(${rIdx},'subtext',this.value)" style="width:100%;" class="log-input">
+      </div>
+      <div class="routine-config-field">
+        <span class="routine-config-label">Type</span>
+        <div class="routine-type-checkboxes">${typeCheckboxes}</div>
+      </div>
+      <div class="routine-config-label" style="margin-bottom:8px;">Steps</div>
+      ${stepsHtml}
+      <button class="add-step-btn" onclick="addRoutineStep(${rIdx})" style="margin:8px 0 20px;">+ Add step</button>
+      <div class="routine-config-label" style="margin-bottom:8px;">Alerts</div>
+      ${alertsHtml}
+      <button class="add-step-btn" onclick="addRoutineAlert(${rIdx})" style="margin:8px 0 16px;">+ Add alert</button>
+      <div class="settings-save-bar" style="padding-top:12px;">
+        <button class="settings-save-btn" onclick="saveRoutines()">Save</button>
+        <button class="settings-reset-btn" style="color:var(--danger);" onclick="deleteRoutine(${rIdx})">Delete routine</button>
+      </div>
+    `;
+  }
+
+  function escAttr(str) {
+    return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function updateRoutineMeta(rIdx, field, val) {
+    routines[rIdx][field] = val;
+    const card = document.querySelectorAll('.routine-config-card')[rIdx];
+    if (card) {
+      const title = card.querySelector('.routine-config-card-title');
+      if (title && field === 'name') title.textContent = val || 'Untitled routine';
+    }
+  }
+
+  function toggleRoutineType(rIdx, type, checked) {
+    const types = routines[rIdx].types || [];
+    if (checked && !types.includes(type)) types.push(type);
+    if (!checked) routines[rIdx].types = types.filter(t => t !== type);
+    else routines[rIdx].types = types;
+  }
+
+  function updateRoutineStep(rIdx, sIdx, field, val) {
+    routines[rIdx].steps[sIdx][field] = field === 'enabled' ? val : val;
+    if (field === 'product') {
+      const match = CATALOG.find(p => p.name === val);
+      if (match && PRODUCT_ACTIONS[match.slug]) {
+        const actionEl = document.getElementById(`step-action-${rIdx}-${sIdx}`);
+        if (actionEl && !actionEl.value.trim()) {
+          actionEl.value = PRODUCT_ACTIONS[match.slug];
+          routines[rIdx].steps[sIdx].action = PRODUCT_ACTIONS[match.slug];
+        }
+      }
+    }
+  }
+
+  function addRoutineStep(rIdx) {
+    routines[rIdx].steps.push({ product: '', action: '', enabled: true });
+    renderRoutineConfigCards();
+  }
+
+  function removeRoutineStep(rIdx, sIdx) {
+    routines[rIdx].steps.splice(sIdx, 1);
+    renderRoutineConfigCards();
+  }
+
+  function updateRoutineAlert(rIdx, aIdx, field, val) {
+    routines[rIdx].alerts[aIdx][field] = val;
+  }
+
+  function addRoutineAlert(rIdx) {
+    routines[rIdx].alerts = routines[rIdx].alerts || [];
+    routines[rIdx].alerts.push({ severity: 'tip', label: '', text: '' });
+    renderRoutineConfigCards();
+  }
+
+  function removeRoutineAlert(rIdx, aIdx) {
+    routines[rIdx].alerts.splice(aIdx, 1);
+    renderRoutineConfigCards();
+  }
+
+  function addRoutine() {
+    routines.push({ id: 'routine-' + Date.now(), name: 'New Routine', subtext: '', types: [], steps: [], alerts: [] });
+    renderRoutineConfigCards();
+  }
+
+  function deleteRoutine(rIdx) {
+    if (!confirm('Delete this routine? This cannot be undone.')) return;
+    routines.splice(rIdx, 1);
+    renderRoutineConfigCards();
+    renderRoutinesView();
   }
 
   // Preferences
@@ -1853,6 +2180,7 @@
     await loadBudget();
     await loadSettings();
     await loadAlerts();
+    await loadRoutines();
     await checkAuthAndSync();
     updateFooterVersion();
     loadPriceData();

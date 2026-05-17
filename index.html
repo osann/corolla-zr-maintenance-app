@@ -769,74 +769,154 @@
 
   <!-- ═══ ROUTINES PANEL ═══════════════════════════ -->
   <div class="panel" id="routine">
-    <div class="product-section">
-      <div class="product-num">Exterior</div>
-      <h2>Full wash routine</h2>
-      <p class="product-intro">Follow this sequence every wash. Order matters — steps done out of sequence re-contaminate surfaces already cleaned.</p>
-      <table class="routine-table">
-        <thead>
-          <tr><th>Step</th><th>Product</th><th>Action</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>1</td><td>Plain water rinse</td><td>Dislodge loose grit before any product contact</td></tr>
-          <tr><td>2</td><td>Wheely Clean V2</td><td>Spray wheels, agitate with Flat Head + Little Stiffy, rinse</td></tr>
-          <tr><td>3</td><td>Snow Job (foam cannon)</td><td>Apply pre-wash foam, dwell 2–4 min, rinse top to bottom</td></tr>
-          <tr><td>4</td><td>Nanolicious Wash</td><td>Two-bucket contact wash, top to bottom, straight strokes</td></tr>
-          <tr><td>5</td><td>Final rinse</td><td>Free-flow sheet rinse, no nozzle, top to bottom</td></tr>
-          <tr><td>6</td><td>Wet Dreams</td><td>Spray onto wet car, dwell 20–30 sec, gentle rinse</td></tr>
-          <tr><td>7</td><td>Happy Ending (foam cannon)</td><td>Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse</td></tr>
-          <tr><td>8</td><td>Big Green Sucker</td><td>Dry with towel — paint will be noticeably slicker</td></tr>
-          <tr><td>9</td><td>Naked Glass + Inta-Mitt</td><td>Exterior glass first, then interior windscreen</td></tr>
-          <tr><td>10</td><td>Boss Gloss (optional)</td><td>Quick detail any remaining water spots or fingerprints</td></tr>
-        </tbody>
-      </table>
+
+    <div class="routine-sub-tabs">
+      <button class="routine-sub-tab active" data-routine-tab="view">Routines</button>
+      <button class="routine-sub-tab" data-routine-tab="configure">Configure</button>
     </div>
 
-    <div class="product-section">
-      <div class="product-num">Interior</div>
-      <h2>Interior routine</h2>
-      <p class="product-intro">Separate from the wash. Monthly, or whenever visibly soiled.</p>
-      <table class="routine-table">
-        <thead>
-          <tr><th>Step</th><th>Product</th><th>Action</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>1</td><td>Vacuum</td><td>Remove all grit before any liquid application — including floor mats</td></tr>
-          <tr><td>2</td><td>Fabra Cadabra + Plush Brush</td><td>Clean Ultrasuede inserts in sections, blot with Plush Daddy</td></tr>
-          <tr><td>3</td><td>Leather Love V2 + Square Bear</td><td>Clean leather seats, steering wheel, gear knob, doors</td></tr>
-          <tr><td>4</td><td>Plush Daddy (damp)</td><td>Wipe hard plastics, console, door pulls, climate controls</td></tr>
-          <tr><td>5</td><td>Naked Glass + Inta-Mitt</td><td>Interior windscreen and all windows</td></tr>
-          <tr><td>6</td><td>Leather Guard + Square Bear</td><td>Apply protectant to leather surfaces (monthly)</td></tr>
-          <tr><td>7</td><td>303 Aerospace Protectant</td><td>UV protection on dashboard, plastic trim, rubber mats (every 4–8 weeks)</td></tr>
-          <tr><td>8</td><td>Fabratection</td><td>Reapply to Ultrasuede annually, carpet mats every 6 months</td></tr>
-        </tbody>
-      </table>
-
-      <div class="callout warn"><span class="callout-label">Critical</span>Never use the same cloth on Ultrasuede that has touched leather product. Cross-contamination is the most common cause of interior damage.</div>
+    <!-- ── View sub-panel ── -->
+    <div class="routine-sub-panel active" id="routine-sub-view">
+      <div id="routines-view"></div>
     </div>
 
-    <div class="product-section">
-      <div class="product-num">Maintenance</div>
-      <h2>Ongoing schedule</h2>
-      <table class="routine-table">
-        <thead>
-          <tr><th>Freq.</th><th>Task</th><th>Details</th></tr>
-        </thead>
-        <tbody id="schedule-tbody">
-          <tr><td data-sched="fullWash">Weekly</td><td>Full wash</td><td>Nanolicious + Wet Dreams + dry with Boss Gloss aid</td></tr>
-          <tr><td>Weekly</td><td>Interior wipe-down</td><td>Plush Daddy on high-touch surfaces (wheel, shifter, door pulls, screen)</td></tr>
-          <tr><td>Monthly</td><td>Deep wheel clean</td><td>Iron remover check, full tyre brush clean, dress tyres</td></tr>
-          <tr><td data-sched="interiorDetail">Monthly</td><td>Full interior detail</td><td>Fabra Cadabra + Leather Love + Leather Guard</td></tr>
-          <tr><td data-sched="aerospace">Every 6 weeks</td><td>Apply 303 Aerospace</td><td>Interior plastics + rubber mats. More frequent in summer</td></tr>
-          <tr><td>Quarterly</td><td>Tyre pressure check</td><td>More critical for tyre life than any cleaning product</td></tr>
-          <tr><td data-sched="beadMachine">Every 3 months</td><td>Reapply Bead Machine</td><td>Use Flash Prep first. When water beading flattens, time to reapply</td></tr>
-          <tr><td>6 months</td><td>Reapply Fabratection on carpet mats</td><td>Driver's mat especially — gets the most wear</td></tr>
-          <tr><td>Annually</td><td>Reapply Fabratection on Ultrasuede</td><td>After bead test fails</td></tr>
-          <tr><td data-sched="leatherGuard">Every 3 months</td><td>Reapply Leather Guard</td><td>Focus on bolsters and seat base — highest contact wear areas</td></tr>
-          <tr><td>Annually</td><td>Replace mitts</td><td>If matted, stiff, or discoloured</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- ── Configure sub-panel ── -->
+    <div class="routine-sub-panel" id="routine-sub-configure">
+
+      <!-- Section 1: Routine editor cards (JS-rendered) -->
+      <datalist id="catalog-datalist"></datalist>
+      <div id="routine-config-cards"></div>
+      <div class="settings-save-bar" style="margin-bottom:32px;">
+        <button class="settings-reset-btn" onclick="addRoutine()">+ Add routine</button>
+        <span class="settings-saved-msg" id="routines-v1-saved">Saved ✓</span>
+      </div>
+
+      <!-- Section 2: Log step chips (moved from settings) -->
+      <div class="settings-section">
+        <div class="settings-section-title">Routine steps</div>
+        <div class="settings-section-desc">Customise what steps appear in the wash log checklist. Drag to reorder, toggle to enable/disable, click the pencil to rename.</div>
+
+        <div class="routine-tabs">
+          <button class="routine-tab active" onclick="switchRoutineTab('exterior', this)">Exterior wash</button>
+          <button class="routine-tab" onclick="switchRoutineTab('interior', this)">Interior detail</button>
+          <button class="routine-tab" onclick="switchRoutineTab('log', this)">Log step chips</button>
+        </div>
+
+        <div class="routine-editor active" id="routine-editor-exterior">
+          <div class="routine-step-list" id="steps-exterior"></div>
+          <div class="add-step-row">
+            <input class="add-step-input" id="add-step-exterior" placeholder="Add a step…" onkeydown="if(event.key==='Enter') addStep('exterior')">
+            <button class="add-step-btn" onclick="addStep('exterior')">Add</button>
+          </div>
+        </div>
+
+        <div class="routine-editor" id="routine-editor-interior">
+          <div class="routine-step-list" id="steps-interior"></div>
+          <div class="add-step-row">
+            <input class="add-step-input" id="add-step-interior" placeholder="Add a step…" onkeydown="if(event.key==='Enter') addStep('interior')">
+            <button class="add-step-btn" onclick="addStep('interior')">Add</button>
+          </div>
+        </div>
+
+        <div class="routine-editor" id="routine-editor-log">
+          <div class="settings-section-desc" style="margin-bottom:14px;margin-top:-8px;">These are the checkboxes that appear when logging a wash session.</div>
+          <div class="routine-step-list" id="steps-log"></div>
+          <div class="add-step-row">
+            <input class="add-step-input" id="add-step-log" placeholder="Add a step chip…" onkeydown="if(event.key==='Enter') addStep('log')">
+            <button class="add-step-btn" onclick="addStep('log')">Add</button>
+          </div>
+        </div>
+
+        <div class="settings-save-bar">
+          <button class="settings-save-btn" onclick="saveSettings('routines')">Save routines</button>
+          <button class="settings-reset-btn" onclick="resetRoutines()">Reset to defaults</button>
+          <span class="settings-saved-msg" id="routines-saved">Saved ✓</span>
+        </div>
+      </div>
+
+      <!-- Section 3: Wash frequency (moved from settings) -->
+      <div class="settings-section">
+        <div class="settings-section-title">Wash frequency</div>
+        <div class="settings-section-desc">Set your target schedule. Used in the wash log streak counter and upcoming reminder labels.</div>
+
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <strong>Full wash target</strong>
+            <span>How often you aim to do a full foam + contact wash</span>
+          </div>
+          <div class="settings-control">
+            <div class="freq-stepper">
+              <button class="freq-btn" onclick="adjustFreq('fullWash', -1)">−</button>
+              <div class="freq-display" id="fullWash-display">Weekly</div>
+              <button class="freq-btn" onclick="adjustFreq('fullWash', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <strong>Interior detail target</strong>
+            <span>Fabra Cadabra, Leather Love, plastics wipe-down</span>
+          </div>
+          <div class="settings-control">
+            <div class="freq-stepper">
+              <button class="freq-btn" onclick="adjustFreq('interiorDetail', -1)">−</button>
+              <div class="freq-display" id="interiorDetail-display">Monthly</div>
+              <button class="freq-btn" onclick="adjustFreq('interiorDetail', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <strong>Bead Machine reapplication</strong>
+            <span>Reminder interval for your synthetic sealant base coat</span>
+          </div>
+          <div class="settings-control">
+            <div class="freq-stepper">
+              <button class="freq-btn" onclick="adjustFreq('beadMachine', -1)">−</button>
+              <div class="freq-display" id="beadMachine-display">Every 3 months</div>
+              <button class="freq-btn" onclick="adjustFreq('beadMachine', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <strong>303 Aerospace UV protection</strong>
+            <span>Reapplication on interior plastics and rubber mats</span>
+          </div>
+          <div class="settings-control">
+            <div class="freq-stepper">
+              <button class="freq-btn" onclick="adjustFreq('aerospace', -1)">−</button>
+              <div class="freq-display" id="aerospace-display">Every 6 weeks</div>
+              <button class="freq-btn" onclick="adjustFreq('aerospace', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <strong>Leather Guard reapplication</strong>
+            <span>Bolsters and seat base wear faster than backrest</span>
+          </div>
+          <div class="settings-control">
+            <div class="freq-stepper">
+              <button class="freq-btn" onclick="adjustFreq('leatherGuard', -1)">−</button>
+              <div class="freq-display" id="leatherGuard-display">Every 3 months</div>
+              <button class="freq-btn" onclick="adjustFreq('leatherGuard', 1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-save-bar">
+          <button class="settings-save-btn" onclick="saveSettings('freq')">Save</button>
+          <button class="settings-reset-btn" onclick="resetFreq()">Reset to defaults</button>
+          <span class="settings-saved-msg" id="freq-saved">Saved ✓</span>
+        </div>
+      </div>
+
+    </div><!-- /routine-sub-configure -->
   </div>
 
   <!-- ═══ WASH LOG PANEL ══════════════════════════════ -->
@@ -1035,131 +1115,6 @@
       <div class="settings-save-bar">
         <button class="settings-save-btn" onclick="saveSettings('car')">Save</button>
         <span class="settings-saved-msg" id="sync-name-saved">Saved ✓</span>
-      </div>
-    </div>
-
-    <!-- ── Wash Frequency ── -->
-    <div class="settings-section">
-      <div class="settings-section-title">Wash frequency</div>
-      <div class="settings-section-desc">Set your target schedule. Used in the wash log streak counter and upcoming reminder labels.</div>
-
-      <div class="settings-row">
-        <div class="settings-row-label">
-          <strong>Full wash target</strong>
-          <span>How often you aim to do a full foam + contact wash</span>
-        </div>
-        <div class="settings-control">
-          <div class="freq-stepper">
-            <button class="freq-btn" onclick="adjustFreq('fullWash', -1)">−</button>
-            <div class="freq-display" id="fullWash-display">Weekly</div>
-            <button class="freq-btn" onclick="adjustFreq('fullWash', 1)">+</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row-label">
-          <strong>Interior detail target</strong>
-          <span>Fabra Cadabra, Leather Love, plastics wipe-down</span>
-        </div>
-        <div class="settings-control">
-          <div class="freq-stepper">
-            <button class="freq-btn" onclick="adjustFreq('interiorDetail', -1)">−</button>
-            <div class="freq-display" id="interiorDetail-display">Monthly</div>
-            <button class="freq-btn" onclick="adjustFreq('interiorDetail', 1)">+</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row-label">
-          <strong>Bead Machine reapplication</strong>
-          <span>Reminder interval for your synthetic sealant base coat</span>
-        </div>
-        <div class="settings-control">
-          <div class="freq-stepper">
-            <button class="freq-btn" onclick="adjustFreq('beadMachine', -1)">−</button>
-            <div class="freq-display" id="beadMachine-display">Every 3 months</div>
-            <button class="freq-btn" onclick="adjustFreq('beadMachine', 1)">+</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row-label">
-          <strong>303 Aerospace UV protection</strong>
-          <span>Reapplication on interior plastics and rubber mats</span>
-        </div>
-        <div class="settings-control">
-          <div class="freq-stepper">
-            <button class="freq-btn" onclick="adjustFreq('aerospace', -1)">−</button>
-            <div class="freq-display" id="aerospace-display">Every 6 weeks</div>
-            <button class="freq-btn" onclick="adjustFreq('aerospace', 1)">+</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row-label">
-          <strong>Leather Guard reapplication</strong>
-          <span>Bolsters and seat base wear faster than backrest</span>
-        </div>
-        <div class="settings-control">
-          <div class="freq-stepper">
-            <button class="freq-btn" onclick="adjustFreq('leatherGuard', -1)">−</button>
-            <div class="freq-display" id="leatherGuard-display">Every 3 months</div>
-            <button class="freq-btn" onclick="adjustFreq('leatherGuard', 1)">+</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-save-bar">
-        <button class="settings-save-btn" onclick="saveSettings('freq')">Save</button>
-        <button class="settings-reset-btn" onclick="resetFreq()">Reset to defaults</button>
-        <span class="settings-saved-msg" id="freq-saved">Saved ✓</span>
-      </div>
-    </div>
-
-    <!-- ── Routine Steps ── -->
-    <div class="settings-section">
-      <div class="settings-section-title">Routine steps</div>
-      <div class="settings-section-desc">Customise what steps appear in each routine. Drag to reorder, toggle to enable/disable, click the pencil to rename. Changes apply to the Wash Log step checklist and the Routines tab display.</div>
-
-      <div class="routine-tabs">
-        <button class="routine-tab active" onclick="switchRoutineTab('exterior', this)">Exterior wash</button>
-        <button class="routine-tab" onclick="switchRoutineTab('interior', this)">Interior detail</button>
-        <button class="routine-tab" onclick="switchRoutineTab('log', this)">Log step chips</button>
-      </div>
-
-      <div class="routine-editor active" id="routine-editor-exterior">
-        <div class="routine-step-list" id="steps-exterior"></div>
-        <div class="add-step-row">
-          <input class="add-step-input" id="add-step-exterior" placeholder="Add a step…" onkeydown="if(event.key==='Enter') addStep('exterior')">
-          <button class="add-step-btn" onclick="addStep('exterior')">Add</button>
-        </div>
-      </div>
-
-      <div class="routine-editor" id="routine-editor-interior">
-        <div class="routine-step-list" id="steps-interior"></div>
-        <div class="add-step-row">
-          <input class="add-step-input" id="add-step-interior" placeholder="Add a step…" onkeydown="if(event.key==='Enter') addStep('interior')">
-          <button class="add-step-btn" onclick="addStep('interior')">Add</button>
-        </div>
-      </div>
-
-      <div class="routine-editor" id="routine-editor-log">
-        <div class="settings-section-desc" style="margin-bottom:14px;margin-top:-8px;">These are the checkboxes that appear when logging a wash session.</div>
-        <div class="routine-step-list" id="steps-log"></div>
-        <div class="add-step-row">
-          <input class="add-step-input" id="add-step-log" placeholder="Add a step chip…" onkeydown="if(event.key==='Enter') addStep('log')">
-          <button class="add-step-btn" onclick="addStep('log')">Add</button>
-        </div>
-      </div>
-
-      <div class="settings-save-bar">
-        <button class="settings-save-btn" onclick="saveSettings('routines')">Save routines</button>
-        <button class="settings-reset-btn" onclick="resetRoutines()">Reset to defaults</button>
-        <span class="settings-saved-msg" id="routines-saved">Saved ✓</span>
       </div>
     </div>
 

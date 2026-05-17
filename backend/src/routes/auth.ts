@@ -22,6 +22,7 @@ const ALLOWED_KEYS = [
   'corolla-budget-v1',
   'corolla-settings-v1',
   'corolla-price-alerts-v1',
+  'corolla-routines-v1',
 ];
 
 // In-memory 60s per-email cooldown (resets on Render restart — acceptable)

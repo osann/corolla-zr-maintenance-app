@@ -664,6 +664,8 @@
   }
   .callout.tip .callout-label { color: var(--accent-dark); }
   .callout.warn .callout-label { color: var(--warn); }
+  .callout.danger { background: var(--danger-tint); border-left: 3px solid var(--danger); color: var(--ink); }
+  .callout.danger .callout-label { color: var(--danger); }
 
   /* ─── Routine Tables ────────────────────────────── */
   .routine-table {
@@ -1316,6 +1318,29 @@
   .spend-sub-tab.active { background: var(--ink); color: var(--bg-elev); border-color: var(--ink); }
   .spend-sub-panel { display: none; }
   .spend-sub-panel.active { display: block; }
+
+  /* Routine top-level sub-tabs */
+  .routine-sub-tabs { display: flex; gap: 4px; margin-bottom: 24px; flex-wrap: wrap; }
+  .routine-sub-tab { font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--rule); background: transparent; color: var(--ink-mid); cursor: pointer; transition: all 160ms ease; }
+  .routine-sub-tab:hover { background: var(--bg-muted); color: var(--ink); }
+  .routine-sub-tab.active { background: var(--ink); color: var(--bg-elev); border-color: var(--ink); }
+  .routine-sub-panel { display: none; }
+  .routine-sub-panel.active { display: block; }
+
+  /* Routine config cards */
+  .routine-config-card { background: var(--bg-elev); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; border: 1px solid var(--rule); }
+  .routine-config-card-title { font-family: 'Fraunces', Georgia, serif; font-size: 18px; margin-bottom: 16px; color: var(--ink); font-variation-settings: 'opsz' 144; }
+  .routine-config-field { margin-bottom: 14px; }
+  .routine-config-label { display: block; font-size: 12px; color: var(--ink-mid); margin-bottom: 5px; font-weight: 500; }
+  .routine-type-checkboxes { display: flex; gap: 16px; flex-wrap: wrap; }
+  .routine-type-label { display: flex; align-items: center; gap: 6px; font-size: 13.5px; cursor: pointer; }
+  .step-editor-row { display: grid; grid-template-columns: 1fr 1.5fr auto auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+  .step-product-input, .step-action-input { font-family: 'Inter', sans-serif; font-size: 13px; padding: 6px 10px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; }
+  .step-product-input:focus, .step-action-input:focus { outline: none; border-color: var(--accent); }
+  .alert-editor-row { display: grid; grid-template-columns: auto 120px 1fr auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
+  .alert-severity-select { font-size: 12.5px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--rule-strong); background: var(--bg-elev); color: var(--ink); font-family: 'Inter', sans-serif; }
+  .alert-label-input, .alert-text-input { font-family: 'Inter', sans-serif; font-size: 13px; padding: 6px 10px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; }
+  .alert-label-input:focus, .alert-text-input:focus { outline: none; border-color: var(--accent); }
 
   /* Price list */
   .price-row {
