@@ -7,15 +7,17 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export interface NotificationSettings {
   ticktickEmail: string | null;
-  priceAlerts: boolean;
-  priceAlertChannel: 'ticktick' | 'email';
+  ticktickAlerts: boolean;
+  ticktickMetadata: string;
+  emailAlerts: boolean;
   washReminders: boolean;
 }
 
 const NOTIF_DEFAULTS: NotificationSettings = {
   ticktickEmail: null,
-  priceAlerts: true,
-  priceAlertChannel: 'ticktick',
+  ticktickAlerts: true,
+  ticktickMetadata: '^Car #Corolla today',
+  emailAlerts: false,
   washReminders: true,
 };
 
@@ -50,10 +52,11 @@ export async function getOwnerNotificationSettings(
     if (!n || typeof n !== 'object') return { ...NOTIF_DEFAULTS };
 
     return {
-      ticktickEmail:     typeof n.ticktickEmail === 'string' && n.ticktickEmail ? n.ticktickEmail : null,
-      priceAlerts:       typeof n.priceAlerts   === 'boolean' ? n.priceAlerts   : true,
-      priceAlertChannel: n.priceAlertChannel === 'email' ? 'email' : 'ticktick',
-      washReminders:     typeof n.washReminders === 'boolean' ? n.washReminders : true,
+      ticktickEmail:    typeof n.ticktickEmail === 'string' && n.ticktickEmail ? n.ticktickEmail : null,
+      ticktickAlerts:   typeof n.ticktickAlerts  === 'boolean' ? n.ticktickAlerts  : true,
+      ticktickMetadata: typeof n.ticktickMetadata === 'string' ? n.ticktickMetadata : '^Car #Corolla today',
+      emailAlerts:      typeof n.emailAlerts    === 'boolean' ? n.emailAlerts    : false,
+      washReminders:    typeof n.washReminders  === 'boolean' ? n.washReminders  : true,
     };
   } catch {
     return { ...NOTIF_DEFAULTS };

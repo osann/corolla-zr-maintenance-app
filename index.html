@@ -1273,7 +1273,7 @@
     <!-- ── Notifications ── -->
     <div class="settings-section">
       <div class="settings-section-title">Notifications</div>
-      <div class="settings-section-desc">Send tasks to TickTick when a wash is due or a product goes on sale. Find your personal address in TickTick → Settings → Email.</div>
+      <div class="settings-section-desc">Send to TickTick or email when a product goes on sale, hits a price threshold, or a wash is due.</div>
 
       <div class="log-form-grid" style="margin-bottom:0;">
         <div class="log-field">
@@ -1284,12 +1284,36 @@
 
       <div class="settings-row">
         <div class="settings-row-label">
-          <strong>Price alerts</strong>
-          <span>Create a task when a product goes on sale or hits your threshold</span>
+          <strong>TickTick price alerts</strong>
+          <span>Send a TickTick task when a product goes on sale or hits your threshold</span>
         </div>
         <div class="settings-control">
           <label class="toggle-wrap">
-            <input type="checkbox" id="pref-price-alerts" checked>
+            <input type="checkbox" id="pref-ticktick-alerts" checked
+              onchange="document.getElementById('ticktick-metadata-row').style.display=this.checked?'':'none'">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-row" id="ticktick-metadata-row">
+        <div class="settings-row-label">
+          <strong>TickTick subject suffix</strong>
+          <span>Appended to task titles — use for project (^), tags (#), due date, priority (!)</span>
+        </div>
+        <div class="settings-control">
+          <input class="log-input" type="text" id="ticktick-metadata" placeholder="^Car #Corolla today" style="font-size:12px;padding:5px 8px;width:170px;">
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Email price alerts</strong>
+          <span>Send a direct email when a product goes on sale or hits your threshold</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-email-alerts">
             <span class="toggle-track"></span>
           </label>
         </div>
@@ -1297,27 +1321,8 @@
 
       <div class="settings-row">
         <div class="settings-row-label">
-          <strong>Price alert via</strong>
-          <span>How price alerts are delivered</span>
-        </div>
-        <div class="settings-control">
-          <div class="alert-channel-toggle">
-            <label class="channel-option">
-              <input type="radio" name="price-alert-channel" id="pac-ticktick" value="ticktick" checked>
-              <span>TickTick</span>
-            </label>
-            <label class="channel-option">
-              <input type="radio" name="price-alert-channel" id="pac-email" value="email">
-              <span>Email</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row-label">
           <strong>Wash reminders</strong>
-          <span>Create a task when a wash is overdue</span>
+          <span>Create a TickTick task when a wash is overdue</span>
         </div>
         <div class="settings-control">
           <label class="toggle-wrap">

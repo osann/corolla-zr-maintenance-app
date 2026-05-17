@@ -95,7 +95,7 @@ router.post('/prices', async (c) => {
     const threshold = alertThresholds[slug];
     const thresholdBreached = threshold?.thresholdCents != null && priceCents <= threshold.thresholdCents;
 
-    if ((onSale || thresholdBreached) && notifSettings.priceAlerts) {
+    if ((onSale || thresholdBreached) && (notifSettings.ticktickAlerts || notifSettings.emailAlerts)) {
       const recent = await db
         .select({ onSale: priceHistory.onSale, priceCents: priceHistory.priceCents })
         .from(priceHistory)
@@ -118,8 +118,7 @@ router.post('/prices', async (c) => {
           const prevLine  = prevCents ? `Previous price: $${(prevCents / 100).toFixed(2)}\n` : '';
           const baseSubject = `🔥 ${productName} on sale at ${retailerName} — ${currentPrice}`;
           const bodyText    = `Current price: ${currentPrice}\n${prevLine}`;
-          sendViaChannel(notifSettings.priceAlertChannel, notifSettings.ticktickEmail, ownerEmail,
-            `${baseSubject} ^Car #Corolla today`, baseSubject, bodyText);
+          sendViaChannel('global', notifSettings, ownerEmail, baseSubject, bodyText);
         }
       }
 
@@ -131,9 +130,8 @@ router.post('/prices', async (c) => {
           const thresholdDollar = `$${(threshold.thresholdCents / 100).toFixed(2)}`;
           const baseSubject = `⬇️ ${productName} below ${thresholdDollar} at ${retailerName} — ${currentPrice}`;
           const bodyText    = `Your alert threshold: ${thresholdDollar}\nCurrent price: ${currentPrice}`;
-          const channel = threshold.channel === 'global' ? notifSettings.priceAlertChannel : threshold.channel;
-          sendViaChannel(channel, notifSettings.ticktickEmail, ownerEmail,
-            `${baseSubject} ^Car #Corolla today`, baseSubject, bodyText);
+          const channel = threshold.channel === 'global' ? 'global' : threshold.channel;
+          sendViaChannel(channel, notifSettings, ownerEmail, baseSubject, bodyText);
         }
       }
     }
@@ -145,17 +143,25 @@ router.post('/prices', async (c) => {
 });
 
 function sendViaChannel(
-  channel: 'ticktick' | 'email',
-  ticktickEmail: string | null,
+  channel: 'global' | 'ticktick' | 'email',
+  notifSettings: { ticktickAlerts: boolean; ticktickEmail: string | null; ticktickMetadata: string; emailAlerts: boolean },
   ownerEmail: string,
-  ticktickSubject: string,
-  emailSubject: string,
+  baseSubject: string,
   body: string,
 ): void {
-  if (channel === 'ticktick' && ticktickEmail) {
-    sendTickTickTask(ticktickEmail, ticktickSubject, body).catch(console.error);
-  } else if (channel === 'email') {
-    sendDirectEmail(ownerEmail, emailSubject, body).catch(console.error);
+  const sendTT = notifSettings.ticktickAlerts &&
+    (channel === 'ticktick' || channel === 'global') &&
+    !!notifSettings.ticktickEmail;
+  const sendEmail = notifSettings.emailAlerts &&
+    (channel === 'email' || channel === 'global');
+
+  if (sendTT) {
+    const meta = notifSettings.ticktickMetadata?.trim();
+    const ttSubject = meta ? `${baseSubject} ${meta}` : baseSubject;
+    sendTickTickTask(notifSettings.ticktickEmail!, ttSubject, body).catch(console.error);
+  }
+  if (sendEmail) {
+    sendDirectEmail(ownerEmail, baseSubject, body).catch(console.error);
   }
 }
 

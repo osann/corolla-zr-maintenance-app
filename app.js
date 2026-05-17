@@ -932,8 +932,9 @@
 
   const DEFAULT_NOTIFICATIONS = {
     ticktickEmail: '',
-    priceAlerts: true,
-    priceAlertChannel: 'ticktick',
+    ticktickAlerts: true,
+    ticktickMetadata: '^Car #Corolla today',
+    emailAlerts: false,
     washReminders: true,
   };
 
@@ -1089,12 +1090,12 @@
   }
 
   function loadNotificationsUI() {
-    document.getElementById('ticktick-email').value         = settings.notifications.ticktickEmail || '';
-    document.getElementById('pref-price-alerts').checked   = settings.notifications.priceAlerts;
-    document.getElementById('pref-wash-reminders').checked = settings.notifications.washReminders;
-    const channel = settings.notifications.priceAlertChannel || 'ticktick';
-    const radio = document.querySelector(`input[name="price-alert-channel"][value="${channel}"]`);
-    if (radio) radio.checked = true;
+    document.getElementById('ticktick-email').value               = settings.notifications.ticktickEmail || '';
+    document.getElementById('pref-ticktick-alerts').checked       = settings.notifications.ticktickAlerts;
+    document.getElementById('ticktick-metadata').value            = settings.notifications.ticktickMetadata || '';
+    document.getElementById('ticktick-metadata-row').style.display = settings.notifications.ticktickAlerts ? '' : 'none';
+    document.getElementById('pref-email-alerts').checked          = settings.notifications.emailAlerts;
+    document.getElementById('pref-wash-reminders').checked        = settings.notifications.washReminders;
   }
 
   async function loadAlerts() {
@@ -1217,11 +1218,11 @@
       settings.car.displayName = document.getElementById('car-display-name').value.trim();
       settings.car.postcode = document.getElementById('car-postcode').value.trim();
     } else if (section === 'notifications') {
-      settings.notifications.ticktickEmail      = (document.getElementById('ticktick-email')?.value ?? '').trim();
-      settings.notifications.priceAlerts        = document.getElementById('pref-price-alerts')?.checked ?? true;
-      settings.notifications.washReminders      = document.getElementById('pref-wash-reminders')?.checked ?? true;
-      const channelEl = document.querySelector('input[name="price-alert-channel"]:checked');
-      settings.notifications.priceAlertChannel  = channelEl?.value ?? 'ticktick';
+      settings.notifications.ticktickEmail    = (document.getElementById('ticktick-email')?.value ?? '').trim();
+      settings.notifications.ticktickAlerts   = document.getElementById('pref-ticktick-alerts')?.checked ?? true;
+      settings.notifications.ticktickMetadata = (document.getElementById('ticktick-metadata')?.value ?? '').trim();
+      settings.notifications.emailAlerts      = document.getElementById('pref-email-alerts')?.checked ?? false;
+      settings.notifications.washReminders    = document.getElementById('pref-wash-reminders')?.checked ?? true;
     }
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
@@ -1305,7 +1306,6 @@
     syncPush(SETTINGS_KEY, settings);
     showSaved('notifications-saved');
   }
-
   function toggleAlertForm(slug) {
     const form = document.getElementById(`alert-form-${slug}`);
     if (!form) return;
