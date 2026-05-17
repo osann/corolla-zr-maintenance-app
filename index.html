@@ -772,12 +772,28 @@
 
     <div class="routine-sub-tabs">
       <button class="routine-sub-tab active" data-routine-tab="view">Routines</button>
+      <button class="routine-sub-tab" data-routine-tab="schedules">Schedules</button>
       <button class="routine-sub-tab" data-routine-tab="configure">Configure</button>
     </div>
 
     <!-- ── View sub-panel ── -->
     <div class="routine-sub-panel active" id="routine-sub-view">
       <div id="routines-view"></div>
+    </div>
+
+    <!-- ── Schedules sub-panel ── -->
+    <div class="routine-sub-panel" id="routine-sub-schedules">
+      <div class="settings-section">
+        <div class="settings-section-desc">Set how often each routine should run. A reminder card appears at the top of the wash log for each scheduled routine.</div>
+        <div id="schedule-list"></div>
+        <div style="margin-top:12px;">
+          <button class="settings-reset-btn" onclick="addScheduleEntry()">+ Add schedule</button>
+        </div>
+        <div class="settings-save-bar">
+          <button class="settings-save-btn" onclick="saveSettings('schedules')">Save</button>
+          <span class="settings-saved-msg" id="schedules-saved">Saved ✓</span>
+        </div>
+      </div>
     </div>
 
     <!-- ── Configure sub-panel ── -->
@@ -1207,20 +1223,6 @@
         <button class="settings-save-btn" onclick="saveSettings('notifications')">Save</button>
         <button class="settings-reset-btn" onclick="resetNotifications()">Reset to defaults</button>
         <span class="settings-saved-msg" id="notifications-saved">Saved ✓</span>
-      </div>
-    </div>
-
-    <!-- ── Wash Schedules ── -->
-    <div class="settings-section">
-      <div class="settings-section-title">Wash Schedules</div>
-      <div class="settings-section-desc">Set how often each routine should run. A reminder card appears at the top of the wash log for each scheduled routine.</div>
-      <div id="schedule-list"></div>
-      <div style="margin-top:12px;">
-        <button class="settings-reset-btn" onclick="addScheduleEntry()">+ Add schedule</button>
-      </div>
-      <div class="settings-save-bar">
-        <button class="settings-save-btn" onclick="saveSettings('schedules')">Save</button>
-        <span class="settings-saved-msg" id="schedules-saved">Saved ✓</span>
       </div>
     </div>
 
