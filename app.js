@@ -992,6 +992,7 @@
     const label = document.getElementById('log-history-label');
     label.textContent = washLog.length > 0 ? `History (${washLog.length} session${washLog.length !== 1 ? 's' : ''})` : 'History';
 
+    renderWashReminderCards();
     if (weatherCache) renderWeatherCards(evalWeatherTriggers(weatherCache));
 
     const container = document.getElementById('log-entries');
@@ -1147,6 +1148,7 @@
     prefs: { ...DEFAULT_PREFS },
     car: { model: '', year: '', colour: '', rego: '', displayName: '' },
     notifications: { ...DEFAULT_NOTIFICATIONS },
+    schedules: [],
   };
 
   // Frequency stepper
@@ -1431,6 +1433,7 @@ Output only the CSV starting with the header row.`;
     buildCatalogDatalist();
     renderRoutinesView();
     renderRoutineConfigCards();
+    renderSchedulesUI();
   }
 
   async function saveRoutines() {
@@ -1456,6 +1459,7 @@ Output only the CSV starting with the header row.`;
       if (enabledSteps.length === 0) return;
       const section = document.createElement('div');
       section.className = 'product-section';
+      section.id = `routine-view-${routine.id}`;
       const typeLabel = (routine.types || []).map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
       const rows = enabledSteps.map((step, i) =>
         `<tr><td>${i + 1}</td><td>${escHtml(step.product)}</td><td>${escHtml(step.action)}</td></tr>`
@@ -1830,9 +1834,12 @@ Output only the CSV starting with the header row.`;
       settings.notifications.washReminders       = document.getElementById('pref-wash-reminders')?.checked ?? true;
       settings.notifications.emailWashReminders  = document.getElementById('pref-email-wash-reminders')?.checked ?? false;
       settings.notifications.emailDigest        = document.getElementById('pref-email-digest')?.checked ?? false;
+    } else if (section === 'schedules') {
+      // settings.schedules already mutated in-place via updateScheduleField / addScheduleEntry / removeScheduleEntry
     }
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
+    renderWashReminderCards();
     applyPrefs();
     applyCarInfo();
     applyLogStepChips();
@@ -1862,12 +1869,14 @@ Output only the CSV starting with the header row.`;
       if (saved.prefs) settings.prefs = { ...DEFAULT_PREFS, ...saved.prefs };
       if (saved.car)           settings.car           = { model:'', year:'', colour:'', displayName:'', postcode:'', ...saved.car };
       if (saved.notifications) settings.notifications = { ...DEFAULT_NOTIFICATIONS, ...saved.notifications };
+      if (Array.isArray(saved.schedules)) settings.schedules = saved.schedules;
     }
     renderFreqDisplays();
     renderAllRoutineEditors();
     loadPrefsUI();
     loadCarUI();
     loadNotificationsUI();
+    renderSchedulesUI();
     applyPrefs();
     applyCarInfo();
     applyLogStepChips();
@@ -2282,6 +2291,145 @@ Output only the CSV starting with the header row.`;
       return null;
     }
   }
+
+  // ── Wash schedule helpers ────────────────────────────────────────────────
+
+  function scheduleIntervalDays({ intervalValue, intervalUnit }) {
+    const mul = { days: 1, weeks: 7, months: 30, years: 365 };
+    return (intervalValue || 1) * (mul[intervalUnit] || 7);
+  }
+
+  function calcRoutineNextDue(schedule) {
+    const routine = routines.find(r => r.id === schedule.routineId);
+    if (!routine) return null;
+    const types = routine.types ?? [];
+    const matchTypes = new Set();
+    if (types.includes('exterior'))    ['full', 'quick', 'both'].forEach(t => matchTypes.add(t));
+    if (types.includes('interior'))    ['interior', 'both'].forEach(t => matchTypes.add(t));
+    if (types.includes('maintenance')) ['full', 'both'].forEach(t => matchTypes.add(t));
+    const relevant = washLog
+      .filter(e => matchTypes.size === 0 || matchTypes.has(e.type))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    if (!relevant.length) return new Date();
+    const [y, m, d] = relevant[0].date.split('-').map(Number);
+    return new Date(y, m - 1, d + scheduleIntervalDays(schedule));
+  }
+
+  function calcBestWashDay(dueDate, forecast) {
+    if (!forecast || !dueDate) return null;
+    const triggers = evalWeatherTriggers(forecast);
+    if (!triggers.rainTomorrow) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (Math.ceil((dueDate - today) / 86400000) > 2) return null;
+    return triggers.rainDay;
+  }
+
+  function renderWashReminderCards() {
+    const container = document.getElementById('wash-reminder-cards');
+    if (!container) return;
+    const schedules = settings.schedules ?? [];
+    if (!schedules.length) { container.innerHTML = ''; return; }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    container.innerHTML = '';
+    schedules.forEach(schedule => {
+      const routine = routines.find(r => r.id === schedule.routineId);
+      if (!routine) return;
+      const nextDue = calcRoutineNextDue(schedule);
+      const daysUntil = nextDue ? Math.ceil((nextDue - today) / 86400000) : null;
+      const bestDay = weatherCache ? calcBestWashDay(nextDue, weatherCache) : null;
+      let statusText, isOverdue = false;
+      if (daysUntil === null)   statusText = 'No sessions logged yet';
+      else if (daysUntil < 0)  { statusText = `Overdue by ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''}`; isOverdue = true; }
+      else if (daysUntil === 0) statusText = 'Due today';
+      else if (daysUntil === 1) statusText = 'Due tomorrow';
+      else                      statusText = `Due in ${daysUntil} days`;
+      const hasTickTick = !!settings.notifications?.ticktickEmail;
+      const card = document.createElement('div');
+      card.className = `wash-reminder-card${isOverdue ? ' wash-reminder-card--overdue' : ''}`;
+      card.innerHTML = `
+        <div class="reminder-row">
+          <div class="reminder-body">
+            <div class="reminder-name">${escHtml(routine.name)}</div>
+            <div class="reminder-status">${statusText}</div>
+            ${bestDay ? `<div class="reminder-weather">🌧 Rain forecast — best day: ${bestDay}</div>` : ''}
+          </div>
+          <div class="reminder-actions">
+            <button class="reminder-btn" onclick="goToRoutine('${escAttr(schedule.routineId)}')">View routine</button>
+            ${hasTickTick ? `<button class="reminder-btn reminder-btn--accent" onclick="sendWashReminderToTickTick('${escAttr(schedule.routineId)}','${escAttr(routine.name)}',this)">Send to TickTick</button>` : ''}
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function goToRoutine(routineId) {
+    document.querySelector('.tab-btn[data-tab="routine"]')?.click();
+    setTimeout(() => {
+      document.getElementById(`routine-view-${routineId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
+
+  async function sendWashReminderToTickTick(routineId, routineName, btn) {
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+    const orig = btn.textContent;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/notify/wash-reminder`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routineId, routineName }),
+        signal: AbortSignal.timeout(8000),
+      });
+      btn.textContent = res.ok ? 'Sent ✓' : 'Failed';
+    } catch { btn.textContent = 'Failed'; }
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+  }
+
+  // ── Schedule settings UI ─────────────────────────────────────────────────
+
+  function renderSchedulesUI() {
+    const container = document.getElementById('schedule-list');
+    if (!container) return;
+    const schedules = settings.schedules ?? [];
+    if (!schedules.length) {
+      container.innerHTML = '<p class="settings-hint">No schedules set. Add one below.</p>';
+      return;
+    }
+    container.innerHTML = schedules.map((s, i) => {
+      const opts = routines.map(r =>
+        `<option value="${escAttr(r.id)}"${r.id === s.routineId ? ' selected' : ''}>${escHtml(r.name)}</option>`
+      ).join('');
+      const unitOpts = ['days', 'weeks', 'months', 'years'].map(u =>
+        `<option value="${u}"${u === s.intervalUnit ? ' selected' : ''}>${u}</option>`
+      ).join('');
+      return `<div class="schedule-entry">
+        <select class="schedule-routine-select" onchange="updateScheduleField(${i},'routineId',this.value)">${opts}</select>
+        <span class="schedule-label">every</span>
+        <input class="schedule-interval-input" type="number" min="1" max="365" value="${s.intervalValue || 1}" onchange="updateScheduleField(${i},'intervalValue',+this.value)">
+        <select class="schedule-unit-select" onchange="updateScheduleField(${i},'intervalUnit',this.value)">${unitOpts}</select>
+        <button class="schedule-remove-btn" onclick="removeScheduleEntry(${i})" title="Remove">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  function updateScheduleField(idx, field, val) {
+    if (settings.schedules) settings.schedules[idx][field] = val;
+  }
+
+  function addScheduleEntry() {
+    if (!settings.schedules) settings.schedules = [];
+    settings.schedules.push({ routineId: routines[0]?.id ?? '', intervalValue: 2, intervalUnit: 'weeks' });
+    renderSchedulesUI();
+  }
+
+  function removeScheduleEntry(idx) {
+    settings.schedules.splice(idx, 1);
+    renderSchedulesUI();
+  }
+
+  // ── Weather triggers ─────────────────────────────────────────────────────
 
   function evalWeatherTriggers(forecast) {
     const result = { rainTomorrow: false, rainDay: null, heatWave: false, heatDay: null };

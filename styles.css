@@ -1508,6 +1508,80 @@
     body { background: white; color: black; }
   }
 
+  /* ─── Wash reminder cards ───────────────────────── */
+  #wash-reminder-cards { display: flex; flex-direction: column; gap: 10px; margin: 0 0 8px; }
+  .wash-reminder-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .wash-reminder-card--overdue { border-left: 3px solid var(--accent); }
+  .reminder-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .reminder-body { flex: 1; min-width: 0; }
+  .reminder-name { font-family: 'Fraunces', Georgia, serif; font-size: 15px; font-weight: 600; }
+  .reminder-status { font-size: 13px; color: var(--ink-mid); margin-top: 2px; }
+  .reminder-weather { font-size: 13px; color: var(--ink-mid); margin-top: 4px; }
+  .reminder-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+  .reminder-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 7px 14px;
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    color: var(--ink-mid);
+    cursor: pointer;
+    transition: all 160ms ease;
+  }
+  .reminder-btn:hover { background: var(--bg-muted); color: var(--ink); }
+  .reminder-btn--accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .reminder-btn--accent:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .reminder-btn:disabled { opacity: 0.6; cursor: default; }
+
+  /* ─── Wash schedule settings entries ────────────── */
+  .schedule-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .schedule-entry:last-child { border-bottom: none; }
+  .schedule-routine-select,
+  .schedule-unit-select,
+  .schedule-interval-input {
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: var(--bg-elev);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    padding: 7px 10px;
+  }
+  .schedule-routine-select { flex: 1; min-width: 0; }
+  .schedule-interval-input { width: 54px; text-align: center; padding: 7px 6px; }
+  .schedule-label { font-size: 13px; color: var(--ink-mid); white-space: nowrap; }
+  .schedule-remove-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--ink-mid);
+    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .schedule-remove-btn:hover { background: var(--bg-muted); }
+  .settings-hint { font-size: 13px; color: var(--ink-mid); margin: 8px 0; }
+
   /* ─── Responsive ────────────────────────────────── */
   @media (max-width: 600px) {
     h1 { font-size: 32px; }

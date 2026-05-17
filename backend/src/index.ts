@@ -51,6 +51,7 @@ cron.schedule('0 5 * * *', () => {
 });
 
 // Wash reminder: daily at 07:00 UTC (after Autopro scrape window closes).
+// Iterates settings.schedules; falls back to legacy fullWash check if no schedules configured.
 cron.schedule('0 7 * * *', async () => {
   const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
   const notifSettings = await getOwnerNotificationSettings(ownerEmail);
@@ -67,7 +68,7 @@ cron.schedule('0 7 * * *', async () => {
     if (userRows.length === 0) return;
     const userId = userRows[0].id;
 
-    const [logRow, settingsRow] = await Promise.all([
+    const [logRow, settingsRow, routinesRow] = await Promise.all([
       db.select({ valueJson: userData.valueJson })
         .from(userData)
         .where(and(eq(userData.userId, userId), eq(userData.key, 'corolla-washlog-v1')))
@@ -76,51 +77,108 @@ cron.schedule('0 7 * * *', async () => {
         .from(userData)
         .where(and(eq(userData.userId, userId), eq(userData.key, 'corolla-settings-v1')))
         .limit(1),
+      db.select({ valueJson: userData.valueJson })
+        .from(userData)
+        .where(and(eq(userData.userId, userId), eq(userData.key, 'corolla-routines-v1')))
+        .limit(1),
     ]);
 
     if (logRow.length === 0) return;
 
-    type WashEntry = { date: string };
+    type WashEntry = { date: string; type: string };
     const washLog: WashEntry[] = JSON.parse(logRow[0].valueJson);
     if (!Array.isArray(washLog) || washLog.length === 0) return;
-
-    const lastDate = new Date(
-      [...washLog].sort((a, b) => b.date.localeCompare(a.date))[0].date
-    );
-
-    const intervalDays = (() => {
-      if (settingsRow.length === 0) return 14;
-      const freq = JSON.parse(settingsRow[0].valueJson)?.freq?.fullWash;
-      return typeof freq === 'number' && freq > 0 ? freq : 14;
-    })();
-
-    const dueDate = new Date(lastDate);
-    dueDate.setDate(dueDate.getDate() + intervalDays);
 
     const todayUtc = new Date();
     todayUtc.setUTCHours(0, 0, 0, 0);
 
-    if (todayUtc < dueDate) return;
+    const savedSettings = settingsRow.length > 0 ? JSON.parse(settingsRow[0].valueJson) : null;
+    const schedules: Array<{ routineId: string; intervalValue: number; intervalUnit: string }> =
+      Array.isArray(savedSettings?.schedules) ? savedSettings.schedules : [];
 
-    const overdueDays = Math.floor((todayUtc.getTime() - dueDate.getTime()) / 86_400_000);
-    const lastDateStr = lastDate.toISOString().slice(0, 10);
+    function routineMatchesLog(types: string[], logType: string): boolean {
+      if (types.includes('exterior')    && ['full', 'quick', 'both'].includes(logType)) return true;
+      if (types.includes('interior')    && ['interior', 'both'].includes(logType))      return true;
+      if (types.includes('maintenance') && ['full', 'both'].includes(logType))          return true;
+      return types.length === 0;
+    }
 
-    const washBody = overdueDays > 0
-      ? `Last wash: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'} (every ${intervalDays} days)`
-      : `Last wash: ${lastDateStr}\nDue today (every ${intervalDays} days)`;
+    if (schedules.length > 0) {
+      // Schedule-aware path: send one notification per overdue routine
+      type RoutineEntry = { id: string; name: string; types: string[] };
+      const routineList: RoutineEntry[] = routinesRow.length > 0
+        ? JSON.parse(routinesRow[0].valueJson)
+        : [];
 
-    if (notifSettings.washReminders && notifSettings.ticktickEmail) {
-      await sendTickTickTask(
-        notifSettings.ticktickEmail,
-        '🚗 Corolla wash due ^Car #Corolla today !Medium',
-        washBody,
+      const mul: Record<string, number> = { days: 1, weeks: 7, months: 30, years: 365 };
+
+      for (const schedule of schedules) {
+        const routine = routineList.find(r => r.id === schedule.routineId);
+        if (!routine) continue;
+
+        const intervalDays = (schedule.intervalValue || 1) * (mul[schedule.intervalUnit] || 7);
+        const relevant = washLog
+          .filter(e => routineMatchesLog(routine.types ?? [], e.type))
+          .sort((a, b) => b.date.localeCompare(a.date));
+
+        if (!relevant.length) continue; // never logged — skip to avoid spamming
+
+        const lastDate = new Date(relevant[0].date);
+        const dueDate = new Date(lastDate);
+        dueDate.setDate(dueDate.getDate() + intervalDays);
+
+        if (todayUtc < dueDate) continue;
+
+        const overdueDays = Math.floor((todayUtc.getTime() - dueDate.getTime()) / 86_400_000);
+        const lastDateStr = lastDate.toISOString().slice(0, 10);
+        const suffix = notifSettings.ticktickMetadata || '';
+        const washBody = overdueDays > 0
+          ? `Last session: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
+          : `Last session: ${lastDateStr}\nDue today`;
+
+        if (notifSettings.washReminders && notifSettings.ticktickEmail) {
+          await sendTickTickTask(
+            notifSettings.ticktickEmail,
+            `🚗 ${routine.name} due ${suffix}`.trim(),
+            washBody,
+          );
+        }
+        if (notifSettings.emailWashReminders) {
+          await sendDirectEmail(ownerEmail, `🚗 ${routine.name} due`, washBody);
+        }
+
+        console.log(`Wash reminder sent — ${routine.name}, last: ${lastDateStr}, overdue: ${overdueDays}d`);
+      }
+    } else {
+      // Legacy fallback: check most recent log entry against fullWash interval
+      const lastDate = new Date(
+        [...washLog].sort((a, b) => b.date.localeCompare(a.date))[0].date
       );
-    }
-    if (notifSettings.emailWashReminders) {
-      await sendDirectEmail(ownerEmail, '🚗 Corolla wash due', washBody);
-    }
+      const intervalDays = 14;
+      const dueDate = new Date(lastDate);
+      dueDate.setDate(dueDate.getDate() + intervalDays);
 
-    console.log(`Wash reminder sent — last wash: ${lastDateStr}, overdue: ${overdueDays}d`);
+      if (todayUtc < dueDate) return;
+
+      const overdueDays = Math.floor((todayUtc.getTime() - dueDate.getTime()) / 86_400_000);
+      const lastDateStr = lastDate.toISOString().slice(0, 10);
+      const washBody = overdueDays > 0
+        ? `Last wash: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
+        : `Last wash: ${lastDateStr}\nDue today`;
+
+      if (notifSettings.washReminders && notifSettings.ticktickEmail) {
+        await sendTickTickTask(
+          notifSettings.ticktickEmail,
+          '🚗 Corolla wash due ^Car #Corolla today !Medium',
+          washBody,
+        );
+      }
+      if (notifSettings.emailWashReminders) {
+        await sendDirectEmail(ownerEmail, '🚗 Corolla wash due', washBody);
+      }
+
+      console.log(`Wash reminder sent (legacy) — last wash: ${lastDateStr}, overdue: ${overdueDays}d`);
+    }
   } catch (err) {
     console.error('Wash reminder cron error:', err);
   }

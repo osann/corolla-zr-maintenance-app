@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { eq, desc, and, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
+import { sessionMiddleware } from '../lib/auth.js';
+import { getOwnerNotificationSettings, sendTickTickTask } from '../lib/email.js';
 
 const router = new Hono();
 
@@ -43,6 +45,26 @@ router.get('/alerts', async (c) => {
   });
 
   return c.json(alerts);
+});
+
+// POST /notify/wash-reminder — send a TickTick task for a specific routine from the frontend button
+router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
+  const { routineName } = await c.req.json<{ routineName: string }>();
+  const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
+  const notif = await getOwnerNotificationSettings(ownerEmail);
+
+  if (!notif.washReminders || !notif.ticktickEmail) return c.json({ ok: true });
+
+  const suffix = notif.ticktickMetadata || '';
+  await sendTickTickTask(
+    notif.ticktickEmail,
+    `🚗 ${routineName} due ${suffix}`.trim(),
+    'Wash reminder sent from the Corolla app.',
+  );
+  return c.json({ ok: true });
 });
 
 export default router;

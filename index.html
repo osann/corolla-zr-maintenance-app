@@ -799,88 +799,6 @@
         <span class="settings-saved-msg" id="routines-v1-saved">Saved ✓</span>
       </div>
 
-      <!-- Section 2: Wash frequency (moved from settings) -->
-      <div class="settings-section">
-        <div class="settings-section-title">Wash frequency</div>
-        <div class="settings-section-desc">Set your target schedule. Used in the wash log streak counter and upcoming reminder labels.</div>
-
-        <div class="settings-row">
-          <div class="settings-row-label">
-            <strong>Full wash target</strong>
-            <span>How often you aim to do a full foam + contact wash</span>
-          </div>
-          <div class="settings-control">
-            <div class="freq-stepper">
-              <button class="freq-btn" onclick="adjustFreq('fullWash', -1)">−</button>
-              <div class="freq-display" id="fullWash-display">Weekly</div>
-              <button class="freq-btn" onclick="adjustFreq('fullWash', 1)">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-row">
-          <div class="settings-row-label">
-            <strong>Interior detail target</strong>
-            <span>Fabra Cadabra, Leather Love, plastics wipe-down</span>
-          </div>
-          <div class="settings-control">
-            <div class="freq-stepper">
-              <button class="freq-btn" onclick="adjustFreq('interiorDetail', -1)">−</button>
-              <div class="freq-display" id="interiorDetail-display">Monthly</div>
-              <button class="freq-btn" onclick="adjustFreq('interiorDetail', 1)">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-row">
-          <div class="settings-row-label">
-            <strong>Bead Machine reapplication</strong>
-            <span>Reminder interval for your synthetic sealant base coat</span>
-          </div>
-          <div class="settings-control">
-            <div class="freq-stepper">
-              <button class="freq-btn" onclick="adjustFreq('beadMachine', -1)">−</button>
-              <div class="freq-display" id="beadMachine-display">Every 3 months</div>
-              <button class="freq-btn" onclick="adjustFreq('beadMachine', 1)">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-row">
-          <div class="settings-row-label">
-            <strong>303 Aerospace UV protection</strong>
-            <span>Reapplication on interior plastics and rubber mats</span>
-          </div>
-          <div class="settings-control">
-            <div class="freq-stepper">
-              <button class="freq-btn" onclick="adjustFreq('aerospace', -1)">−</button>
-              <div class="freq-display" id="aerospace-display">Every 6 weeks</div>
-              <button class="freq-btn" onclick="adjustFreq('aerospace', 1)">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-row">
-          <div class="settings-row-label">
-            <strong>Leather Guard reapplication</strong>
-            <span>Bolsters and seat base wear faster than backrest</span>
-          </div>
-          <div class="settings-control">
-            <div class="freq-stepper">
-              <button class="freq-btn" onclick="adjustFreq('leatherGuard', -1)">−</button>
-              <div class="freq-display" id="leatherGuard-display">Every 3 months</div>
-              <button class="freq-btn" onclick="adjustFreq('leatherGuard', 1)">+</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-save-bar">
-          <button class="settings-save-btn" onclick="saveSettings('freq')">Save</button>
-          <button class="settings-reset-btn" onclick="resetFreq()">Reset to defaults</button>
-          <span class="settings-saved-msg" id="freq-saved">Saved ✓</span>
-        </div>
-      </div>
-
     </div><!-- /routine-sub-configure -->
   </div>
 
@@ -905,6 +823,9 @@
         <div class="streak-value" id="log-last-wash" style="font-size:16px;margin-top:4px;">—</div>
       </div>
     </div>
+
+    <!-- Wash reminder cards — rendered by renderWashReminderCards() -->
+    <div id="wash-reminder-cards"></div>
 
     <!-- Weather hints — hidden until postcode set and BOM responds -->
     <div id="weather-section" style="display:none;">
@@ -1286,6 +1207,20 @@
         <button class="settings-save-btn" onclick="saveSettings('notifications')">Save</button>
         <button class="settings-reset-btn" onclick="resetNotifications()">Reset to defaults</button>
         <span class="settings-saved-msg" id="notifications-saved">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- ── Wash Schedules ── -->
+    <div class="settings-section">
+      <div class="settings-section-title">Wash Schedules</div>
+      <div class="settings-section-desc">Set how often each routine should run. A reminder card appears at the top of the wash log for each scheduled routine.</div>
+      <div id="schedule-list"></div>
+      <div style="margin-top:12px;">
+        <button class="settings-reset-btn" onclick="addScheduleEntry()">+ Add schedule</button>
+      </div>
+      <div class="settings-save-bar">
+        <button class="settings-save-btn" onclick="saveSettings('schedules')">Save</button>
+        <span class="settings-saved-msg" id="schedules-saved">Saved ✓</span>
       </div>
     </div>
 
