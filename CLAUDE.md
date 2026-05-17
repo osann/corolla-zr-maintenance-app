@@ -14,7 +14,7 @@ The app has eight tabs:
 - **spend** — spend tracker, budget bar, live sale alerts
 - **prices** — read-only price sheet: all tracked products grouped by functional category, all retailers per product, with sparklines and sale badges
 - **refs** — links to manufacturer pages and community resources
-- **settings** — frequencies, routine steps, display preferences
+- **settings** — frequencies, routine steps, display preferences, notification config (TickTick)
 
 ## Current architecture
 
@@ -25,9 +25,9 @@ corolla-zr-maintenance-app/
 ├── styles.css              # All CSS
 ├── backend/
 │   ├── src/
-│   │   ├── index.ts        # Hono server + node-cron Autopro scrape (05:00 UTC)
+│   │   ├── index.ts        # Hono server + node-cron: Autopro scrape (05:00 UTC), wash reminder (07:00 UTC)
 │   │   ├── db/
-│   │   │   ├── schema.ts   # Drizzle schema (products, retailer_urls, price_history)
+│   │   │   ├── schema.ts   # Drizzle schema (products, retailer_urls, price_history, users, sessions, magicTokens, userData)
 │   │   │   ├── seed.ts     # Product catalogue + retailer URLs — edit this to add products
 │   │   │   ├── init.ts     # Creates tables + runs seed
 │   │   │   └── connection.ts
@@ -49,7 +49,7 @@ corolla-zr-maintenance-app/
 │   │       ├── browser.ts       # createStealthContext() — shared Playwright setup
 │   │       ├── sale-detector.ts
 │   │       ├── auth.ts          # generateToken, hashToken, sessionMiddleware
-│   │       └── email.ts         # sendMagicLink() via Resend
+│   │       └── email.ts         # sendMagicLink(), sendTickTickTask(), getOwnerNotificationSettings() via Resend
 │   └── package.json
 └── .github/workflows/
     ├── deploy.yml                    # Deploys index.html/app.js/styles.css to GitHub Pages
@@ -61,7 +61,7 @@ corolla-zr-maintenance-app/
 ### Hosting
 
 - **Frontend:** GitHub Pages, served via CNAME at `https://corolla.jhosan.top`. `deploy.yml` replaces the `__BACKEND_URL__` placeholder in `app.js` with the `BACKEND_URL` secret before deploying.
-- **Backend:** Render. `npm start` runs the Hono server. One node-cron job fires daily: 05:00 UTC (Autopro only, within robots.txt crawl window of 04:00–08:45 UTC). Auto Barn blocks Render's cloud IPs but is scraped via a self-hosted GitHub Actions runner on a home Linux machine (residential IP). Repco and Supercheap use Playwright which is not reliably available at Render runtime — those are handled entirely by GitHub Actions. Bowden's Own is not scraped — Cloudflare JS challenge on GitHub Actions, hard 403 on Render.
+- **Backend:** Render. `npm start` runs the Hono server. Two node-cron jobs fire daily: 05:00 UTC (Autopro scrape, within robots.txt crawl window) and 07:00 UTC (wash reminder — checks owner's wash log and sends a TickTick task if overdue). Auto Barn blocks Render's cloud IPs but is scraped via a self-hosted GitHub Actions runner on a home Linux machine (residential IP). Repco and Supercheap use Playwright which is not reliably available at Render runtime — those are handled entirely by GitHub Actions. Bowden's Own is not scraped — Cloudflare JS challenge on GitHub Actions, hard 403 on Render.
 - **Self-hosted runner:** `debian-server` — a home Debian Linux machine running the GitHub Actions self-hosted runner under `jhadmin`. Its residential IP bypasses Auto Barn's cloud IP block. ~40–60% of Auto Barn product URLs hang server-side regardless of client method — Playwright was tried and also times out on those URLs. HTTP-only scraping gets ~16–18/40 products; the rest are covered by Autopro. Required system libraries for Playwright (used by Supercheap/Repco locally) must be installed once: `sudo apt-get install -y libgbm1 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxext6 libx11-xcb1 libpango-1.0-0 libasound2`.
 - **Keep-alive:** Render free tier spins down after 15 minutes idle, which prevents node-cron from firing. A cron-job.org monitor pings `GET /api/health` every 10 minutes to keep the service awake. If the pinger ever lapses, recreate it at cron-job.org — no code changes needed.
 - **Database:** Turso (cloud libSQL). Falls back to `file:./db.sqlite` locally when `TURSO_URL` is unset. Render requires `TURSO_URL` and `TURSO_TOKEN` env vars — without them price history is ephemeral (wiped on restart).
@@ -103,11 +103,15 @@ npm run scrape:push  # GitHub Actions path: scrape Supercheap + Repco, POST to R
 
 ## Database schema
 
-Three tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Locally falls back to `file:./db.sqlite` when `TURSO_URL` is not set:
+Seven tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Locally falls back to `file:./db.sqlite` when `TURSO_URL` is not set:
 
 - **`products`** — `id, name, slug, phase, created_at`. Phase 0 = tracked for pricing but not shown in the kit checklist.
 - **`retailer_urls`** — `product_id, retailer, url`. One row per product per retailer. Full URLs stored directly (templates don't work for Supercheap or Repco).
 - **`price_history`** — `product_id, retailer, price_cents, on_sale, observed_at`. Append-only log of every scrape result.
+- **`users`** — `id, email, created_at`. One row per authenticated user.
+- **`magic_tokens`** — `id, token_hash, user_id, expires_at, used_at, created_at`. Single-use 15-minute auth tokens for magic link sign-in.
+- **`sessions`** — `id, session_id, user_id, expires_at, created_at`. 30-day session cookies.
+- **`user_data`** — `id, user_id, key, value_json, updated_at`. Generic key-value JSON store per user. One row per user per key. Stores all synced app state: checklist, wash log, budget, settings (including notification config). Keys must be in `ALLOWED_KEYS` in `routes/auth.ts` to be accepted by `POST /api/sync/:key`.
 
 **To add a product or retailer URL**, edit `backend/src/db/seed.ts`. The seed is idempotent — re-running it upserts without duplicating. Run `npm run seed` to apply locally, or let the next Render deploy pick it up.
 
@@ -148,7 +152,7 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 | `corolla-detailing-app-v4` | `{ "item-0": true, ... }` | Checklist state |
 | `corolla-washlog-v1` | `Array<{id, date, type, steps[], notes}>` | Wash log |
 | `corolla-budget-v1` | `{ target: number }` | Budget target |
-| `corolla-settings-v1` | `{ freq, routines, prefs, car }` | Settings |
+| `corolla-settings-v1` | `{ freq, routines, prefs, car, notifications }` | Settings |
 
 Bump the version suffix on breaking shape changes rather than writing migrations.
 
@@ -163,6 +167,33 @@ Each `<label class="item">` has `data-price` (integer AUD), `data-slug` (matches
 - Light theme: warm cream `#faf8f3`; dark theme: `#15171a`
 - Accent: forest green `--accent` (`#2d7d5a`)
 - Reuse existing tokens — don't introduce new colours or size scales
+
+## Notifications (TickTick integration)
+
+The app sends tasks to TickTick via email-to-task (`todo####@mail.ticktick.com` accepts from any sender). Delivery uses the existing Resend setup. No OAuth or API tokens — the destination address is the only credential.
+
+**Configuration:** stored in `settings.notifications` within `corolla-settings-v1` (synced via `userData`). Set in Settings → Notifications. Fields:
+- `ticktickEmail` — the user's personal TickTick inbox address (TickTick → Settings → Email)
+- `priceAlerts` — boolean, default true
+- `washReminders` — boolean, default true
+
+**Two triggers:**
+
+1. **Price alert** (`routes/prices.ts`) — fires when `POST /api/prices` ingests an observation where `onSale=true` and the prior row for that product+retailer was not on sale (dedup: no repeat sends while a product stays on sale). Notification config is fetched once per request before the observation loop via `getOwnerNotificationSettings()`. Subject format:
+   ```
+   🔥 {Product name} on sale at {Retailer} — ${price} ^Car #Corolla today
+   ```
+
+2. **Wash reminder** (`index.ts` cron, 07:00 UTC daily) — reads the owner's `corolla-washlog-v1` and `corolla-settings-v1` from `userData`, calculates days since last wash vs `freq.fullWash` interval, sends if overdue. Returns early (no DB queries) if `ticktickEmail` is unset or `washReminders` is false. Subject format:
+   ```
+   🚗 Corolla wash due ^Car #Corolla today !Medium
+   ```
+
+**Key functions** (`backend/src/lib/email.ts`):
+- `getOwnerNotificationSettings(ownerEmail)` — looks up owner's `corolla-settings-v1` from `userData`, returns `{ ticktickEmail, priceAlerts, washReminders }` with safe defaults if missing
+- `sendTickTickTask(to, subject, body)` — sends plain-text email via Resend; no-op if `to` is falsy
+
+**To force a test price alert:** `POST /api/prices` with a real product slug, `priceCents` below the rolling average (or `compareAtCents` higher than `priceCents`), and a prior off-sale row in the DB. **To force a test wash reminder:** temporarily change the cron to `* * * * *`, deploy, wait 60s, revert.
 
 ## Things to preserve
 
