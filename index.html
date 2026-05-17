@@ -791,50 +791,7 @@
         <span class="settings-saved-msg" id="routines-v1-saved">Saved ✓</span>
       </div>
 
-      <!-- Section 2: Log step chips (moved from settings) -->
-      <div class="settings-section">
-        <div class="settings-section-title">Routine steps</div>
-        <div class="settings-section-desc">Customise what steps appear in the wash log checklist. Drag to reorder, toggle to enable/disable, click the pencil to rename.</div>
-
-        <div class="routine-tabs">
-          <button class="routine-tab active" onclick="switchRoutineTab('exterior', this)">Exterior wash</button>
-          <button class="routine-tab" onclick="switchRoutineTab('interior', this)">Interior detail</button>
-          <button class="routine-tab" onclick="switchRoutineTab('log', this)">Log step chips</button>
-        </div>
-
-        <div class="routine-editor active" id="routine-editor-exterior">
-          <div class="routine-step-list" id="steps-exterior"></div>
-          <div class="add-step-row">
-            <input class="add-step-input" id="add-step-exterior" placeholder="Add a step…" onkeydown="if(event.key==='Enter') addStep('exterior')">
-            <button class="add-step-btn" onclick="addStep('exterior')">Add</button>
-          </div>
-        </div>
-
-        <div class="routine-editor" id="routine-editor-interior">
-          <div class="routine-step-list" id="steps-interior"></div>
-          <div class="add-step-row">
-            <input class="add-step-input" id="add-step-interior" placeholder="Add a step…" onkeydown="if(event.key==='Enter') addStep('interior')">
-            <button class="add-step-btn" onclick="addStep('interior')">Add</button>
-          </div>
-        </div>
-
-        <div class="routine-editor" id="routine-editor-log">
-          <div class="settings-section-desc" style="margin-bottom:14px;margin-top:-8px;">These are the checkboxes that appear when logging a wash session.</div>
-          <div class="routine-step-list" id="steps-log"></div>
-          <div class="add-step-row">
-            <input class="add-step-input" id="add-step-log" placeholder="Add a step chip…" onkeydown="if(event.key==='Enter') addStep('log')">
-            <button class="add-step-btn" onclick="addStep('log')">Add</button>
-          </div>
-        </div>
-
-        <div class="settings-save-bar">
-          <button class="settings-save-btn" onclick="saveSettings('routines')">Save routines</button>
-          <button class="settings-reset-btn" onclick="resetRoutines()">Reset to defaults</button>
-          <span class="settings-saved-msg" id="routines-saved">Saved ✓</span>
-        </div>
-      </div>
-
-      <!-- Section 3: Wash frequency (moved from settings) -->
+      <!-- Section 2: Wash frequency (moved from settings) -->
       <div class="settings-section">
         <div class="settings-section-title">Wash frequency</div>
         <div class="settings-section-desc">Set your target schedule. Used in the wash log streak counter and upcoming reminder labels.</div>
