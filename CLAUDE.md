@@ -14,7 +14,7 @@ The app has eight tabs:
 - **spend** — spend tracker, budget bar, live sale alerts
 - **prices** — read-only price sheet: all tracked products grouped by functional category, all retailers per product, with sparklines and sale badges
 - **refs** — links to manufacturer pages and community resources
-- **settings** — frequencies, routine steps, display preferences, notification config (TickTick)
+- **settings** — frequencies, routine steps, display preferences, notification config (TickTick), vehicle details (incl. postcode for weather)
 
 ## Current architecture
 
@@ -33,9 +33,12 @@ corolla-zr-maintenance-app/
 │   │   │   └── connection.ts
 │   │   ├── routes/
 │   │   │   ├── products.ts # GET /api/products — all products with latest prices per retailer
+│   │   │   │               # GET /api/products/prices — bulk price history (all products, 90-day window)
+│   │   │   │               # GET /api/products/:id/prices — single product price history
 │   │   │   ├── prices.ts   # POST /api/prices — ingest scraper results
 │   │   │   ├── alerts.ts   # GET /api/alerts, GET /api/prices/current
-│   │   │   └── auth.ts     # Auth + sync: POST /api/auth/request|verify|logout, GET /api/auth/me, GET|POST /api/sync
+│   │   │   ├── auth.ts     # Auth + sync: POST /api/auth/request|verify|logout, GET /api/auth/me, GET|POST /api/sync
+│   │   │   └── weather.ts  # GET /api/weather?postcode= — Nominatim geocoding + Open-Meteo forecast, 3h cache
 │   │   ├── scrapers/
 │   │   │   ├── fetch-scraper.ts # createFetchScraper() factory — shared plain-fetch logic for Auto Barn + Autopro
 │   │   │   ├── autobarn.ts      # thin wrapper — self-hosted runner only (residential IP), HTTP-only (~16–18/40)
@@ -138,10 +141,10 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 - `storageGet(key)` / `storageSet(key, val)` — storage abstraction that tries `window.storage` (Claude artifact runtime) then falls back to `localStorage`. All persistence goes through these.
 - `render*()` functions write to the DOM from state
 - `apply*()` functions mutate the DOM based on current settings
-- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadSettings → loadPriceData()` (non-blocking)
+- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadSettings → checkAuthAndSync → loadPriceData() + loadWeather()` (both non-blocking, called after sync so they use the post-sync postcode and settings)
 - `itemData` array is rebuilt by `renderChecklist()` on every render — includes `slug`, `phase` (phase ID string), `price`, `el`, `input`
 - `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
-- `loadPriceHistories()` is called from `loadPriceData()` after prices are applied. It fetches `GET /api/products/:id/prices` for every product with a scraped price, populates `priceHistories`, then calls `renderPriceList()` (spend tab) and `renderPricesTab()` (prices tab).
+- `loadPriceHistories()` is called from `loadPriceData()` after prices are applied. It fetches `GET /api/products/prices` (bulk, 90-day window) in a single call, populates `priceHistories` keyed by product ID, then calls `renderPriceList()` (spend tab) and `renderPricesTab()` (prices tab). The old per-product `GET /api/products/:id/prices` endpoint is kept but no longer called by the frontend.
 - `renderPricesTab()` renders the **prices** tab. It iterates a hardcoded `PRICE_CATEGORIES` array (defined inside the function) that maps each functional category and sub-section to an ordered list of product slugs. It builds a `productBySlug` lookup from `liveProducts`, then for each slug renders a `.prices-product` block containing one `.prices-retailer-row` per retailer — each with price, 🔥 Sale badge, sparkline (or "No data yet." placeholder at the same fixed dimensions), and buy link. Categories and their sub-sections: Equipment (Microfibre / Wash Pads / Drying Towels / Other), Pressure Washer Equipment (Pressure Washers / Foam Cannons), Exterior Wash (Glass / Prep / Pre-Wash / Contact Wash), Exterior Protection (Sealant / Quick Detailer), Interior Clean (Leather / Fabric), Interior Protect (Leather / Fabric & Suede / Plastic, Vinyl & Rubber), Wheels (Equipment / Clean / Protect). A slug can appear in multiple categories. Products not in the mapping are silently omitted. Cards for categories where no product has a scraped price are not rendered.
 - The `__BACKEND_URL__` guard uses `BACKEND_URL.startsWith('__')` — not strict equality. The `sed` substitution in `deploy.yml` replaces `__BACKEND_URL__` globally, which would corrupt a `=== '__BACKEND_URL__'` check into `=== '<real-url>'`. Never revert this to a string equality check.
 
@@ -152,7 +155,7 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 | `corolla-checklist-v3` | `{ phases: [{id, tag, title, items: string[]}], nextId: number, checked: {[slug]: bool} }` | Checklist phases + checked state |
 | `corolla-washlog-v1` | `Array<{id, date, type, steps[], notes}>` | Wash log |
 | `corolla-budget-v1` | `{ target: number }` | Budget target |
-| `corolla-settings-v1` | `{ freq, routines, prefs, car, notifications }` | Settings |
+| `corolla-settings-v1` | `{ freq, routines, prefs, car: {model, year, colour, rego, displayName, postcode}, notifications }` | Settings |
 
 Bump the version suffix on breaking shape changes rather than writing migrations. The checklist key has gone through three versions: `corolla-detailing-app-v4` (positional `item-N` IDs) → `corolla-checklist-v2` (slug-keyed config) → `corolla-checklist-v3` (phases array with metadata). Each `loadChecklist()` migrates forward automatically on first load.
 
@@ -198,6 +201,28 @@ The app sends tasks to TickTick via email-to-task (`todo####@mail.ticktick.com` 
 - `sendTickTickTask(to, subject, body)` — sends plain-text email via Resend; no-op if `to` is falsy
 
 **To force a test price alert:** `POST /api/prices` with a real product slug, `priceCents` below the rolling average (or `compareAtCents` higher than `priceCents`), and a prior off-sale row in the DB. **To force a test wash reminder:** temporarily change the cron to `* * * * *`, deploy, wait 60s, revert.
+
+## Weather (client-side, via backend proxy)
+
+Weather-aware hints appear in the **log tab** below the streak bar when a postcode is set in Settings → Vehicle details.
+
+**Two cards:**
+1. **Rain delay** — shown when tomorrow's precipitation probability ≥ 50%. Suggests the first dry day. Uses `forecast[1].rain_chance`.
+2. **Bead Machine heat banner** — shown when any day in the next 7 has `temp_max ≥ 35°C` AND `isBeadMachineDueSoon()` returns true (due within 14 days, or never logged). Text: "Hot weather ahead — Bead Machine due?"
+
+**Data flow:**
+- Frontend calls `GET /api/weather?postcode={postcode}` on the Render backend (fires once in `init()` after sync, and again when car settings are saved).
+- Backend (`routes/weather.ts`): geocodes postcode via Nominatim (`nominatim.openstreetmap.org/search?postalcode=&countrycodes=au`), fetches 7-day forecast from Open-Meteo (`api.open-meteo.com/v1/forecast`), returns `[{ date, rain_chance, temp_max }]`. Results cached in memory for 3 hours per postcode.
+- Frontend `evalWeatherTriggers(forecast)` evaluates both triggers and `renderWeatherCards(triggers)` updates the DOM. `weatherCache` stores the last successful forecast; `renderLog()` re-evaluates from cache on every log render (no extra fetch).
+
+**Why proxied:** BOM (`api.weather.bom.gov.au`) blocks browser CORS requests and Render's datacenter IPs. Open-Meteo geocoding doesn't support Australian postcode lookups. Nominatim + Open-Meteo via Render is the working stack.
+
+**Key functions** (`app.js`):
+- `calcNextDue(freqKey)` — computes next due Date from last log entry + `FREQ_DAYS` lookup
+- `fetchBomForecast(postcode)` — despite the name, now calls `/api/weather` on the backend (name kept to avoid churn)
+- `evalWeatherTriggers(forecast)` → `{ rainTomorrow, rainDay, heatWave, heatDay }`
+- `isBeadMachineDueSoon()` — searches log steps for "Bead Machine", returns true if due ≤ 14 days or never logged
+- `loadWeather()` — orchestrator; hides section silently if no postcode or API unreachable
 
 ## Things to preserve
 
