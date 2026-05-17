@@ -11,9 +11,13 @@ import { scrapeAutopro } from './scrapers/autopro.js';
 import { initDb } from './db/init.js';
 import { seed } from './db/seed.js';
 import { db } from './db/connection.js';
-import { users, userData } from './db/schema.js';
-import { and, eq } from 'drizzle-orm';
-import { sendTickTickTask, sendDirectEmail, getOwnerNotificationSettings } from './lib/email.js';
+import { users, userData, products, priceHistory } from './db/schema.js';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import {
+  sendTickTickTask, sendDirectEmail, sendDigestEmail,
+  getOwnerNotificationSettings, getOwnerAlertThresholds,
+  type DigestThresholdItem,
+} from './lib/email.js';
 
 // Ensure schema and seed data exist on every startup (idempotent).
 // Handles first boot on a fresh Render deploy where the SQLite file doesn't exist yet.
@@ -119,6 +123,54 @@ cron.schedule('0 7 * * *', async () => {
     console.log(`Wash reminder sent — last wash: ${lastDateStr}, overdue: ${overdueDays}d`);
   } catch (err) {
     console.error('Wash reminder cron error:', err);
+  }
+});
+
+// Daily price digest: 08:00 UTC (after Autopro scrape + wash reminder).
+// Sends only when there are on-sale items or threshold breaches. At most once per day via cron.
+cron.schedule('0 8 * * *', async () => {
+  const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
+  const notifSettings = await getOwnerNotificationSettings(ownerEmail);
+  if (!notifSettings.emailDigest) return;
+
+  try {
+    const alertThresholds = await getOwnerAlertThresholds(ownerEmail);
+
+    const saleItems = await db
+      .select({ name: products.name, slug: products.slug, retailer: priceHistory.retailer, priceCents: priceHistory.priceCents })
+      .from(priceHistory)
+      .innerJoin(products, eq(priceHistory.productId, products.id))
+      .where(and(
+        eq(priceHistory.onSale, true),
+        sql`price_history.observed_at = (SELECT MAX(ph2.observed_at) FROM price_history ph2 WHERE ph2.product_id = price_history.product_id AND ph2.retailer = price_history.retailer)`,
+      ))
+      .orderBy(products.name);
+
+    const thresholdItems: DigestThresholdItem[] = [];
+    const alertSlugs = Object.keys(alertThresholds);
+    if (alertSlugs.length > 0) {
+      const latestForAlerts = await db
+        .select({ name: products.name, slug: products.slug, retailer: priceHistory.retailer, priceCents: priceHistory.priceCents })
+        .from(priceHistory)
+        .innerJoin(products, eq(priceHistory.productId, products.id))
+        .where(and(
+          inArray(products.slug, alertSlugs),
+          sql`price_history.observed_at = (SELECT MAX(ph2.observed_at) FROM price_history ph2 WHERE ph2.product_id = price_history.product_id AND ph2.retailer = price_history.retailer)`,
+        ))
+        .orderBy(products.name);
+
+      for (const row of latestForAlerts) {
+        const threshold = alertThresholds[row.slug];
+        if (threshold && row.priceCents <= threshold.thresholdCents) {
+          thresholdItems.push({ name: row.name, retailer: row.retailer, priceCents: row.priceCents, thresholdCents: threshold.thresholdCents });
+        }
+      }
+    }
+
+    await sendDigestEmail(ownerEmail, saleItems, thresholdItems);
+    console.log(`Digest sent — ${saleItems.length} on sale, ${thresholdItems.length} below threshold`);
+  } catch (err) {
+    console.error('Digest cron error:', err);
   }
 });
 

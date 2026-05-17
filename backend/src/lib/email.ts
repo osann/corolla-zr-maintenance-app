@@ -12,6 +12,7 @@ export interface NotificationSettings {
   emailAlerts: boolean;
   washReminders: boolean;
   emailWashReminders: boolean;
+  emailDigest: boolean;
 }
 
 const NOTIF_DEFAULTS: NotificationSettings = {
@@ -21,6 +22,28 @@ const NOTIF_DEFAULTS: NotificationSettings = {
   emailAlerts: false,
   washReminders: true,
   emailWashReminders: false,
+  emailDigest: false,
+};
+
+export interface DigestSaleItem {
+  name: string;
+  retailer: string;
+  priceCents: number;
+}
+
+export interface DigestThresholdItem {
+  name: string;
+  retailer: string;
+  priceCents: number;
+  thresholdCents: number;
+}
+
+const RETAILER_DISPLAY: Record<string, string> = {
+  bowdens: "Bowden's Own",
+  autobarn: 'Auto Barn',
+  repco: 'Repco',
+  supercheap: 'Supercheap Auto',
+  autopro: 'Autopro',
 };
 
 export interface AlertThreshold {
@@ -60,6 +83,7 @@ export async function getOwnerNotificationSettings(
       emailAlerts:         typeof n.emailAlerts         === 'boolean' ? n.emailAlerts         : false,
       washReminders:       typeof n.washReminders       === 'boolean' ? n.washReminders       : true,
       emailWashReminders:  typeof n.emailWashReminders  === 'boolean' ? n.emailWashReminders  : false,
+      emailDigest:         typeof n.emailDigest         === 'boolean' ? n.emailDigest         : false,
     };
   } catch {
     return { ...NOTIF_DEFAULTS };
@@ -124,6 +148,83 @@ export async function sendDirectEmail(to: string, subject: string, bodyText: str
     subject,
     html,
     text: bodyText,
+  });
+}
+
+export async function sendDigestEmail(
+  to: string,
+  saleItems: DigestSaleItem[],
+  thresholdItems: DigestThresholdItem[],
+): Promise<void> {
+  if (!to || (saleItems.length === 0 && thresholdItems.length === 0)) return;
+
+  const appUrl = process.env.APP_URL ?? 'https://corolla.jhosan.top';
+  const today = new Date().toLocaleDateString('en-AU', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Australia/Sydney',
+  });
+
+  const sectionHead = (title: string) =>
+    `<p style="font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:#2d7d5a;margin:28px 0 0;padding-bottom:6px;border-bottom:2px solid #2d7d5a;">${title}</p>`;
+
+  const rowStyle = 'padding:10px 0;border-bottom:1px solid #f0ece4;overflow:hidden;';
+
+  const saleRow = (item: DigestSaleItem) =>
+    `<div style="${rowStyle}">
+      <span style="float:right;font-size:14px;font-weight:600;color:#2d7d5a;">$${(item.priceCents / 100).toFixed(2)}</span>
+      <span style="font-size:14px;font-weight:500;color:#1a1a1a;">${item.name}</span>
+      <span style="font-size:12px;color:#999;"> · ${RETAILER_DISPLAY[item.retailer] ?? item.retailer}</span>
+    </div>`;
+
+  const thresholdRow = (item: DigestThresholdItem) =>
+    `<div style="${rowStyle}">
+      <span style="float:right;text-align:right;font-size:14px;font-weight:600;color:#2d7d5a;">$${(item.priceCents / 100).toFixed(2)}<br>
+        <span style="font-size:11px;font-weight:400;color:#aaa;">threshold $${(item.thresholdCents / 100).toFixed(2)}</span>
+      </span>
+      <span style="font-size:14px;font-weight:500;color:#1a1a1a;">${item.name}</span>
+      <span style="font-size:12px;color:#999;"> · ${RETAILER_DISPLAY[item.retailer] ?? item.retailer}</span>
+    </div>`;
+
+  let sectionsHtml = '';
+  if (saleItems.length > 0) sectionsHtml += sectionHead('On sale now') + saleItems.map(saleRow).join('');
+  if (thresholdItems.length > 0) sectionsHtml += sectionHead('Below your thresholds') + thresholdItems.map(thresholdRow).join('');
+
+  const total = saleItems.length + thresholdItems.length;
+  const subject = `🏷️ ${total} price alert${total === 1 ? '' : 's'} — ${today}`;
+
+  const html = `
+<div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#1a1a1a;background:#ffffff;">
+  <p style="font-size:13px;color:#999;margin:0 0 24px;letter-spacing:0.02em;">Corolla Detailing</p>
+  <h2 style="font-family:Georgia,serif;font-size:22px;font-weight:400;margin:0 0 4px;color:#1a1a1a;">Daily price digest</h2>
+  <p style="font-size:13px;color:#999;margin:0 0 4px;">${today}</p>
+  ${sectionsHtml}
+  <p style="margin:32px 0 0;padding-top:20px;border-top:1px solid #f0ece4;">
+    <a href="${appUrl}" style="font-size:13px;color:#2d7d5a;text-decoration:none;">Open app →</a>
+  </p>
+</div>`;
+
+  const textLines = [
+    'Corolla Detailing — Daily price digest',
+    today,
+    '',
+    ...(saleItems.length > 0 ? [
+      'ON SALE NOW',
+      ...saleItems.map(i => `${i.name} (${RETAILER_DISPLAY[i.retailer] ?? i.retailer}): $${(i.priceCents / 100).toFixed(2)}`),
+      '',
+    ] : []),
+    ...(thresholdItems.length > 0 ? [
+      'BELOW YOUR THRESHOLDS',
+      ...thresholdItems.map(i => `${i.name} (${RETAILER_DISPLAY[i.retailer] ?? i.retailer}): $${(i.priceCents / 100).toFixed(2)} (threshold $${(i.thresholdCents / 100).toFixed(2)})`),
+      '',
+    ] : []),
+    appUrl,
+  ];
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM ?? 'Corolla Detailing <sync@corolla.jhosan.top>',
+    to,
+    subject,
+    html,
+    text: textLines.join('\n'),
   });
 }
 

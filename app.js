@@ -1021,6 +1021,7 @@
     emailAlerts: false,
     washReminders: true,
     emailWashReminders: false,
+    emailDigest: false,
   };
 
   const ALERTS_KEY = 'corolla-price-alerts-v1';
@@ -1181,6 +1182,7 @@
     document.getElementById('pref-email-alerts').checked          = settings.notifications.emailAlerts;
     document.getElementById('pref-wash-reminders').checked        = settings.notifications.washReminders;
     document.getElementById('pref-email-wash-reminders').checked  = settings.notifications.emailWashReminders;
+    document.getElementById('pref-email-digest').checked          = settings.notifications.emailDigest;
   }
 
   async function loadAlerts() {
@@ -1309,6 +1311,7 @@
       settings.notifications.emailAlerts         = document.getElementById('pref-email-alerts')?.checked ?? false;
       settings.notifications.washReminders       = document.getElementById('pref-wash-reminders')?.checked ?? true;
       settings.notifications.emailWashReminders  = document.getElementById('pref-email-wash-reminders')?.checked ?? false;
+      settings.notifications.emailDigest        = document.getElementById('pref-email-digest')?.checked ?? false;
     }
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
