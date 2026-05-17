@@ -1210,6 +1210,9 @@
   .routine-step-item.dragging { opacity: 0.4; }
   .routine-step-item.drag-over { border-color: var(--accent); background: var(--accent-tint); }
   .drag-handle { color: var(--ink-low); font-size: 15px; flex-shrink: 0; cursor: grab; }
+  .routine-card-handle { margin-right: 10px; font-size: 17px; vertical-align: middle; }
+  .routine-config-card.dragging { opacity: 0.4; }
+  .routine-config-card.drag-over { outline: 2px solid var(--accent); }
   .step-toggle { margin-left: auto; flex-shrink: 0; }
   .step-name-display { flex: 1; line-height: 1.4; }
   .step-name-input {

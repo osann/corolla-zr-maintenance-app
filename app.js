@@ -1480,6 +1480,8 @@ Output only the CSV starting with the header row.`;
     applySchedule();
   }
 
+  let routineDragSrc = null;
+
   function renderRoutineConfigCards() {
     const container = document.getElementById('routine-config-cards');
     if (!container) return;
@@ -1487,7 +1489,31 @@ Output only the CSV starting with the header row.`;
     routines.forEach((routine, rIdx) => {
       const card = document.createElement('div');
       card.className = 'routine-config-card';
+      card.draggable = true;
+      card.dataset.idx = rIdx;
       card.innerHTML = buildRoutineConfigCardHTML(routine, rIdx);
+      card.addEventListener('dragstart', e => {
+        routineDragSrc = rIdx;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+        container.querySelectorAll('.routine-config-card').forEach(c => c.classList.remove('drag-over'));
+      });
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        card.classList.add('drag-over');
+      });
+      card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        if (routineDragSrc === null || routineDragSrc === rIdx) return;
+        const moved = routines.splice(routineDragSrc, 1)[0];
+        routines.splice(rIdx, 0, moved);
+        renderRoutineConfigCards();
+      });
       container.appendChild(card);
     });
   }
@@ -1539,7 +1565,7 @@ Output only the CSV starting with the header row.`;
     `).join('');
 
     return `
-      <div class="routine-config-card-title">${escHtml(routine.name || 'Untitled routine')}</div>
+      <div class="routine-config-card-title"><span class="drag-handle routine-card-handle">⠿</span>${escHtml(routine.name || 'Untitled routine')}</div>
       <div class="routine-config-field">
         <span class="routine-config-label">Name</span>
         <input value="${escAttr(routine.name)}" oninput="updateRoutineMeta(${rIdx},'name',this.value)" style="width:100%;" class="log-input">
