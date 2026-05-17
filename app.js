@@ -1094,7 +1094,6 @@
     document.getElementById('ticktick-email').value               = settings.notifications.ticktickEmail || '';
     document.getElementById('pref-ticktick-alerts').checked       = settings.notifications.ticktickAlerts;
     document.getElementById('ticktick-metadata').value            = settings.notifications.ticktickMetadata || '';
-    document.getElementById('ticktick-metadata-row').style.display = settings.notifications.ticktickAlerts ? '' : 'none';
     document.getElementById('pref-email-alerts').checked          = settings.notifications.emailAlerts;
     document.getElementById('pref-wash-reminders').checked        = settings.notifications.washReminders;
     document.getElementById('pref-email-wash-reminders').checked  = settings.notifications.emailWashReminders;

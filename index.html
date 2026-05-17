@@ -1286,25 +1286,24 @@
 
       <div class="settings-row">
         <div class="settings-row-label">
-          <strong>Price alerts</strong>
-          <span>Send a task when a product goes on sale or hits your threshold</span>
-        </div>
-        <div class="settings-control">
-          <label class="toggle-wrap">
-            <input type="checkbox" id="pref-ticktick-alerts" checked
-              onchange="document.getElementById('ticktick-metadata-row').style.display=this.checked?'':'none'">
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="settings-row" id="ticktick-metadata-row">
-        <div class="settings-row-label">
           <strong>Subject suffix</strong>
           <span>Appended to task titles — use for project (^), tags (#), due date, priority (!)</span>
         </div>
         <div class="settings-control">
           <input class="log-input" type="text" id="ticktick-metadata" placeholder="^Car #Corolla today" style="font-size:12px;padding:5px 8px;width:170px;">
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Price alerts</strong>
+          <span>Send a task when a product goes on sale or hits your threshold</span>
+        </div>
+        <div class="settings-control">
+          <label class="toggle-wrap">
+            <input type="checkbox" id="pref-ticktick-alerts" checked>
+            <span class="toggle-track"></span>
+          </label>
         </div>
       </div>
 
