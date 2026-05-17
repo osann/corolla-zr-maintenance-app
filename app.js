@@ -2364,7 +2364,7 @@ Output only the CSV starting with the header row.`;
   }
 
   function goToRoutine(routineId) {
-    document.querySelector('.tab-btn[data-tab="routine"]')?.click();
+    document.querySelector('.tab[data-tab="routine"]')?.click();
     setTimeout(() => {
       document.getElementById(`routine-view-${routineId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
