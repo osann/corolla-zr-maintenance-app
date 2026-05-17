@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market). Built around the Bowden's Own product ecosystem with a few non-Bowden additions (303 Aerospace Protectant, Kärcher pressure washer). All retailer references are Australian (Supercheap Auto, Repco, Auto Barn, Autopro) and pricing is in AUD.
 
 The app has eight tabs:
-- **checklist** — kit purchase tracker, four phases, product prices
+- **checklist** — kit purchase tracker, customisable phases (add/rename/delete), product prices
 - **guide** — per-product technique reference (mostly static)
 - **routine** — wash routines and ongoing maintenance schedule
 - **log** — wash session log with streak counter
@@ -138,8 +138,8 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 - `storageGet(key)` / `storageSet(key, val)` — storage abstraction that tries `window.storage` (Claude artifact runtime) then falls back to `localStorage`. All persistence goes through these.
 - `render*()` functions write to the DOM from state
 - `apply*()` functions mutate the DOM based on current settings
-- `init()` on load: `loadChecklist → loadLog → loadBudget → loadSettings → loadPriceData()` (non-blocking)
-- `itemData` array is built at startup from `.item` DOM elements — includes `slug` for matching against live price data
+- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadSettings → loadPriceData()` (non-blocking)
+- `itemData` array is rebuilt by `renderChecklist()` on every render — includes `slug`, `phase` (phase ID string), `price`, `el`, `input`
 - `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
 - `loadPriceHistories()` is called from `loadPriceData()` after prices are applied. It fetches `GET /api/products/:id/prices` for every product with a scraped price, populates `priceHistories`, then calls `renderPriceList()` (spend tab) and `renderPricesTab()` (prices tab).
 - `renderPricesTab()` renders the **prices** tab. It iterates a hardcoded `PRICE_CATEGORIES` array (defined inside the function) that maps each functional category and sub-section to an ordered list of product slugs. It builds a `productBySlug` lookup from `liveProducts`, then for each slug renders a `.prices-product` block containing one `.prices-retailer-row` per retailer — each with price, 🔥 Sale badge, sparkline (or "No data yet." placeholder at the same fixed dimensions), and buy link. Categories and their sub-sections: Equipment (Microfibre / Wash Pads / Drying Towels / Other), Pressure Washer Equipment (Pressure Washers / Foam Cannons), Exterior Wash (Glass / Prep / Pre-Wash / Contact Wash), Exterior Protection (Sealant / Quick Detailer), Interior Clean (Leather / Fabric), Interior Protect (Leather / Fabric & Suede / Plastic, Vinyl & Rubber), Wheels (Equipment / Clean / Protect). A slug can appear in multiple categories. Products not in the mapping are silently omitted. Cards for categories where no product has a scraped price are not rendered.
@@ -149,16 +149,20 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 
 | Key | Shape | Owner |
 |---|---|---|
-| `corolla-detailing-app-v4` | `{ "item-0": true, ... }` | Checklist state |
+| `corolla-checklist-v3` | `{ phases: [{id, tag, title, items: string[]}], nextId: number, checked: {[slug]: bool} }` | Checklist phases + checked state |
 | `corolla-washlog-v1` | `Array<{id, date, type, steps[], notes}>` | Wash log |
 | `corolla-budget-v1` | `{ target: number }` | Budget target |
 | `corolla-settings-v1` | `{ freq, routines, prefs, car, notifications }` | Settings |
 
-Bump the version suffix on breaking shape changes rather than writing migrations.
+Bump the version suffix on breaking shape changes rather than writing migrations. The checklist key has gone through three versions: `corolla-detailing-app-v4` (positional `item-N` IDs) → `corolla-checklist-v2` (slug-keyed config) → `corolla-checklist-v3` (phases array with metadata). Each `loadChecklist()` migrates forward automatically on first load.
 
-### Kit items
+### Kit items and phases
 
-Each `<label class="item">` has `data-price` (integer AUD), `data-slug` (matches `products.slug` in the DB), and a wrapping `.phase` with `data-phase` (1–4). Items are identified by index (`item-0`, `item-1`…) — append new items to the end of a phase section to avoid renumbering existing saved state.
+The checklist is fully dynamic — no `<label class="item">` elements exist in HTML. `renderChecklist()` creates them from `checklistState.phases` and appends them into `#phases-container`. Each phase has an `id` (string, sequential from `nextId`), a `tag` (small label, e.g. "Phase 1 · foundation"), a `title` (h2 heading), and an `items` array of product slugs.
+
+The full product catalog is the `CATALOG` constant in `app.js` — 46 products (25 default kit items across phases 1–4, plus 21 phase-0 extras available to add). `DEFAULT_PHASES` defines the original four-phase arrangement; it is only used when no saved state exists or as a migration source.
+
+To add a new product to the catalog: add it to `CATALOG` in `app.js` AND to `seed.ts` in the backend (with retailer URLs). The user can then add it to any phase via the Edit UI.
 
 ### CSS conventions
 
@@ -201,7 +205,7 @@ The app sends tasks to TickTick via email-to-task (`todo####@mail.ticktick.com` 
 2. **Australian-specific advice.** All retailers, prices, and sale timing are AU-specific. Don't generalise.
 3. **Bowden's-first framing.** The technique guide is opinionated around the Bowden's range. Non-Bowden products are exceptions, not equals.
 4. **Graceful degradation.** The app works offline/standalone without a backend — live prices enhance but don't gate any functionality.
-5. **Phase ordering.** Phases are an acquisition plan (1 = essentials, 2 = complete kit, 3 = bulk consumables, 4 = long-term protection), not categories. Don't reorder.
+5. **Phase intent.** The default four phases represent an acquisition plan (1 = essentials, 2 = complete kit, 3 = bulk consumables, 4 = long-term protection). Phases are now user-customisable — don't assume a fixed number or fixed IDs.
 
 ## Scraper notes
 
