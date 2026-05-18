@@ -1065,6 +1065,7 @@
     const editTab = document.getElementById('log-edit-tab');
     if (editTab) { editTab.style.display = ''; editTab.click(); }
     renderPhotoPreviews();
+    renderLog();
   }
 
   function cancelEditEntry() {
@@ -1073,6 +1074,7 @@
     pendingPhotos  = [];
     renderPhotoPreviews();
     resetLogForm();
+    renderLog();
     document.querySelector('.log-sub-tab[data-log-tab="history"]')?.click();
   }
 
@@ -1186,7 +1188,7 @@
         ${entryPhotos.length ? `<div class="log-carousel">${entryPhotos.map((p, i) => `
           <div class="log-carousel-item">
             <img src="${p.thumbUrl}" loading="lazy" alt="Session photo" data-carousel-index="${i}" data-entry-id="${entry.id}">
-            <button class="log-photo-remove" data-photo-id="${p.id}" data-entry-id="${entry.id}" title="Remove photo">✕</button>
+            ${editingEntryId === entry.id ? `<button class="log-photo-remove" data-photo-id="${p.id}" data-entry-id="${entry.id}" title="Remove photo">✕</button>` : ''}
           </div>`).join('')}</div>` : ''}
         <div class="log-confirm-row" id="log-confirm-${entry.id}" hidden>
           <span>Delete this session?</span>
@@ -1229,6 +1231,7 @@
         pendingPhotos  = [];
         renderPhotoPreviews();
         resetLogForm();
+        renderLog();
       }
       document.querySelectorAll('.log-sub-tab').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.log-sub-panel').forEach(p => p.classList.remove('active'));
