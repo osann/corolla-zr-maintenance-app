@@ -1025,8 +1025,8 @@
     if (submitBtn) submitBtn.textContent = 'Save session';
     if (cancelBtn) cancelBtn.hidden = true;
     if (dupeWarn)  dupeWarn.hidden = true;
-    const newTab = document.querySelector('.log-sub-tab[data-log-tab="new"]');
-    if (newTab) newTab.textContent = 'New Session';
+    const editTab = document.getElementById('log-edit-tab');
+    if (editTab) editTab.style.display = 'none';
     // Reset date to today
     const d = new Date();
     document.getElementById('log-date').value =
@@ -1056,10 +1056,9 @@
     if (cancelBtn) cancelBtn.hidden = false;
     if (dupeWarn)  dupeWarn.hidden = true;
 
-    const newTab = document.querySelector('.log-sub-tab[data-log-tab="new"]');
-    if (newTab) newTab.textContent = 'Edit Session';
+    const editTab = document.getElementById('log-edit-tab');
+    if (editTab) { editTab.style.display = ''; editTab.click(); }
     renderPhotoPreviews();
-    newTab?.click();
   }
 
   function cancelEditEntry() {
