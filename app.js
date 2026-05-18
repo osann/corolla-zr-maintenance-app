@@ -1216,6 +1216,14 @@
   // ─── Log sub-tab navigation ────────────────────────
   document.querySelectorAll('.log-sub-tab').forEach(btn => {
     btn.addEventListener('click', () => {
+      // Navigating to History while editing cancels the edit
+      if (btn.dataset.logTab === 'history' && editingEntryId !== null) {
+        editingEntryId = null;
+        pendingEntryId = null;
+        pendingPhotos  = [];
+        renderPhotoPreviews();
+        resetLogForm();
+      }
       document.querySelectorAll('.log-sub-tab').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.log-sub-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
