@@ -883,32 +883,16 @@
             <input class="log-input" type="date" id="log-date">
           </div>
           <div class="log-field">
-            <label class="log-label" for="log-type">Wash type</label>
-            <select class="log-select" id="log-type">
-              <option value="full">Full wash</option>
-              <option value="quick">Quick wash (no foam)</option>
-              <option value="interior">Interior only</option>
-              <option value="both">Full wash + interior</option>
-            </select>
+            <label class="log-label" for="log-type">Routine</label>
+            <select class="log-select" id="log-type"></select>
           </div>
           <div class="log-field full">
             <label class="log-label">Steps completed</label>
-            <div class="steps-checklist" id="steps-checklist">
-              <label class="step-chip"><input type="checkbox" value="Snow Job pre-wash"> Snow Job pre-wash</label>
-              <label class="step-chip"><input type="checkbox" value="Wheely Clean wheels"> Wheely Clean wheels</label>
-              <label class="step-chip"><input type="checkbox" value="Nanolicious contact wash"> Nanolicious wash</label>
-              <label class="step-chip"><input type="checkbox" value="Wet Dreams sealant"> Wet Dreams sealant</label>
-              <label class="step-chip"><input type="checkbox" value="Happy Ending foam"> Happy Ending foam</label>
-              <label class="step-chip"><input type="checkbox" value="Naked Glass"> Naked Glass</label>
-              <label class="step-chip"><input type="checkbox" value="Fabra Cadabra seats"> Fabra Cadabra seats</label>
-              <label class="step-chip"><input type="checkbox" value="Leather Love + Guard"> Leather Love + Guard</label>
-              <label class="step-chip"><input type="checkbox" value="303 Aerospace plastics"> 303 Aerospace</label>
-              <label class="step-chip"><input type="checkbox" value="Bead Machine"> Bead Machine</label>
-            </div>
+            <div class="steps-checklist" id="steps-checklist"></div>
           </div>
           <div class="log-field full">
-            <label class="log-label" for="log-notes">Notes (optional)</label>
-            <textarea class="log-textarea" id="log-notes" placeholder="Products used, condition, issues noticed, anything unusual…"></textarea>
+            <label class="log-label" for="log-notes">Status</label>
+            <textarea class="log-textarea" id="log-notes" placeholder="Condition, issues noticed, anything unusual…"></textarea>
           </div>
         </div>
         <div class="log-field full" id="log-photo-field" style="display:none;">

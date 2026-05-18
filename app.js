@@ -873,15 +873,34 @@
     document.getElementById('log-date').value = `${yyyy}-${mm}-${dd}`;
   })();
 
-  // Step chip interactions
-  document.querySelectorAll('.step-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const cb = chip.querySelector('input');
-      chip.classList.toggle('checked', cb.checked);
+  // Populate routine dropdown from routines[] and re-render step chips on change
+  function renderLogTypeSelect() {
+    const sel = document.getElementById('log-type');
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = routines.map(r =>
+      `<option value="${escAttr(r.id)}">${escHtml(r.name)}</option>`
+    ).join('');
+    if (current && routines.find(r => r.id === current)) sel.value = current;
+    renderStepChipsForRoutine(sel.value);
+  }
+
+  function renderStepChipsForRoutine(routineId) {
+    const container = document.getElementById('steps-checklist');
+    if (!container) return;
+    const routine = routines.find(r => r.id === routineId);
+    const steps = (routine?.steps ?? []).filter(s => s.enabled !== false);
+    container.innerHTML = steps.map(s =>
+      `<label class="step-chip"><input type="checkbox" value="${escAttr(s.product)}"> ${escHtml(s.product)}</label>`
+    ).join('');
+    container.querySelectorAll('.step-chip').forEach(chip => {
+      chip.addEventListener('click', () => chip.classList.toggle('checked', chip.querySelector('input').checked));
+      chip.querySelector('input').addEventListener('change', function() { chip.classList.toggle('checked', this.checked); });
     });
-    chip.querySelector('input').addEventListener('change', function() {
-      chip.classList.toggle('checked', this.checked);
-    });
+  }
+
+  document.getElementById('log-type')?.addEventListener('change', () => {
+    renderStepChipsForRoutine(document.getElementById('log-type').value);
   });
 
   async function loadLog() {
@@ -1049,8 +1068,9 @@
 
   function resetLogForm() {
     document.getElementById('log-notes').value = '';
-    document.querySelectorAll('.step-chip input').forEach(cb => { cb.checked = false; });
-    document.querySelectorAll('.step-chip').forEach(c => c.classList.remove('checked'));
+    const sel = document.getElementById('log-type');
+    if (sel && sel.options.length) sel.selectedIndex = 0;
+    renderStepChipsForRoutine(sel?.value ?? '');
     const submitBtn = document.getElementById('log-submit-btn');
     const cancelBtn = document.getElementById('log-cancel-btn');
     const dupeWarn  = document.getElementById('log-dupe-warn');
@@ -1073,8 +1093,10 @@
     pendingPhotos = (photosByEntryId[id] ?? []).map(p => ({ ...p }));
 
     document.getElementById('log-date').value  = entry.date;
-    document.getElementById('log-type').value  = entry.type;
     document.getElementById('log-notes').value = entry.notes || '';
+    const sel = document.getElementById('log-type');
+    if (sel) sel.value = entry.type;
+    renderStepChipsForRoutine(entry.type);
     document.querySelectorAll('.step-chip input').forEach(cb => {
       const checked = (entry.steps ?? []).includes(cb.value);
       cb.checked = checked;
@@ -1118,6 +1140,8 @@
   }
 
   function typeLabel(type) {
+    const routine = routines.find(r => r.id === type);
+    if (routine) return routine.name;
     const map = { full: 'Full wash', quick: 'Quick wash', interior: 'Interior only', both: 'Full wash + interior' };
     return map[type] || type;
   }
@@ -1198,7 +1222,12 @@
       const div = document.createElement('div');
       div.className = 'log-entry';
       const entryPhotos = photosByEntryId[entry.id] ?? [];
-      const typeClass = entry.type === 'full' || entry.type === 'both' ? 'full' : entry.type === 'interior' ? 'interior' : 'quick';
+      const rtypes = routines.find(r => r.id === entry.type)?.types ?? [];
+      const typeClass = rtypes.includes('exterior') && rtypes.includes('interior') ? 'full'
+        : rtypes.includes('interior') ? 'interior'
+        : rtypes.length ? 'quick'
+        : entry.type === 'full' || entry.type === 'both' ? 'full'
+        : entry.type === 'interior' ? 'interior' : 'quick';
       div.innerHTML = `
         <button class="log-menu-btn" data-id="${entry.id}" title="Options">···</button>
         <div class="log-menu-dropdown" id="log-menu-${entry.id}" hidden>
@@ -1744,6 +1773,7 @@ Output only the CSV starting with the header row.`;
     renderRoutinesView();
     renderRoutineConfigCards();
     renderSchedulesUI();
+    renderLogTypeSelect();
   }
 
   async function saveRoutines() {
