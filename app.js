@@ -2280,12 +2280,15 @@ Output only the CSV starting with the header row.`;
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
 
-      // Re-run loaders so UI reflects remote data
+      // Re-run loaders so UI reflects remote data.
+      // loadRoutines must run before loadLog/loadSettings since
+      // renderWashReminderCards (called by both) depends on routines[].
+      await loadRoutines();
       await loadChecklist();
       await loadLog();
       await loadBudget();
