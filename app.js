@@ -2223,7 +2223,15 @@ Output only the CSV starting with the header row.`;
     } catch {}
     syncEnabled = false;
     syncEmail   = null;
-    renderAuthUI();
+    await Promise.all([
+      storageSet(CHECKLIST_V3_KEY, {}),
+      storageSet(LOG_KEY, []),
+      storageSet(BUDGET_KEY, {}),
+      storageSet(SETTINGS_KEY, {}),
+      storageSet(ALERTS_KEY, {}),
+      storageSet(ROUTINES_KEY, null),
+    ]);
+    location.reload();
   }
 
   async function checkAuthAndSync() {
