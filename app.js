@@ -4,6 +4,7 @@
   let syncEnabled   = false;
   let syncEmail     = null;
   let lastSyncedAt  = null;
+  const AUTH_CACHE_KEY = 'corolla-auth-v1';
 
   // ─── Storage helpers ─────────────────────────────
   const hasStorage = typeof window.storage !== 'undefined';
@@ -2230,6 +2231,7 @@ Output only the CSV starting with the header row.`;
       storageSet(SETTINGS_KEY, {}),
       storageSet(ALERTS_KEY, {}),
       storageSet(ROUTINES_KEY, null),
+      storageSet(AUTH_CACHE_KEY, null),
     ]);
     location.reload();
   }
@@ -2261,12 +2263,13 @@ Output only the CSV starting with the header row.`;
         credentials: 'include',
         signal: AbortSignal.timeout(8000),
       });
-      if (!meRes.ok) { renderAuthUI(); return; }
+      if (!meRes.ok) { await storageSet(AUTH_CACHE_KEY, null); renderAuthUI(); return; }
       const me = await meRes.json();
-      if (!me.authenticated) { renderAuthUI(); return; }
+      if (!me.authenticated) { await storageSet(AUTH_CACHE_KEY, null); renderAuthUI(); return; }
 
       syncEnabled = true;
       syncEmail   = me.email;
+      await storageSet(AUTH_CACHE_KEY, { email: me.email });
       renderAuthUI();
 
       // Pull remote data and overwrite local state
@@ -2573,6 +2576,14 @@ Output only the CSV starting with the header row.`;
     await loadSettings();
     await loadAlerts();
     await loadRoutines();
+    // Restore cached auth state immediately so the nav/settings UI shows
+    // signed-in without waiting for the /api/auth/me round-trip.
+    const cachedAuth = await storageGet(AUTH_CACHE_KEY);
+    if (cachedAuth?.email) {
+      syncEnabled = true;
+      syncEmail   = cachedAuth.email;
+      renderAuthUI();
+    }
     await checkAuthAndSync();
     updateFooterVersion();
     loadPriceData();
