@@ -717,7 +717,7 @@
           <div class="prices-product">
             <div class="prices-product-name">
               ${product.name}
-              <button class="alert-btn${hasAlert ? ' active' : ''}" id="alert-btn-${slug}" onclick="toggleAlertForm('${slug}')" title="${alertTitle}">🔔</button>
+              ${syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="alert-btn-${slug}" onclick="toggleAlertForm('${slug}')" title="${alertTitle}">🔔</button>` : ''}
             </div>
             <div class="alert-inline-form" id="alert-form-${slug}" style="display:none;">
               <div class="alert-form-row">
@@ -2153,6 +2153,8 @@ Output only the CSV starting with the header row.`;
     const routineSubTabs = document.querySelector('.routine-sub-tabs');
     const vehicleSec     = document.getElementById('settings-vehicle');
     const notifSec       = document.getElementById('settings-notifications');
+    const prefsSec       = document.getElementById('settings-prefs');
+    const dataSec        = document.getElementById('settings-data');
     if (syncEnabled) {
       loginForm.style.display  = 'none';
       logoutSec.style.display  = '';
@@ -2164,6 +2166,9 @@ Output only the CSV starting with the header row.`;
       if (routineSubTabs) routineSubTabs.style.display = '';
       if (vehicleSec)     vehicleSec.style.display     = '';
       if (notifSec)       notifSec.style.display       = '';
+      if (prefsSec)       prefsSec.style.display       = '';
+      if (dataSec)        dataSec.style.display        = '';
+      document.querySelectorAll('.alert-btn').forEach(b => b.style.display = '');
     } else {
       loginForm.style.display  = '';
       logoutSec.style.display  = 'none';
@@ -2180,6 +2185,9 @@ Output only the CSV starting with the header row.`;
       if (routineSubTabs) routineSubTabs.style.display = 'none';
       if (vehicleSec)     vehicleSec.style.display     = 'none';
       if (notifSec)       notifSec.style.display       = 'none';
+      if (prefsSec)       prefsSec.style.display       = 'none';
+      if (dataSec)        dataSec.style.display        = 'none';
+      document.querySelectorAll('.alert-btn').forEach(b => b.style.display = 'none');
     }
     updateFooterSync();
   }
