@@ -2294,6 +2294,7 @@ Output only the CSV starting with the header row.`;
       await loadBudget();
       await loadSettings();
       await loadAlerts();
+      renderWashReminderCards(); // loadLog fires before loadSettings, so re-render once both are done
       renderAuthUI();
     } catch {
       renderAuthUI();
