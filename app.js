@@ -935,14 +935,22 @@
     if (!container) return;
     if (!pendingPhotos.length) { container.innerHTML = ''; return; }
     container.innerHTML = pendingPhotos.map(p => `
-      <div class="log-photo-item">
+      <div class="log-photo-item${p.uploading ? ' uploading' : ''}">
         <img src="${p.thumbUrl}" alt="Preview">
-        <button class="log-photo-remove" data-photo-id="${p.id}" data-preview="1" title="Remove">✕</button>
+        ${p.uploading
+          ? '<div class="log-photo-spinner"></div>'
+          : `<button class="log-photo-remove" data-photo-id="${p.id}" data-preview="1" title="Remove">✕</button>`}
       </div>`).join('');
     container.querySelectorAll('.log-photo-remove').forEach(btn => {
       btn.addEventListener('click', () => {
-        const pid = Number(btn.dataset.photoId);
-        deletePhoto(pid, pendingEntryId ?? 0);
+        const item = btn.closest('.log-photo-item');
+        const pid  = Number(btn.dataset.photoId);
+        if (item) {
+          item.classList.add('removing');
+          item.addEventListener('animationend', () => deletePhoto(pid, pendingEntryId ?? 0), { once: true });
+        } else {
+          deletePhoto(pid, pendingEntryId ?? 0);
+        }
       });
     });
   }
@@ -964,6 +972,11 @@
   async function uploadPendingPhoto(file) {
     if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
     if (!pendingEntryId) pendingEntryId = Date.now();
+    // Show local preview immediately while the upload is in flight
+    const tempId  = `temp-${Date.now()}-${Math.random()}`;
+    const localUrl = URL.createObjectURL(file);
+    pendingPhotos.push({ id: tempId, thumbUrl: localUrl, originalUrl: localUrl, uploading: true });
+    renderPhotoPreviews();
     const form = new FormData();
     form.append('file', file);
     form.append('logEntryId', String(pendingEntryId));
@@ -974,11 +987,21 @@
         body: form,
         signal: AbortSignal.timeout(30000),
       });
-      if (!res.ok) return;
+      URL.revokeObjectURL(localUrl);
+      if (!res.ok) {
+        pendingPhotos = pendingPhotos.filter(p => p.id !== tempId);
+        renderPhotoPreviews();
+        return;
+      }
       const data = await res.json();
-      pendingPhotos.push(data);
+      const idx = pendingPhotos.findIndex(p => p.id === tempId);
+      if (idx >= 0) pendingPhotos[idx] = data; else pendingPhotos.push(data);
       renderPhotoPreviews();
-    } catch {}
+    } catch {
+      URL.revokeObjectURL(localUrl);
+      pendingPhotos = pendingPhotos.filter(p => p.id !== tempId);
+      renderPhotoPreviews();
+    }
   }
 
   async function saveLog() {
@@ -1288,10 +1311,18 @@
       deleteLogEntry(Number(confirmBtn.dataset.id));
       return;
     }
-    // Photo remove
+    // Photo remove (carousel in edit mode)
     const removePhotoBtn = e.target.closest('.log-photo-remove');
     if (removePhotoBtn) {
-      deletePhoto(Number(removePhotoBtn.dataset.photoId), Number(removePhotoBtn.dataset.entryId));
+      const item = removePhotoBtn.closest('.log-carousel-item');
+      const pid  = Number(removePhotoBtn.dataset.photoId);
+      const eid  = Number(removePhotoBtn.dataset.entryId);
+      if (item) {
+        item.classList.add('removing');
+        item.addEventListener('animationend', () => deletePhoto(pid, eid), { once: true });
+      } else {
+        deletePhoto(pid, eid);
+      }
       return;
     }
     // Carousel image → open lightbox

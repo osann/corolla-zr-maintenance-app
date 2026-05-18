@@ -1093,6 +1093,36 @@
     align-items: center;
     justify-content: center;
   }
+  /* Upload spinner overlay */
+  .log-photo-item.uploading img,
+  .log-photo-preview .log-photo-item.uploading img { opacity: 0.45; }
+  .log-photo-spinner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+  }
+  .log-photo-spinner::after {
+    content: '';
+    width: 22px;
+    height: 22px;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: photo-spin 0.65s linear infinite;
+  }
+  @keyframes photo-spin { to { transform: rotate(360deg); } }
+  /* Delete fade-out */
+  @keyframes photo-remove {
+    to { opacity: 0; transform: scale(0.75); }
+  }
+  .log-carousel-item.removing,
+  .log-photo-item.removing {
+    animation: photo-remove 180ms ease forwards;
+    pointer-events: none;
+  }
   .log-carousel {
     display: flex;
     gap: 8px;
