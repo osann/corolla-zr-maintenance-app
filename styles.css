@@ -1,3 +1,5 @@
+  [hidden] { display: none !important; }
+
   :root {
     --bg: #faf8f3;
     --bg-elev: #ffffff;
@@ -914,7 +916,7 @@
     background: var(--bg-elev);
     border: 1px solid var(--rule);
     border-radius: var(--radius-lg);
-    padding: 20px 24px;
+    padding: 20px 56px 20px 24px;
     margin-bottom: 12px;
     box-shadow: var(--shadow);
     animation: fadeIn 240ms ease;
