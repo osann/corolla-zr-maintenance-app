@@ -14,7 +14,7 @@ The app has eight tabs:
 - **spend** — spend tracker, budget bar, live sale alerts
 - **prices** — read-only price sheet: all tracked products grouped by functional category, all retailers per product, with sparklines and sale badges
 - **refs** — links to manufacturer pages and community resources
-- **settings** — display preferences, notification config (TickTick + email), vehicle details (incl. postcode for weather). Wash frequency config has moved to Routines → Schedules; routine step chips are in Routines → Configure.
+- **settings** — display preferences, notification config (TickTick + email), vehicle details (incl. postcode for weather). Wash frequency config has moved to Routines → Schedules; routine step chips are in Routines → Configure. When signed out: Vehicle details, Notifications, Display preferences, and Data management sections are hidden.
 
 ## Current architecture
 
@@ -141,12 +141,15 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 - `storageGet(key)` / `storageSet(key, val)` — storage abstraction that tries `window.storage` (Claude artifact runtime) then falls back to `localStorage`. All persistence goes through these.
 - `render*()` functions write to the DOM from state
 - `apply*()` functions mutate the DOM based on current settings
-- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadSettings → loadRoutines → checkAuthAndSync → loadPriceData() + loadWeather()` (price data and weather are non-blocking, called after sync so they use the post-sync postcode and settings)
+- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadRoutines → loadSettings → checkAuthAndSync → loadPriceData() + loadWeather()` (loadRoutines before loadSettings so renderWashReminderCards fires with routines already populated; price data and weather are non-blocking, called after sync so they use the post-sync postcode and settings)
 - `itemData` array is rebuilt by `renderChecklist()` on every render — includes `slug`, `phase` (phase ID string), `price`, `el`, `input`
 - `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
 - `loadPriceHistories()` is called from `loadPriceData()` after prices are applied. It fetches `GET /api/products/prices` (bulk, 90-day window) in a single call, populates `priceHistories` keyed by product ID, then calls `renderPriceList()` (spend tab) and `renderPricesTab()` (prices tab). The old per-product `GET /api/products/:id/prices` endpoint is kept but no longer called by the frontend.
 - `renderPricesTab()` renders the **prices** tab. It iterates a hardcoded `PRICE_CATEGORIES` array (defined inside the function) that maps each functional category and sub-section to an ordered list of product slugs. It builds a `productBySlug` lookup from `liveProducts`, then for each slug renders a `.prices-product` block containing one `.prices-retailer-row` per retailer — each with price, 🔥 Sale badge, sparkline (or "No data yet." placeholder at the same fixed dimensions), and buy link. Each product name row also has a 🔔 bell button (`toggleAlertForm(slug)`) that opens an inline threshold form. At the end of `renderPricesTab()`, `renderAlertsPanel()` is called to refresh the active-alerts summary card at the top of the tab (`#prices-alerts-summary`). The panel is hidden when no alerts are configured. Categories and their sub-sections: Equipment (Microfibre / Wash Pads / Drying Towels / Other), Pressure Washer Equipment (Pressure Washers / Foam Cannons), Exterior Wash (Glass / Prep / Pre-Wash / Contact Wash), Exterior Protection (Sealant / Quick Detailer), Interior Clean (Leather / Fabric), Interior Protect (Leather / Fabric & Suede / Plastic, Vinyl & Rubber), Wheels (Equipment / Clean / Protect). A slug can appear in multiple categories. Products not in the mapping are silently omitted. Cards for categories where no product has a scraped price are not rendered.
 - The `__BACKEND_URL__` guard uses `BACKEND_URL.startsWith('__')` — not strict equality. The `sed` substitution in `deploy.yml` replaces `__BACKEND_URL__` globally, which would corrupt a `=== '__BACKEND_URL__'` check into `=== '<real-url>'`. Never revert this to a string equality check.
+- **Auth cache** (`corolla-auth-v1` in localStorage) — written after a successful `/api/auth/me` response so the signed-in UI state is restored immediately on reload without waiting for the network round-trip. Cleared on auth failure and on sign-out. Sign-out also clears all other local storage keys (`CHECKLIST_V3_KEY`, `LOG_KEY`, `BUDGET_KEY`, `SETTINGS_KEY`, `ALERTS_KEY`, `ROUTINES_KEY`) and reloads the page.
+- **`renderAuthUI()`** — single function that reflects auth state across the entire UI. As well as the login/logout form swap it toggles visibility of: Wash Log tab, Spend tab, routine sub-tabs (Schedules/Configure), bell icons on the Prices tab, and the Vehicle details, Notifications, Display preferences, and Data management settings sections. When a tab is hidden while active it redirects to Wash Routines. `renderPricesTab()` also gates the bell button on `syncEnabled` so it is omitted from rendered HTML when signed out.
+- **Post-sync reload order in `checkAuthAndSync()`**: `loadRoutines → loadChecklist → loadLog → loadBudget → loadSettings → loadAlerts → renderWashReminderCards()`. `ROUTINES_KEY` is included in the sync pull. `loadRoutines` runs first so `routines[]` is populated before `loadSettings` calls `renderWashReminderCards`.
 
 ### Storage keys
 
@@ -212,9 +215,10 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 
 **Wash reminder functions:**
 - `scheduleIntervalDays(schedule)` — converts `{ intervalValue, intervalUnit }` to a number of days
+- `calcScheduleStreak(schedule, forecast)` — counts consecutive on-time completions for a schedule; returns 0 if currently overdue, unless `forecast[0].rain_chance >= 50` (raining today), in which case the streak is held. Both call sites pass `weatherCache`.
 - `calcRoutineNextDue(schedule)` — maps routine types to relevant log entry types, finds the most recent matching log entry, returns next due Date
 - `calcBestWashDay(dueDate, forecast)` — returns the `rainDay` name (e.g. `'Thursday'`) when rain is forecast and the due date is ≤ 2 days away; null otherwise
-- `renderWashReminderCards()` — renders `.wash-reminder-card` elements into `#wash-reminder-cards` (above sub-tabs in log tab); called from `renderLog()` and on every `saveSettings()` call
+- `renderWashReminderCards()` — renders `.wash-reminder-card` elements into `#wash-reminder-cards` (above sub-tabs in log tab); called from `renderLog()`, `loadSettings()`, and `saveSettings()`
 - `goToRoutine(routineId)` — clicks the Routines tab and scrolls to `#routine-view-{id}`
 - `sendWashReminderToTickTick(routineId, routineName, btn)` — `POST /api/notify/wash-reminder`; shows "Sent ✓" / "Failed" on the button
 - `renderSchedulesUI()` — renders schedule entry rows (routine dropdown, interval input, unit select, remove button) into `#schedule-list`
@@ -290,7 +294,7 @@ Weather-aware hints appear in the **log tab** below the streak bar when a postco
 **Data flow:**
 - Frontend calls `GET /api/weather?postcode={postcode}` on the Render backend (fires once in `init()` after sync, and again when car settings are saved).
 - Backend (`routes/weather.ts`): geocodes postcode via Nominatim (`nominatim.openstreetmap.org/search?postalcode=&countrycodes=au`), fetches 7-day forecast from Open-Meteo (`api.open-meteo.com/v1/forecast`), returns `[{ date, rain_chance, temp_max }]`. Results cached in memory for 3 hours per postcode.
-- Frontend `evalWeatherTriggers(forecast)` evaluates both triggers and `renderWeatherCards(triggers)` updates the DOM. `weatherCache` stores the last successful forecast; `renderLog()` re-evaluates from cache on every log render (no extra fetch). `weatherCache` is also used by `calcBestWashDay()` — if rain is forecast within 2 days of a routine's due date, the reminder card replaces the due date text with the best wash day.
+- Frontend `evalWeatherTriggers(forecast)` evaluates both triggers and `renderWeatherCards(triggers)` updates the DOM. `weatherCache` stores the last successful forecast; `renderLog()` re-evaluates from cache on every log render (no extra fetch). `weatherCache` is passed to `calcBestWashDay()` (rain within 2 days of due → reminder card shows best wash day instead of due date) and to `calcScheduleStreak()` (raining today → streak held even when overdue).
 
 **Why proxied:** BOM (`api.weather.bom.gov.au`) blocks browser CORS requests and Render's datacenter IPs. Open-Meteo geocoding doesn't support Australian postcode lookups. Nominatim + Open-Meteo via Render is the working stack.
 
