@@ -1267,6 +1267,14 @@
 
 </div>
 
+<div id="lightbox" hidden role="dialog" aria-modal="true" onclick="if(event.target===this)closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close">✕</button>
+  <button class="lightbox-arrow lightbox-prev" onclick="lightboxNav(-1)" aria-label="Previous">&#8249;</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="Session photo">
+  <button class="lightbox-arrow lightbox-next" onclick="lightboxNav(1)" aria-label="Next">&#8250;</button>
+  <div class="lightbox-counter" id="lightbox-counter"></div>
+</div>
+
 <script src="app.js" defer></script>
 
 </body>

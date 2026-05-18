@@ -861,6 +861,8 @@
   let pendingEntryId = null;
   let pendingPhotos = [];
   let photosByEntryId = {};
+  let lightboxEntryId = null;
+  let lightboxIndex = 0;
 
   // Set today's date as default
   (function() {
@@ -1177,9 +1179,9 @@
         </div>
         ${entry.steps.length ? `<div class="log-chips">${entry.steps.map(s => `<span class="log-chip">${s}</span>`).join('')}</div>` : ''}
         ${entry.notes ? `<div class="log-entry-notes">${entry.notes}</div>` : ''}
-        ${entryPhotos.length ? `<div class="log-photos">${entryPhotos.map(p => `
-          <div class="log-photo-item">
-            <a href="${p.originalUrl}" target="_blank" rel="noopener"><img src="${p.thumbUrl}" loading="lazy" alt="Session photo"></a>
+        ${entryPhotos.length ? `<div class="log-carousel">${entryPhotos.map((p, i) => `
+          <div class="log-carousel-item">
+            <img src="${p.thumbUrl}" loading="lazy" alt="Session photo" data-carousel-index="${i}" data-entry-id="${entry.id}">
             <button class="log-photo-remove" data-photo-id="${p.id}" data-entry-id="${entry.id}" title="Remove photo">✕</button>
           </div>`).join('')}</div>` : ''}
         <div class="log-confirm-row" id="log-confirm-${entry.id}" hidden>
@@ -1280,6 +1282,13 @@
     const removePhotoBtn = e.target.closest('.log-photo-remove');
     if (removePhotoBtn) {
       deletePhoto(Number(removePhotoBtn.dataset.photoId), Number(removePhotoBtn.dataset.entryId));
+      return;
+    }
+    // Carousel image → open lightbox
+    const carouselImg = e.target.closest('.log-carousel-item img');
+    if (carouselImg) {
+      openLightbox(Number(carouselImg.dataset.entryId), Number(carouselImg.dataset.carouselIndex));
+      return;
     }
   });
 
@@ -2861,10 +2870,51 @@ Output only the CSV starting with the header row.`;
     renderWeatherCards(evalWeatherTriggers(forecast));
   }
 
+  // ─── Lightbox ────────────────────────────────────
+  function openLightbox(entryId, index) {
+    lightboxEntryId = entryId;
+    lightboxIndex = index;
+    updateLightbox();
+    document.getElementById('lightbox').removeAttribute('hidden');
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').setAttribute('hidden', '');
+    lightboxEntryId = null;
+  }
+
+  function lightboxNav(dir) {
+    const photos = photosByEntryId[lightboxEntryId] ?? [];
+    if (!photos.length) return;
+    lightboxIndex = (lightboxIndex + dir + photos.length) % photos.length;
+    updateLightbox();
+  }
+
+  function updateLightbox() {
+    const photos = photosByEntryId[lightboxEntryId] ?? [];
+    const photo = photos[lightboxIndex];
+    if (!photo) return;
+    document.getElementById('lightbox-img').src = photo.originalUrl;
+    document.getElementById('lightbox-counter').textContent = `${lightboxIndex + 1} / ${photos.length}`;
+    const single = photos.length <= 1;
+    document.querySelectorAll('.lightbox-arrow').forEach(el => { el.hidden = single; });
+  }
+
+  // Expose for onclick handlers in HTML
+  window.closeLightbox = closeLightbox;
+  window.lightboxNav = lightboxNav;
+
   // ─── Init ────────────────────────────────────────
   async function init() {
     setupChecklist();
     setupPhotoUploadUI();
+    document.addEventListener('keydown', e => {
+      const lb = document.getElementById('lightbox');
+      if (!lb || lb.hidden) return;
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft') lightboxNav(-1);
+      else if (e.key === 'ArrowRight') lightboxNav(1);
+    });
     await loadChecklist();
     await loadLog();
     await loadBudget();
