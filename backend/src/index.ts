@@ -98,7 +98,8 @@ cron.schedule('0 7 * * *', async () => {
     const schedules: Array<{ routineId: string; intervalValue: number; intervalUnit: string }> =
       Array.isArray(savedSettings?.schedules) ? savedSettings.schedules : [];
 
-    function routineMatchesLog(types: string[], logType: string): boolean {
+    function routineMatchesLog(types: string[], logType: string, routineId: string): boolean {
+      if (logType === routineId) return true;
       if (types.includes('exterior')    && ['full', 'quick', 'both'].includes(logType)) return true;
       if (types.includes('interior')    && ['interior', 'both'].includes(logType))      return true;
       if (types.includes('maintenance') && ['full', 'both'].includes(logType))          return true;
@@ -120,7 +121,7 @@ cron.schedule('0 7 * * *', async () => {
 
         const intervalDays = (schedule.intervalValue || 1) * (mul[schedule.intervalUnit] || 7);
         const relevant = washLog
-          .filter(e => routineMatchesLog(routine.types ?? [], e.type))
+          .filter(e => routineMatchesLog(routine.types ?? [], e.type, schedule.routineId))
           .sort((a, b) => b.date.localeCompare(a.date));
 
         if (!relevant.length) continue; // never logged — skip to avoid spamming

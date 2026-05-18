@@ -2691,16 +2691,24 @@ Output only the CSV starting with the header row.`;
     return (intervalValue || 1) * (mul[intervalUnit] || 7);
   }
 
+  // Returns true for both new entries (e.type === routineId) and legacy entries
+  // matched by the routine's declared types.
+  function entryMatchesSchedule(entry, schedule) {
+    if (entry.type === schedule.routineId) return true;
+    const routine = routines.find(r => r.id === schedule.routineId);
+    const types = routine?.types ?? [];
+    const t = entry.type;
+    if (types.includes('exterior')    && ['full','quick','both'].includes(t)) return true;
+    if (types.includes('interior')    && ['interior','both'].includes(t))     return true;
+    if (types.includes('maintenance') && ['full','both'].includes(t))         return true;
+    return false;
+  }
+
   function calcScheduleStreak(schedule, forecast) {
     const routine = routines.find(r => r.id === schedule.routineId);
     if (!routine) return 0;
-    const types = routine.types ?? [];
-    const matchTypes = new Set();
-    if (types.includes('exterior'))    ['full','quick','both'].forEach(t => matchTypes.add(t));
-    if (types.includes('interior'))    ['interior','both'].forEach(t => matchTypes.add(t));
-    if (types.includes('maintenance')) ['full','both'].forEach(t => matchTypes.add(t));
     const dates = [...new Set(
-      washLog.filter(e => matchTypes.size === 0 || matchTypes.has(e.type)).map(e => e.date)
+      washLog.filter(e => entryMatchesSchedule(e, schedule)).map(e => e.date)
     )].sort((a, b) => b.localeCompare(a));
     if (!dates.length) return 0;
     const intervalDays = scheduleIntervalDays(schedule);
@@ -2724,13 +2732,8 @@ Output only the CSV starting with the header row.`;
   function calcRoutineNextDue(schedule) {
     const routine = routines.find(r => r.id === schedule.routineId);
     if (!routine) return null;
-    const types = routine.types ?? [];
-    const matchTypes = new Set();
-    if (types.includes('exterior'))    ['full', 'quick', 'both'].forEach(t => matchTypes.add(t));
-    if (types.includes('interior'))    ['interior', 'both'].forEach(t => matchTypes.add(t));
-    if (types.includes('maintenance')) ['full', 'both'].forEach(t => matchTypes.add(t));
     const relevant = washLog
-      .filter(e => matchTypes.size === 0 || matchTypes.has(e.type))
+      .filter(e => entryMatchesSchedule(e, schedule))
       .sort((a, b) => b.date.localeCompare(a.date));
     if (!relevant.length) return new Date();
     const [y, m, d] = relevant[0].date.split('-').map(Number);
