@@ -946,7 +946,7 @@
     const schedules = settings.schedules ?? [];
     if (schedules.length > 0) {
       // Use first schedule's streak for the global bar
-      return { streak: calcScheduleStreak(schedules[0]), lastWash, unit: 'sessions' };
+      return { streak: calcScheduleStreak(schedules[0], weatherCache), lastWash, unit: 'sessions' };
     }
     // Legacy: weekly streak — count consecutive Mon-Sun weeks with at least one wash
     const uniqueDates = [...new Set(sorted.map(e => e.date))].sort((a,b) => b.localeCompare(a));
@@ -2334,7 +2334,7 @@ Output only the CSV starting with the header row.`;
     return (intervalValue || 1) * (mul[intervalUnit] || 7);
   }
 
-  function calcScheduleStreak(schedule) {
+  function calcScheduleStreak(schedule, forecast) {
     const routine = routines.find(r => r.id === schedule.routineId);
     if (!routine) return 0;
     const types = routine.types ?? [];
@@ -2350,7 +2350,11 @@ Output only the CSV starting with the header row.`;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const dueDate = new Date(dates[0] + 'T00:00:00');
     dueDate.setDate(dueDate.getDate() + intervalDays);
-    if (today > dueDate) return 0; // current interval overdue — streak broken
+    if (today > dueDate) {
+      // Grace: if it's raining today the user can't wash — hold the streak
+      const rainingToday = forecast && (forecast[0]?.rain_chance ?? 0) >= 50;
+      if (!rainingToday) return 0;
+    }
     let streak = 1;
     for (let i = 1; i < dates.length; i++) {
       const gap = Math.round((new Date(dates[i-1] + 'T00:00:00') - new Date(dates[i] + 'T00:00:00')) / 86400000);
@@ -2398,7 +2402,7 @@ Output only the CSV starting with the header row.`;
       const nextDue = calcRoutineNextDue(schedule);
       const daysUntil = nextDue ? Math.ceil((nextDue - today) / 86400000) : null;
       const bestDay = weatherCache ? calcBestWashDay(nextDue, weatherCache) : null;
-      const streak = calcScheduleStreak(schedule);
+      const streak = calcScheduleStreak(schedule, weatherCache);
       let statusText, subText = '', isOverdue = false;
       if (daysUntil === null)   statusText = 'No sessions logged yet';
       else if (daysUntil < 0)  { statusText = `Overdue by ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''}`; isOverdue = true; }
