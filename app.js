@@ -995,9 +995,10 @@
     if (!date) { alert('Please select a date.'); return; }
 
     if (editingEntryId !== null) {
-      const idx = washLog.findIndex(e => e.id === editingEntryId);
+      const savedEntryId = editingEntryId;
+      const idx = washLog.findIndex(e => e.id === savedEntryId);
       if (idx >= 0) washLog[idx] = { ...washLog[idx], date, type, steps, notes };
-      photosByEntryId[editingEntryId] = [...pendingPhotos];
+      photosByEntryId[savedEntryId] = [...pendingPhotos];
       pendingEntryId = null;
       pendingPhotos  = [];
       editingEntryId = null;
@@ -1006,6 +1007,8 @@
       saveLog();
       renderLog();
       document.querySelector('.log-sub-tab[data-log-tab="history"]')?.click();
+      // Re-fetch from server: catches photos whose upload finished after the save click
+      loadPhotoData([savedEntryId]).then(() => renderLog());
       return;
     }
 
