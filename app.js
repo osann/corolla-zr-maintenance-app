@@ -2634,6 +2634,7 @@ Output only the CSV starting with the header row.`;
       syncEmail   = me.email;
       await storageSet(AUTH_CACHE_KEY, { email: me.email });
       renderAuthUI();
+      renderLogTypeSelect();
 
       // Pull remote data and overwrite local state
       const syncRes = await fetch(`${BACKEND_URL}/api/sync`, {
