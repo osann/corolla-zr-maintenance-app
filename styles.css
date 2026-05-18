@@ -956,21 +956,147 @@
     padding-top: 10px;
     margin-top: 4px;
   }
-  .log-delete {
+  .log-menu-btn {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 14px;
+    right: 14px;
     background: transparent;
     border: none;
     color: var(--ink-low);
     cursor: pointer;
-    font-size: 16px;
-    padding: 4px 6px;
+    font-size: 18px;
+    padding: 4px 8px;
     border-radius: 6px;
     transition: all 140ms ease;
     line-height: 1;
+    letter-spacing: 2px;
   }
-  .log-delete:hover { background: var(--danger-tint); color: var(--danger); }
+  .log-menu-btn:hover { background: var(--bg-muted); color: var(--ink); }
+  .log-menu-dropdown {
+    position: absolute;
+    top: 44px;
+    right: 14px;
+    background: var(--bg-elev);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    min-width: 120px;
+    z-index: 10;
+    overflow: hidden;
+  }
+  .log-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .log-menu-item:hover { background: var(--bg-muted); }
+  .log-menu-item--danger { color: var(--danger); }
+  .log-menu-item--danger:hover { background: var(--danger-tint); }
+  .log-confirm-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule);
+    font-size: 13.5px;
+    color: var(--ink-mid);
+    flex-wrap: wrap;
+  }
+  .log-confirm-cancel, .log-confirm-delete {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 140ms ease;
+  }
+  .log-confirm-cancel {
+    border: 1px solid var(--rule-strong);
+    background: var(--bg-muted);
+    color: var(--ink-mid);
+  }
+  .log-confirm-cancel:hover { background: var(--bg-elev); color: var(--ink); }
+  .log-confirm-delete {
+    border: 1px solid var(--danger);
+    background: transparent;
+    color: var(--danger);
+  }
+  .log-confirm-delete:hover { background: var(--danger-tint); }
+  .log-cancel-edit {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 11px 20px;
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    color: var(--ink-mid);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 160ms ease;
+    margin-top: 4px;
+    margin-left: 8px;
+  }
+  .log-cancel-edit:hover { background: var(--bg-muted); color: var(--ink); }
+  .log-dupe-warn { font-size: 12.5px; color: var(--warn); margin: 6px 0 0; }
+  .log-photo-zone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--rule-strong);
+    border-radius: var(--radius);
+    padding: 18px;
+    cursor: pointer;
+    color: var(--ink-low);
+    font-size: 13.5px;
+    transition: border-color 140ms, color 140ms;
+  }
+  .log-photo-zone:hover { border-color: var(--accent); color: var(--accent); }
+  .log-photo-preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .log-photo-item { position: relative; }
+  .log-photo-item img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: var(--radius);
+    display: block;
+  }
+  .log-photo-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.55);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .log-photos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
   .log-section-title {
     font-size: 11px;
     font-weight: 600;

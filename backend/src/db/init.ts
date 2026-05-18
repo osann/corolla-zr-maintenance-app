@@ -56,6 +56,17 @@ const DDL_STATEMENTS = [
     UNIQUE(user_id, key)
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_user_data_key ON user_data(user_id, key)`,
+  `CREATE TABLE IF NOT EXISTS photos (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    log_entry_id INTEGER NOT NULL,
+    r2_key       TEXT    NOT NULL,
+    thumb_key    TEXT    NOT NULL,
+    mime_type    TEXT    NOT NULL,
+    size_bytes   INTEGER NOT NULL,
+    created_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_photos_user_entry ON photos(user_id, log_entry_id)`,
 ];
 
 export async function initDb() {

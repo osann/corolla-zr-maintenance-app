@@ -74,3 +74,18 @@ export const userData = sqliteTable('user_data', {
 export type User     = typeof users.$inferSelect;
 export type Session  = typeof sessions.$inferSelect;
 export type UserData = typeof userData.$inferSelect;
+
+export const photos = sqliteTable('photos', {
+  id:          integer('id').primaryKey({ autoIncrement: true }),
+  userId:      integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  logEntryId:  integer('log_entry_id').notNull(),
+  r2Key:       text('r2_key').notNull(),
+  thumbKey:    text('thumb_key').notNull(),
+  mimeType:    text('mime_type').notNull(),
+  sizeBytes:   integer('size_bytes').notNull(),
+  createdAt:   text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (t) => [
+  index('idx_photos_user_entry').on(t.userId, t.logEntryId),
+]);
+
+export type Photo = typeof photos.$inferSelect;

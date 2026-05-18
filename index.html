@@ -910,7 +910,17 @@
             <textarea class="log-textarea" id="log-notes" placeholder="Products used, condition, issues noticed, anything unusual…"></textarea>
           </div>
         </div>
-        <button class="log-submit" onclick="addLogEntry()">Save session</button>
+        <div class="log-field full" id="log-photo-field" style="display:none;">
+          <label class="log-label">Photos</label>
+          <label class="log-photo-zone" for="log-photo-input">
+            <span class="log-photo-zone-text">+ Add photos</span>
+            <input type="file" id="log-photo-input" accept="image/jpeg,image/png,image/webp" multiple style="display:none;">
+          </label>
+          <div class="log-photo-preview" id="log-photo-preview"></div>
+        </div>
+        <button id="log-submit-btn" class="log-submit" onclick="addLogEntry()">Save session</button>
+        <button id="log-cancel-btn" class="log-cancel-edit" onclick="cancelEditEntry()" hidden>Cancel</button>
+        <p id="log-dupe-warn" class="log-dupe-warn" hidden>A session is already logged for this date.</p>
       </div>
     </div>
 
@@ -1068,19 +1078,6 @@
         <div class="settings-control">
           <label class="toggle-wrap">
             <input type="checkbox" id="pref-show-desc" checked>
-            <span class="toggle-track"></span>
-          </label>
-        </div>
-      </div>
-
-      <div class="settings-row">
-        <div class="settings-row-label">
-          <strong>Confirm before deleting log entries</strong>
-          <span>Show a confirmation prompt when deleting a wash session</span>
-        </div>
-        <div class="settings-control">
-          <label class="toggle-wrap">
-            <input type="checkbox" id="pref-confirm-delete" checked>
             <span class="toggle-track"></span>
           </label>
         </div>

@@ -856,6 +856,11 @@
   // ─── Wash Log ────────────────────────────────────
   const LOG_KEY = 'corolla-washlog-v1';
   let washLog = [];
+  let openMenuId = null;
+  let editingEntryId = null;
+  let pendingEntryId = null;
+  let pendingPhotos = [];
+  let photosByEntryId = {};
 
   // Set today's date as default
   (function() {
@@ -881,6 +886,97 @@
     const saved = await storageGet(LOG_KEY);
     washLog = Array.isArray(saved) ? saved : [];
     renderLog();
+    if (syncEnabled && washLog.length) {
+      await loadPhotoData(washLog.map(e => e.id));
+      renderLog();
+    }
+  }
+
+  async function loadPhotoData(entryIds) {
+    if (!syncEnabled || !BACKEND_URL || BACKEND_URL.startsWith('__') || !entryIds.length) return;
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/photos?logEntryIds=${entryIds.join(',')}`,
+        { credentials: 'include', signal: AbortSignal.timeout(10000) }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      Object.assign(photosByEntryId, data);
+    } catch {}
+  }
+
+  async function deletePhoto(photoId, entryId) {
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/photos/${photoId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return;
+      if (photosByEntryId[entryId]) {
+        photosByEntryId[entryId] = photosByEntryId[entryId].filter(p => p.id !== photoId);
+      }
+      // Also remove from pending photos if in edit mode
+      pendingPhotos = pendingPhotos.filter(p => p.id !== photoId);
+      // Refresh whichever view is active
+      if (editingEntryId === entryId) {
+        renderPhotoPreviews();
+      } else {
+        renderLog();
+      }
+    } catch {}
+  }
+
+  function renderPhotoPreviews() {
+    const container = document.getElementById('log-photo-preview');
+    if (!container) return;
+    if (!pendingPhotos.length) { container.innerHTML = ''; return; }
+    container.innerHTML = pendingPhotos.map(p => `
+      <div class="log-photo-item">
+        <img src="${p.thumbUrl}" alt="Preview">
+        <button class="log-photo-remove" data-photo-id="${p.id}" data-preview="1" title="Remove">✕</button>
+      </div>`).join('');
+    container.querySelectorAll('.log-photo-remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pid = Number(btn.dataset.photoId);
+        deletePhoto(pid, pendingEntryId ?? 0);
+      });
+    });
+  }
+
+  function setupPhotoUploadUI() {
+    const input = document.getElementById('log-photo-input');
+    if (!input) return;
+    input.addEventListener('change', async () => {
+      const files = Array.from(input.files ?? []);
+      input.value = '';
+      for (const file of files) {
+        if (!['image/jpeg','image/png','image/webp'].includes(file.type)) continue;
+        if (file.size > 10 * 1024 * 1024) continue;
+        await uploadPendingPhoto(file);
+      }
+    });
+  }
+
+  async function uploadPendingPhoto(file) {
+    if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+    if (!pendingEntryId) pendingEntryId = Date.now();
+    const form = new FormData();
+    form.append('file', file);
+    form.append('logEntryId', String(pendingEntryId));
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/photos/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: form,
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      pendingPhotos.push(data);
+      renderPhotoPreviews();
+    } catch {}
   }
 
   async function saveLog() {
@@ -896,34 +992,84 @@
 
     if (!date) { alert('Please select a date.'); return; }
 
-    const entry = {
-      id: Date.now(),
-      date,
-      type,
-      steps,
-      notes
-    };
-
-    // Prevent duplicate same-date entries (warn only)
-    const dupeIdx = washLog.findIndex(e => e.date === date);
-    if (dupeIdx >= 0) {
-      if (!confirm(`You already have a session logged for ${formatDate(date)}. Add another?`)) return;
+    if (editingEntryId !== null) {
+      const idx = washLog.findIndex(e => e.id === editingEntryId);
+      if (idx >= 0) washLog[idx] = { ...washLog[idx], date, type, steps, notes };
+      editingEntryId = null;
+      resetLogForm();
+      saveLog();
+      renderLog();
+      document.querySelector('.log-sub-tab[data-log-tab="history"]')?.click();
+      return;
     }
+
+    const entry = { id: pendingEntryId ?? Date.now(), date, type, steps, notes };
+    pendingEntryId = null;
+    pendingPhotos = [];
+    renderPhotoPreviews();
 
     washLog.unshift(entry);
     saveLog();
     renderLog();
+    resetLogForm();
+    document.querySelector('.log-sub-tab[data-log-tab="history"]')?.click();
+  }
 
-    // Reset form and switch to History sub-tab
+  function resetLogForm() {
     document.getElementById('log-notes').value = '';
     document.querySelectorAll('.step-chip input').forEach(cb => { cb.checked = false; });
     document.querySelectorAll('.step-chip').forEach(c => c.classList.remove('checked'));
+    const submitBtn = document.getElementById('log-submit-btn');
+    const cancelBtn = document.getElementById('log-cancel-btn');
+    const dupeWarn  = document.getElementById('log-dupe-warn');
+    if (submitBtn) submitBtn.textContent = 'Save session';
+    if (cancelBtn) cancelBtn.hidden = true;
+    if (dupeWarn)  dupeWarn.hidden = true;
+    // Reset date to today
+    const d = new Date();
+    document.getElementById('log-date').value =
+      `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function startEditEntry(id) {
+    const entry = washLog.find(e => e.id === id);
+    if (!entry) return;
+    editingEntryId = id;
+    pendingEntryId = id;
+    pendingPhotos = (photosByEntryId[id] ?? []).map(p => ({ ...p }));
+
+    document.getElementById('log-date').value  = entry.date;
+    document.getElementById('log-type').value  = entry.type;
+    document.getElementById('log-notes').value = entry.notes || '';
+    document.querySelectorAll('.step-chip input').forEach(cb => {
+      const checked = (entry.steps ?? []).includes(cb.value);
+      cb.checked = checked;
+      cb.closest('.step-chip')?.classList.toggle('checked', checked);
+    });
+
+    const submitBtn = document.getElementById('log-submit-btn');
+    const cancelBtn = document.getElementById('log-cancel-btn');
+    const dupeWarn  = document.getElementById('log-dupe-warn');
+    if (submitBtn) submitBtn.textContent = 'Save changes';
+    if (cancelBtn) cancelBtn.hidden = false;
+    if (dupeWarn)  dupeWarn.hidden = true;
+
+    renderPhotoPreviews();
+    document.querySelector('.log-sub-tab[data-log-tab="new"]')?.click();
+  }
+
+  function cancelEditEntry() {
+    editingEntryId = null;
+    pendingEntryId = null;
+    pendingPhotos  = [];
+    renderPhotoPreviews();
+    resetLogForm();
     document.querySelector('.log-sub-tab[data-log-tab="history"]')?.click();
   }
 
   function deleteLogEntry(id) {
-    if (!confirm('Delete this session?')) return;
     washLog = washLog.filter(e => e.id !== id);
+    delete photosByEntryId[id];
     saveLog();
     renderLog();
   }
@@ -1014,14 +1160,30 @@
     sorted.forEach(entry => {
       const div = document.createElement('div');
       div.className = 'log-entry';
+      const entryPhotos = photosByEntryId[entry.id] ?? [];
+      const typeClass = entry.type === 'full' || entry.type === 'both' ? 'full' : entry.type === 'interior' ? 'interior' : 'quick';
       div.innerHTML = `
-        <button class="log-delete" onclick="deleteLogEntry(${entry.id})" title="Delete">✕</button>
+        <button class="log-menu-btn" data-id="${entry.id}" title="Options">···</button>
+        <div class="log-menu-dropdown" id="log-menu-${entry.id}" hidden>
+          <button class="log-menu-item" data-action="edit" data-id="${entry.id}">Edit</button>
+          <button class="log-menu-item log-menu-item--danger" data-action="delete" data-id="${entry.id}">Delete</button>
+        </div>
         <div class="log-entry-head">
           <div class="log-entry-date">${formatDate(entry.date)}</div>
-          <div class="log-entry-type ${entry.type === 'full' || entry.type === 'both' ? 'full' : entry.type === 'interior' ? 'interior' : 'quick'}">${typeLabel(entry.type)}</div>
+          <div class="log-entry-type ${typeClass}">${typeLabel(entry.type)}</div>
         </div>
         ${entry.steps.length ? `<div class="log-chips">${entry.steps.map(s => `<span class="log-chip">${s}</span>`).join('')}</div>` : ''}
         ${entry.notes ? `<div class="log-entry-notes">${entry.notes}</div>` : ''}
+        ${entryPhotos.length ? `<div class="log-photos">${entryPhotos.map(p => `
+          <div class="log-photo-item">
+            <a href="${p.originalUrl}" target="_blank" rel="noopener"><img src="${p.thumbUrl}" loading="lazy" alt="Session photo"></a>
+            <button class="log-photo-remove" data-photo-id="${p.id}" data-entry-id="${entry.id}" title="Remove photo">✕</button>
+          </div>`).join('')}</div>` : ''}
+        <div class="log-confirm-row" id="log-confirm-${entry.id}" hidden>
+          <span>Delete this session?</span>
+          <button class="log-confirm-cancel" data-id="${entry.id}">Cancel</button>
+          <button class="log-confirm-delete" data-id="${entry.id}">Delete</button>
+        </div>
       `;
       container.appendChild(div);
     });
@@ -1056,6 +1218,77 @@
       btn.classList.add('active');
       document.getElementById('log-sub-' + btn.dataset.logTab).classList.add('active');
     });
+  });
+
+  // ─── Log entry delegated interactions ──────────────
+  document.getElementById('log-entries').addEventListener('click', e => {
+    // Ellipsis menu button
+    const menuBtn = e.target.closest('.log-menu-btn');
+    if (menuBtn) {
+      const id = menuBtn.dataset.id;
+      if (openMenuId && openMenuId !== id) {
+        document.getElementById(`log-menu-${openMenuId}`)?.setAttribute('hidden', '');
+      }
+      const dropdown = document.getElementById(`log-menu-${id}`);
+      if (openMenuId === id) {
+        dropdown?.setAttribute('hidden', '');
+        openMenuId = null;
+      } else {
+        dropdown?.removeAttribute('hidden');
+        openMenuId = id;
+      }
+      return;
+    }
+    // Edit action
+    const editItem = e.target.closest('.log-menu-item[data-action="edit"]');
+    if (editItem) {
+      if (openMenuId) { document.getElementById(`log-menu-${openMenuId}`)?.setAttribute('hidden', ''); openMenuId = null; }
+      startEditEntry(Number(editItem.dataset.id));
+      return;
+    }
+    // Delete action (from menu — shows confirm row)
+    const deleteItem = e.target.closest('.log-menu-item[data-action="delete"]');
+    if (deleteItem) {
+      if (openMenuId) { document.getElementById(`log-menu-${openMenuId}`)?.setAttribute('hidden', ''); openMenuId = null; }
+      document.getElementById(`log-confirm-${deleteItem.dataset.id}`)?.removeAttribute('hidden');
+      return;
+    }
+    // Confirm row — cancel
+    const cancelBtn = e.target.closest('.log-confirm-cancel');
+    if (cancelBtn) {
+      document.getElementById(`log-confirm-${cancelBtn.dataset.id}`)?.setAttribute('hidden', '');
+      return;
+    }
+    // Confirm row — delete
+    const confirmBtn = e.target.closest('.log-confirm-delete');
+    if (confirmBtn) {
+      deleteLogEntry(Number(confirmBtn.dataset.id));
+      return;
+    }
+    // Photo remove
+    const removePhotoBtn = e.target.closest('.log-photo-remove');
+    if (removePhotoBtn) {
+      deletePhoto(Number(removePhotoBtn.dataset.photoId), Number(removePhotoBtn.dataset.entryId));
+    }
+  });
+
+  // Dismiss open menu on outside click
+  document.addEventListener('click', e => {
+    if (openMenuId && !e.target.closest('.log-menu-btn') && !e.target.closest('.log-menu-dropdown')) {
+      document.getElementById(`log-menu-${openMenuId}`)?.setAttribute('hidden', '');
+      openMenuId = null;
+    }
+  });
+
+  // Dupe warning on date change
+  document.getElementById('log-date').addEventListener('change', () => {
+    const date = document.getElementById('log-date').value;
+    const warn = document.getElementById('log-dupe-warn');
+    if (!warn) return;
+    const hasDupe = editingEntryId !== null
+      ? washLog.some(e => e.date === date && e.id !== editingEntryId)
+      : washLog.some(e => e.date === date);
+    warn.hidden = !hasDupe;
   });
 
   // ─── Routine sub-tab navigation ───────────────────
@@ -1685,7 +1918,6 @@ Output only the CSV starting with the header row.`;
     document.getElementById('pref-show-prices').checked = settings.prefs.showPrices;
     document.getElementById('pref-show-badges').checked = settings.prefs.showBadges;
     document.getElementById('pref-show-desc').checked = settings.prefs.showDesc;
-    document.getElementById('pref-confirm-delete').checked = settings.prefs.confirmDelete;
   }
 
   function applyPrefs() {
@@ -1833,7 +2065,6 @@ Output only the CSV starting with the header row.`;
       settings.prefs.showPrices = document.getElementById('pref-show-prices').checked;
       settings.prefs.showBadges = document.getElementById('pref-show-badges').checked;
       settings.prefs.showDesc = document.getElementById('pref-show-desc').checked;
-      settings.prefs.confirmDelete = document.getElementById('pref-confirm-delete').checked;
     } else if (section === 'car') {
       settings.car.model = document.getElementById('car-model').value.trim();
       settings.car.year = document.getElementById('car-year').value.trim();
@@ -2173,6 +2404,8 @@ Output only the CSV starting with the header row.`;
       if (prefsSec)       prefsSec.style.display       = '';
       if (dataSec)        dataSec.style.display        = '';
       document.querySelectorAll('.alert-btn').forEach(b => b.style.display = '');
+      const photoField = document.getElementById('log-photo-field');
+      if (photoField) photoField.style.display = '';
     } else {
       loginForm.style.display  = '';
       logoutSec.style.display  = 'none';
@@ -2192,6 +2425,8 @@ Output only the CSV starting with the header row.`;
       if (prefsSec)       prefsSec.style.display       = 'none';
       if (dataSec)        dataSec.style.display        = 'none';
       document.querySelectorAll('.alert-btn').forEach(b => b.style.display = 'none');
+      const photoFieldOff = document.getElementById('log-photo-field');
+      if (photoFieldOff) photoFieldOff.style.display = 'none';
     }
     updateFooterSync();
   }
@@ -2258,6 +2493,9 @@ Output only the CSV starting with the header row.`;
     } catch {}
     syncEnabled = false;
     syncEmail   = null;
+    photosByEntryId = {};
+    pendingPhotos   = [];
+    pendingEntryId  = null;
     await Promise.all([
       storageSet(CHECKLIST_V3_KEY, {}),
       storageSet(LOG_KEY, []),
@@ -2615,6 +2853,7 @@ Output only the CSV starting with the header row.`;
   // ─── Init ────────────────────────────────────────
   async function init() {
     setupChecklist();
+    setupPhotoUploadUI();
     await loadChecklist();
     await loadLog();
     await loadBudget();
