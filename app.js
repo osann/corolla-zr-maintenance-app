@@ -2161,7 +2161,11 @@ Output only the CSV starting with the header row.`;
       if (statusText)   statusText.textContent   = 'Signed in — data syncs automatically';
       if (emailDisplay) emailDisplay.textContent  = syncEmail ?? '';
       if (navBtn) { navBtn.textContent = settings.car.displayName || syncEmail || '●'; navBtn.classList.add('syncing'); }
-      if (logTab)         logTab.style.display         = '';
+      if (logTab) {
+        const wasHidden = logTab.style.display === 'none';
+        logTab.style.display = '';
+        if (wasHidden) document.querySelector('.tab[data-tab="log"]')?.click();
+      }
       if (spendTab)       spendTab.style.display       = '';
       if (routineSubTabs) routineSubTabs.style.display = '';
       if (vehicleSec)     vehicleSec.style.display     = '';
