@@ -2148,14 +2148,18 @@ Output only the CSV starting with the header row.`;
     const emailDisplay = document.getElementById('auth-email-display');
     const navBtn       = document.getElementById('nav-auth-btn');
     if (!loginForm || !logoutSec) return;
-    const logTab = document.querySelector('.tab[data-tab="log"]');
+    const logTab      = document.querySelector('.tab[data-tab="log"]');
+    const spendTab    = document.querySelector('.tab[data-tab="spend"]');
+    const routineSubTabs = document.querySelector('.routine-sub-tabs');
     if (syncEnabled) {
       loginForm.style.display  = 'none';
       logoutSec.style.display  = '';
       if (statusText)   statusText.textContent   = 'Signed in — data syncs automatically';
       if (emailDisplay) emailDisplay.textContent  = syncEmail ?? '';
       if (navBtn) { navBtn.textContent = settings.car.displayName || syncEmail || '●'; navBtn.classList.add('syncing'); }
-      if (logTab) logTab.style.display = '';
+      if (logTab)   logTab.style.display   = '';
+      if (spendTab) spendTab.style.display = '';
+      if (routineSubTabs) routineSubTabs.style.display = '';
     } else {
       loginForm.style.display  = '';
       logoutSec.style.display  = 'none';
@@ -2163,8 +2167,13 @@ Output only the CSV starting with the header row.`;
       if (navBtn) { navBtn.textContent = 'Sign in'; navBtn.classList.remove('syncing'); }
       if (logTab) {
         logTab.style.display = 'none';
-        if (logTab.classList.contains('active')) document.querySelector('.tab[data-tab="checklist"]')?.click();
+        if (logTab.classList.contains('active')) document.querySelector('.tab[data-tab="routine"]')?.click();
       }
+      if (spendTab) {
+        spendTab.style.display = 'none';
+        if (spendTab.classList.contains('active')) document.querySelector('.tab[data-tab="routine"]')?.click();
+      }
+      if (routineSubTabs) routineSubTabs.style.display = 'none';
     }
     updateFooterSync();
   }
