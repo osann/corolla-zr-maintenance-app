@@ -1530,6 +1530,7 @@
   .reminder-name { font-family: 'Fraunces', Georgia, serif; font-size: 15px; font-weight: 600; }
   .reminder-status { font-size: 13px; color: var(--ink-mid); margin-top: 2px; }
   .reminder-weather { font-size: 13px; color: var(--ink-mid); margin-top: 4px; }
+  .reminder-streak { font-size: 13px; color: var(--ink-mid); margin-top: 4px; }
   .reminder-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
   .reminder-btn {
     font-family: 'Inter', sans-serif;

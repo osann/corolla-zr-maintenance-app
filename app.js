@@ -939,12 +939,16 @@
   }
 
   function calcStreak() {
-    if (!washLog.length) return { streak: 0, lastWash: null };
+    if (!washLog.length) return { streak: 0, lastWash: null, unit: 'weeks' };
     const sorted = [...washLog].sort((a,b) => b.date.localeCompare(a.date));
     const lastWash = sorted[0].date;
-    // Count how many of the last N consecutive weeks had at least one wash
+    const schedules = settings.schedules ?? [];
+    if (schedules.length > 0) {
+      // Use first schedule's streak for the global bar
+      return { streak: calcScheduleStreak(schedules[0]), lastWash, unit: 'sessions' };
+    }
+    // Legacy: weekly streak — count consecutive Mon-Sun weeks with at least one wash
     const uniqueDates = [...new Set(sorted.map(e => e.date))].sort((a,b) => b.localeCompare(a));
-    // Weekly streak: count consecutive weeks (Mon-Sun) that have at least one wash
     let streak = 0;
     const today = new Date();
     for (let week = 0; week < 52; week++) {
@@ -955,9 +959,9 @@
       const fmt = d => d.toISOString().split('T')[0];
       const hasWash = uniqueDates.some(d => d >= fmt(weekStart) && d <= fmt(weekEnd));
       if (hasWash) streak++;
-      else if (week > 0) break; // Allow current week gap only at week 0
+      else if (week > 0) break;
     }
-    return { streak, lastWash };
+    return { streak, lastWash, unit: 'weeks' };
   }
 
   function calcNextDue(freqKey) {
@@ -985,8 +989,9 @@
   }
 
   function renderLog() {
-    const { streak, lastWash } = calcStreak();
-    document.getElementById('streak-val').textContent = streak > 0 ? `${streak} week${streak !== 1 ? 's' : ''}` : '—';
+    const { streak, lastWash, unit } = calcStreak();
+    const streakUnit = unit === 'weeks' ? (streak === 1 ? 'week' : 'weeks') : (streak === 1 ? 'session' : 'sessions');
+    document.getElementById('streak-val').textContent = streak > 0 ? `${streak} ${streakUnit}` : '—';
     document.getElementById('log-total-sessions').textContent = washLog.length;
     document.getElementById('log-last-wash').textContent = lastWash ? formatDate(lastWash).split(',')[0] + ' ' + lastWash.split('-').slice(1).reverse().join('/') : '—';
 
@@ -1136,8 +1141,7 @@
     showPrices: true,
     showBadges: true,
     showDesc: true,
-    confirmDelete: true,
-    weeklyStreak: true
+    confirmDelete: true
   };
 
   const DEFAULT_NOTIFICATIONS = {
@@ -1681,7 +1685,6 @@ Output only the CSV starting with the header row.`;
     document.getElementById('pref-show-badges').checked = settings.prefs.showBadges;
     document.getElementById('pref-show-desc').checked = settings.prefs.showDesc;
     document.getElementById('pref-confirm-delete').checked = settings.prefs.confirmDelete;
-    document.getElementById('pref-weekly-streak').checked = settings.prefs.weeklyStreak;
   }
 
   function applyPrefs() {
@@ -1830,7 +1833,6 @@ Output only the CSV starting with the header row.`;
       settings.prefs.showBadges = document.getElementById('pref-show-badges').checked;
       settings.prefs.showDesc = document.getElementById('pref-show-desc').checked;
       settings.prefs.confirmDelete = document.getElementById('pref-confirm-delete').checked;
-      settings.prefs.weeklyStreak = document.getElementById('pref-weekly-streak').checked;
     } else if (section === 'car') {
       settings.car.model = document.getElementById('car-model').value.trim();
       settings.car.year = document.getElementById('car-year').value.trim();
@@ -2310,6 +2312,32 @@ Output only the CSV starting with the header row.`;
     return (intervalValue || 1) * (mul[intervalUnit] || 7);
   }
 
+  function calcScheduleStreak(schedule) {
+    const routine = routines.find(r => r.id === schedule.routineId);
+    if (!routine) return 0;
+    const types = routine.types ?? [];
+    const matchTypes = new Set();
+    if (types.includes('exterior'))    ['full','quick','both'].forEach(t => matchTypes.add(t));
+    if (types.includes('interior'))    ['interior','both'].forEach(t => matchTypes.add(t));
+    if (types.includes('maintenance')) ['full','both'].forEach(t => matchTypes.add(t));
+    const dates = [...new Set(
+      washLog.filter(e => matchTypes.size === 0 || matchTypes.has(e.type)).map(e => e.date)
+    )].sort((a, b) => b.localeCompare(a));
+    if (!dates.length) return 0;
+    const intervalDays = scheduleIntervalDays(schedule);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(dates[0] + 'T00:00:00');
+    dueDate.setDate(dueDate.getDate() + intervalDays);
+    if (today > dueDate) return 0; // current interval overdue — streak broken
+    let streak = 1;
+    for (let i = 1; i < dates.length; i++) {
+      const gap = Math.round((new Date(dates[i-1] + 'T00:00:00') - new Date(dates[i] + 'T00:00:00')) / 86400000);
+      if (gap <= intervalDays) streak++;
+      else break;
+    }
+    return streak;
+  }
+
   function calcRoutineNextDue(schedule) {
     const routine = routines.find(r => r.id === schedule.routineId);
     if (!routine) return null;
@@ -2348,6 +2376,7 @@ Output only the CSV starting with the header row.`;
       const nextDue = calcRoutineNextDue(schedule);
       const daysUntil = nextDue ? Math.ceil((nextDue - today) / 86400000) : null;
       const bestDay = weatherCache ? calcBestWashDay(nextDue, weatherCache) : null;
+      const streak = calcScheduleStreak(schedule);
       let statusText, subText = '', isOverdue = false;
       if (daysUntil === null)   statusText = 'No sessions logged yet';
       else if (daysUntil < 0)  { statusText = `Overdue by ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''}`; isOverdue = true; }
@@ -2367,6 +2396,7 @@ Output only the CSV starting with the header row.`;
             <div class="reminder-name">${escHtml(routine.name)}</div>
             <div class="reminder-status">${statusText}</div>
             ${subText ? `<div class="reminder-weather">${subText}</div>` : ''}
+            ${streak > 0 ? `<div class="reminder-streak">🔥 ${streak}-session streak</div>` : ''}
           </div>
           <div class="reminder-actions">
             <button class="reminder-btn" onclick="goToRoutine('${escAttr(schedule.routineId)}')">View routine</button>
