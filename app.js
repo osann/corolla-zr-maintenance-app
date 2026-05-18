@@ -1891,6 +1891,7 @@ Output only the CSV starting with the header row.`;
     loadCarUI();
     loadNotificationsUI();
     renderSchedulesUI();
+    renderWashReminderCards();
     applyPrefs();
     applyCarInfo();
     applyLogStepChips();
@@ -2577,9 +2578,9 @@ Output only the CSV starting with the header row.`;
     await loadChecklist();
     await loadLog();
     await loadBudget();
+    await loadRoutines();
     await loadSettings();
     await loadAlerts();
-    await loadRoutines();
     // Restore cached auth state immediately so the nav/settings UI shows
     // signed-in without waiting for the /api/auth/me round-trip.
     const cachedAuth = await storageGet(AUTH_CACHE_KEY);
