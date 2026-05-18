@@ -2437,6 +2437,9 @@ Output only the CSV starting with the header row.`;
         statusText = `Best day: ${bestDay}`;
       }
       const hasTickTick = !!settings.notifications?.ticktickEmail;
+      const dueDateStr = nextDue
+        ? `${String(nextDue.getDate()).padStart(2,'0')}/${String(nextDue.getMonth()+1).padStart(2,'0')}/${nextDue.getFullYear()}`
+        : '';
       const card = document.createElement('div');
       card.className = `wash-reminder-card${isOverdue ? ' wash-reminder-card--overdue' : ''}`;
       card.innerHTML = `
@@ -2449,7 +2452,7 @@ Output only the CSV starting with the header row.`;
           </div>
           <div class="reminder-actions">
             <button class="reminder-btn" onclick="goToRoutine('${escAttr(schedule.routineId)}')">View routine</button>
-            ${hasTickTick ? `<button class="reminder-btn reminder-btn--accent" onclick="sendWashReminderToTickTick('${escAttr(schedule.routineId)}','${escAttr(routine.name)}',this)">Send to TickTick</button>` : ''}
+            ${hasTickTick ? `<button class="reminder-btn reminder-btn--accent" onclick="sendWashReminderToTickTick('${escAttr(schedule.routineId)}','${escAttr(routine.name)}','${dueDateStr}',this)">Send to TickTick</button>` : ''}
           </div>
         </div>
       `;
@@ -2464,7 +2467,7 @@ Output only the CSV starting with the header row.`;
     }, 100);
   }
 
-  async function sendWashReminderToTickTick(routineId, routineName, btn) {
+  async function sendWashReminderToTickTick(routineId, routineName, dueDate, btn) {
     if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
     const orig = btn.textContent;
     btn.disabled = true;
@@ -2473,7 +2476,7 @@ Output only the CSV starting with the header row.`;
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ routineId, routineName }),
+        body: JSON.stringify({ routineId, routineName, dueDate }),
         signal: AbortSignal.timeout(8000),
       });
       btn.textContent = res.ok ? 'Sent ✓' : 'Failed';

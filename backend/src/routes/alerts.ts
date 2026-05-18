@@ -52,16 +52,17 @@ router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
   const userId = c.var.userId;
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
 
-  const { routineName } = await c.req.json<{ routineName: string }>();
+  const { routineName, dueDate } = await c.req.json<{ routineName: string; dueDate?: string }>();
   const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
   const notif = await getOwnerNotificationSettings(ownerEmail);
 
   if (!notif.washReminders || !notif.ticktickEmail) return c.json({ ok: true });
 
+  const datePart = dueDate ? ` ${dueDate}` : '';
   const suffix = notif.ticktickMetadata || '';
   await sendTickTickTask(
     notif.ticktickEmail,
-    `🚗 ${routineName} due ${suffix}`.trim(),
+    `🚗 ${routineName} due${datePart} ${suffix}`.trim(),
     'Wash reminder sent from the Corolla app.',
   );
   return c.json({ ok: true });
