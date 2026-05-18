@@ -997,8 +997,12 @@
     if (editingEntryId !== null) {
       const idx = washLog.findIndex(e => e.id === editingEntryId);
       if (idx >= 0) washLog[idx] = { ...washLog[idx], date, type, steps, notes };
+      photosByEntryId[editingEntryId] = [...pendingPhotos];
+      pendingEntryId = null;
+      pendingPhotos  = [];
       editingEntryId = null;
       resetLogForm();
+      renderPhotoPreviews();
       saveLog();
       renderLog();
       document.querySelector('.log-sub-tab[data-log-tab="history"]')?.click();
