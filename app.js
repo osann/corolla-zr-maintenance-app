@@ -1216,8 +1216,8 @@
   // ─── Log sub-tab navigation ────────────────────────
   document.querySelectorAll('.log-sub-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      // Navigating to History while editing cancels the edit
-      if (btn.dataset.logTab === 'history' && editingEntryId !== null) {
+      // Navigating away from the edit form cancels the edit
+      if (editingEntryId !== null && (btn.dataset.logTab === 'history' || (btn.dataset.logTab === 'new' && btn.id !== 'log-edit-tab'))) {
         editingEntryId = null;
         pendingEntryId = null;
         pendingPhotos  = [];
