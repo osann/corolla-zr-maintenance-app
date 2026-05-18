@@ -2881,6 +2881,7 @@ Output only the CSV starting with the header row.`;
   function openLightbox(entryId, index) {
     lightboxEntryId = entryId;
     lightboxIndex = index;
+    (photosByEntryId[entryId] ?? []).forEach(p => { new Image().src = p.originalUrl; });
     updateLightbox();
     document.getElementById('lightbox').removeAttribute('hidden');
   }
