@@ -2148,17 +2148,23 @@ Output only the CSV starting with the header row.`;
     const emailDisplay = document.getElementById('auth-email-display');
     const navBtn       = document.getElementById('nav-auth-btn');
     if (!loginForm || !logoutSec) return;
+    const logTab = document.querySelector('.tab[data-tab="log"]');
     if (syncEnabled) {
       loginForm.style.display  = 'none';
       logoutSec.style.display  = '';
       if (statusText)   statusText.textContent   = 'Signed in — data syncs automatically';
       if (emailDisplay) emailDisplay.textContent  = syncEmail ?? '';
       if (navBtn) { navBtn.textContent = settings.car.displayName || syncEmail || '●'; navBtn.classList.add('syncing'); }
+      if (logTab) logTab.style.display = '';
     } else {
       loginForm.style.display  = '';
       logoutSec.style.display  = 'none';
       if (statusText)   statusText.textContent   = 'Not signed in — data is local only';
       if (navBtn) { navBtn.textContent = 'Sign in'; navBtn.classList.remove('syncing'); }
+      if (logTab) {
+        logTab.style.display = 'none';
+        if (logTab.classList.contains('active')) document.querySelector('.tab[data-tab="checklist"]')?.click();
+      }
     }
     updateFooterSync();
   }
