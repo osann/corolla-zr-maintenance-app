@@ -1930,7 +1930,12 @@ Output only the CSV starting with the header row.`;
       <button class="add-step-btn" onclick="addRoutineAlert(${rIdx})" style="margin:8px 0 16px;">+ Add alert</button>
       <div class="settings-save-bar" style="padding-top:12px;">
         <button class="settings-save-btn" onclick="saveRoutines()">Save</button>
-        <button class="settings-reset-btn" style="color:var(--danger);" onclick="deleteRoutine(${rIdx})">Delete routine</button>
+        <button class="settings-reset-btn" style="color:var(--danger);" onclick="showRoutineDeleteConfirm(${rIdx})">Delete routine</button>
+      </div>
+      <div class="log-confirm-row" id="routine-confirm-${rIdx}" hidden>
+        <span>Delete this routine?</span>
+        <button class="log-confirm-cancel" onclick="cancelRoutineDelete(${rIdx})">Cancel</button>
+        <button class="log-confirm-delete" onclick="deleteRoutine(${rIdx})">Delete</button>
       </div>
     `;
   }
@@ -1999,11 +2004,20 @@ Output only the CSV starting with the header row.`;
     renderRoutineConfigCards();
   }
 
+  function showRoutineDeleteConfirm(rIdx) {
+    document.getElementById(`routine-confirm-${rIdx}`)?.removeAttribute('hidden');
+  }
+
+  function cancelRoutineDelete(rIdx) {
+    document.getElementById(`routine-confirm-${rIdx}`)?.setAttribute('hidden', '');
+  }
+
   function deleteRoutine(rIdx) {
-    if (!confirm('Delete this routine? This cannot be undone.')) return;
     routines.splice(rIdx, 1);
     renderRoutineConfigCards();
     renderRoutinesView();
+    renderLogTypeSelect();
+    renderSchedulesUI();
   }
 
   // Preferences
