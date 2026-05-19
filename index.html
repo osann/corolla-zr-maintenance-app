@@ -1283,6 +1283,26 @@
 
       <div class="settings-row">
         <div class="settings-row-label">
+          <strong>Reset routines</strong>
+          <span>Restore wash routines to the built-in defaults. Cannot be undone.</span>
+        </div>
+        <div class="settings-control">
+          <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="resetRoutines()">Reset routines</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Reset maintenance schedule</strong>
+          <span>Restore maintenance items to defaults and clear completion history. Cannot be undone.</span>
+        </div>
+        <div class="settings-control">
+          <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="resetMaintenance()">Reset maintenance</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
           <strong>Reset everything</strong>
           <span>Clear all data including checklist, log, and settings</span>
         </div>

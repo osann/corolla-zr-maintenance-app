@@ -2899,6 +2899,28 @@ Output only the CSV starting with the header row.`;
     renderLog();
   }
 
+  async function resetRoutines() {
+    if (!confirm('Reset all routines to defaults? Your customisations will be lost.')) return;
+    routines = JSON.parse(JSON.stringify(DEFAULT_ROUTINES));
+    await storageSet(ROUTINES_KEY, routines);
+    syncPush(ROUTINES_KEY, routines);
+    await loadRoutines();
+  }
+
+  async function resetMaintenance() {
+    if (!confirm('Reset maintenance schedule to defaults? Your items and history will be lost.')) return;
+    maintenanceItems = JSON.parse(JSON.stringify(DEFAULT_MAINTENANCE_ITEMS));
+    maintenanceLog = [];
+    await storageSet(MAINTENANCE_KEY, maintenanceItems);
+    await storageSet(MAINTENANCE_LOG_KEY, maintenanceLog);
+    syncPush(MAINTENANCE_KEY, maintenanceItems);
+    syncPush(MAINTENANCE_LOG_KEY, maintenanceLog);
+    renderMaintenanceUpcoming();
+    renderMaintenanceSchedule();
+    renderMaintenanceHistory();
+    renderMaintenanceConfigCards();
+  }
+
   async function resetEverything() {
     if (!confirm('This will clear ALL data — checklist, wash log, budget, and settings. Are you sure?')) return;
     if (!confirm('Last chance — all your data will be deleted. Continue?')) return;
