@@ -303,7 +303,10 @@ Use Toyota Australia's logbook intervals where known. For anything uncertain, er
 
 Output only the CSV starting with the header row.`;
 
+  const MAINTENANCE_LOG_KEY = 'corolla-maintenance-log-v1';
+
   let maintenanceItems = [];
+  let maintenanceLog = [];
   let maintenanceDragSrc = null;
 
   // Default phases — id order matches original HTML for v4/v2 → v3 migration
@@ -2186,8 +2189,11 @@ Output only the CSV starting with the header row.`;
     const saved = await storageGet(MAINTENANCE_KEY);
     if (saved && Array.isArray(saved) && saved.length) maintenanceItems = saved;
     else maintenanceItems = JSON.parse(JSON.stringify(DEFAULT_MAINTENANCE_ITEMS));
+    const savedLog = await storageGet(MAINTENANCE_LOG_KEY);
+    if (savedLog && Array.isArray(savedLog)) maintenanceLog = savedLog;
     renderMaintenanceUpcoming();
     renderMaintenanceSchedule();
+    renderMaintenanceHistory();
     renderMaintenanceConfigCards();
   }
 
@@ -2196,8 +2202,15 @@ Output only the CSV starting with the header row.`;
     syncPush(MAINTENANCE_KEY, maintenanceItems);
     renderMaintenanceUpcoming();
     renderMaintenanceSchedule();
+    renderMaintenanceHistory();
     renderMaintenanceConfigCards();
     showSaved('maintenance-saved');
+  }
+
+  async function saveMaintenanceLog() {
+    await storageSet(MAINTENANCE_LOG_KEY, maintenanceLog);
+    syncPush(MAINTENANCE_LOG_KEY, maintenanceLog);
+    renderMaintenanceHistory();
   }
 
   function renderMaintenanceUpcoming() {
@@ -2289,6 +2302,32 @@ Output only the CSV starting with the header row.`;
           }).join('')}
         </tbody>
       </table>`;
+  }
+
+  function renderMaintenanceHistory() {
+    const el = document.getElementById('maintenance-history-list');
+    if (!el) return;
+    if (!maintenanceLog.length) {
+      el.innerHTML = '<div class="maintenance-empty">No completed items yet. Mark items complete in the Upcoming tab.</div>';
+      return;
+    }
+    el.innerHTML = maintenanceLog.map(entry => {
+      const odoText = entry.odometer ? `${Number(entry.odometer).toLocaleString()} km` : '';
+      return `
+        <div class="log-entry">
+          <button class="log-menu-btn" onclick="showMaintenanceLogDeleteConfirm(${entry.id})" title="Delete">···</button>
+          <div class="log-entry-head">
+            <div class="log-entry-date">${formatDate(entry.date)}</div>
+            <div class="log-entry-type quick">${escHtml(entry.itemName)}</div>
+          </div>
+          ${odoText ? `<div style="font-size:13px;color:var(--ink-mid);margin-top:4px;">${odoText}</div>` : ''}
+          <div class="log-confirm-row" id="maint-hist-confirm-${entry.id}" hidden>
+            <span>Delete this entry?</span>
+            <button class="log-confirm-cancel" onclick="cancelMaintenanceLogDelete(${entry.id})">Cancel</button>
+            <button class="log-confirm-delete" onclick="deleteMaintenanceLogEntry(${entry.id})">Delete</button>
+          </div>
+        </div>`;
+    }).join('');
   }
 
   function renderMaintenanceConfigCards() {
@@ -2394,6 +2433,19 @@ Output only the CSV starting with the header row.`;
     document.getElementById(`maint-form-${itemId}`)?.setAttribute('hidden', '');
   }
 
+  function showMaintenanceLogDeleteConfirm(entryId) {
+    document.getElementById(`maint-hist-confirm-${entryId}`)?.removeAttribute('hidden');
+  }
+
+  function cancelMaintenanceLogDelete(entryId) {
+    document.getElementById(`maint-hist-confirm-${entryId}`)?.setAttribute('hidden', '');
+  }
+
+  function deleteMaintenanceLogEntry(entryId) {
+    maintenanceLog = maintenanceLog.filter(e => e.id !== entryId);
+    saveMaintenanceLog();
+  }
+
   async function saveMaintenanceComplete(itemId) {
     const item = maintenanceItems.find(i => i.id === itemId);
     if (!item) return;
@@ -2409,6 +2461,8 @@ Output only the CSV starting with the header row.`;
       storageSet(SETTINGS_KEY, settings);
       syncPush(SETTINGS_KEY, settings);
     }
+    maintenanceLog.unshift({ id: Date.now(), itemId: item.id, itemName: item.name, date: dateVal, odometer: odoVal });
+    saveMaintenanceLog();
     await saveMaintenance();
   }
 
@@ -2856,6 +2910,9 @@ Output only the CSV starting with the header row.`;
         syncPush(BUDGET_KEY, {}),
         syncPush(SETTINGS_KEY, {}),
         syncPush(ALERTS_KEY, {}),
+        syncPush(ROUTINES_KEY, []),
+        syncPush(MAINTENANCE_KEY, []),
+        syncPush(MAINTENANCE_LOG_KEY, []),
       ]);
       syncEnabled = false;
     }
@@ -2864,6 +2921,9 @@ Output only the CSV starting with the header row.`;
     await storageSet(BUDGET_KEY, {});
     await storageSet(SETTINGS_KEY, {});
     await storageSet(ALERTS_KEY, {});
+    await storageSet(ROUTINES_KEY, null);
+    await storageSet(MAINTENANCE_KEY, null);
+    await storageSet(MAINTENANCE_LOG_KEY, null);
     location.reload();
   }
 
@@ -3155,7 +3215,7 @@ Output only the CSV starting with the header row.`;
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
