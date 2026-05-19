@@ -56,15 +56,34 @@ Per-routine reminder cards in the wash log, backed by a custom interval schedule
 
 ---
 
-## 4. Photo log per session
+## 4. Photo log per session ✅
 
 Attach before/after photos to wash log entries.
 
-- ☐ Add file upload input to the log entry form
-- ☐ Backend: store photos in S3-compatible object storage (Cloudflare R2)
-- ☐ Generate thumbnails server-side
-- ☐ Display thumbnails in log entry cards as a small grid
-- ☐ Strip EXIF data server-side for privacy
+- ✅ `photos` table (`user_id, log_entry_id, r2_key, thumb_key, mime_type, size_bytes`)
+- ✅ Cloudflare R2 storage via `@aws-sdk/client-s3`; public bucket, immutable Cache-Control
+- ✅ `POST /photos/upload` — sharp thumbnail (400px), EXIF stripped, original + thumb uploaded
+- ✅ `GET /photos?logEntryIds=` / `DELETE /photos/:id` (session-protected)
+- ✅ Local preview (createObjectURL) with spinner while upload is in flight
+- ✅ Horizontal snap-scroll carousel in log cards; lightbox with arrows, counter, keyboard nav
+- ✅ Photo remove button only visible in edit mode; 180ms scale-fade before server delete
+- ✅ Preloads all originals on lightbox open to avoid per-arrow-click R2 fetch
+- ✅ Re-fetches photos after edit save to handle async upload race condition
+
+---
+
+## 4a. Log UX + routine-driven form ✅
+
+Ellipsis-menu log card actions, in-card confirmations, and a log form driven by routines.
+
+- ✅ Ellipsis menu (···) per log card with Edit and Delete
+- ✅ In-card delete confirmation row — no browser `confirm()`
+- ✅ Edit past log entries — Edit Session sub-tab, form pre-fill, cancel button
+- ✅ Inline delete confirmation for routines (same pattern, no browser `confirm()`)
+- ✅ Log form routine dropdown driven by `routines[]`; step chips from selected routine's steps
+- ✅ Notes field renamed to Status
+- ✅ `entry.type` stores routine ID for new entries; `entryMatchesSchedule()` handles backward compat with legacy type strings
+- ✅ `saveRoutines()` / `deleteRoutine()` propagate to log form and schedules UI immediately
 
 ---
 

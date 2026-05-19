@@ -10,7 +10,7 @@ The app has eight tabs:
 - **checklist** — kit purchase tracker, customisable phases (add/rename/delete), product prices
 - **guide** — per-product technique reference (mostly static)
 - **routine** — fully customisable wash routines; three sub-tabs: "Routines" (read-only rendered view), "Schedules" (per-routine reminder interval config), and "Configure" (editor cards for name/subtext/type/steps/alerts, CSV import/export, drag reorder, log step chips)
-- **log** — wash session log with streak counter, reminder cards, and weather hints; two sub-tabs: "History" (default) and "New Session"
+- **log** — wash session log with streak counter, reminder cards, and weather hints; three sub-tabs: "History" (default), "New Session", and "Edit Session" (hidden unless editing a past entry)
 - **spend** — spend tracker, budget bar, live sale alerts
 - **prices** — read-only price sheet: all tracked products grouped by functional category, all retailers per product, with sparklines and sale badges
 - **refs** — links to manufacturer pages and community resources
@@ -27,7 +27,7 @@ corolla-zr-maintenance-app/
 │   ├── src/
 │   │   ├── index.ts        # Hono server + node-cron: Autopro scrape (05:00 UTC), wash reminder (07:00 UTC), price digest (08:00 UTC)
 │   │   ├── db/
-│   │   │   ├── schema.ts   # Drizzle schema (products, retailer_urls, price_history, users, sessions, magicTokens, userData)
+│   │   │   ├── schema.ts   # Drizzle schema (products, retailer_urls, price_history, users, sessions, magicTokens, userData, photos)
 │   │   │   ├── seed.ts     # Product catalogue + retailer URLs — edit this to add products
 │   │   │   ├── init.ts     # Creates tables + runs seed
 │   │   │   └── connection.ts
@@ -38,7 +38,8 @@ corolla-zr-maintenance-app/
 │   │   │   ├── prices.ts   # POST /api/prices — ingest scraper results
 │   │   │   ├── alerts.ts   # GET /api/alerts, GET /api/prices/current, POST /api/notify/wash-reminder
 │   │   │   ├── auth.ts     # Auth + sync: POST /api/auth/request|verify|logout, GET /api/auth/me, GET|POST /api/sync
-│   │   │   └── weather.ts  # GET /api/weather?postcode= — Nominatim geocoding + Open-Meteo forecast, 3h cache
+│   │   │   ├── weather.ts  # GET /api/weather?postcode= — Nominatim geocoding + Open-Meteo forecast, 3h cache
+│   │   │   └── photos.ts   # POST /photos/upload, GET /photos, DELETE /photos/:id (session-protected; R2 storage via sharp)
 │   │   ├── scrapers/
 │   │   │   ├── fetch-scraper.ts # createFetchScraper() factory — shared plain-fetch logic for Auto Barn + Autopro
 │   │   │   ├── autobarn.ts      # thin wrapper — self-hosted runner only (residential IP), HTTP-only (~16–18/40)
@@ -52,7 +53,8 @@ corolla-zr-maintenance-app/
 │   │       ├── browser.ts       # createStealthContext() — shared Playwright setup
 │   │       ├── sale-detector.ts
 │   │       ├── auth.ts          # generateToken, hashToken, sessionMiddleware
-│   │       └── email.ts         # sendMagicLink(), sendTickTickTask(), sendDirectEmail(), sendDigestEmail(), getOwnerNotificationSettings(), getOwnerAlertThresholds() via Resend
+│   │       ├── email.ts         # sendMagicLink(), sendTickTickTask(), sendDirectEmail(), sendDigestEmail(), getOwnerNotificationSettings(), getOwnerAlertThresholds() via Resend
+│   │       └── r2.ts            # S3Client for Cloudflare R2; uploadToR2, deleteFromR2, getPublicUrl
 │   └── package.json
 └── .github/workflows/
     ├── deploy.yml                    # Deploys index.html/app.js/styles.css to GitHub Pages
@@ -71,7 +73,7 @@ corolla-zr-maintenance-app/
 
 ### CORS
 
-The backend allows two origins: `https://osann.github.io` and `https://corolla.jhosan.top`. Both must be present in `backend/src/index.ts`. `credentials: true` is set so the session cookie can be sent cross-origin. If the custom domain changes, update the CORS allowlist first or live prices and sync will silently fail to load.
+The backend allows two origins: `https://osann.github.io` and `https://corolla.jhosan.top`. Both must be present in `backend/src/index.ts`. `credentials: true` is set so the session cookie can be sent cross-origin. `allowMethods` includes `'DELETE'` (required for photo deletion). If the custom domain changes, update the CORS allowlist first or live prices and sync will silently fail to load.
 
 ### Environment variables (Render)
 
@@ -84,6 +86,11 @@ The backend allows two origins: `https://osann.github.io` and `https://corolla.j
 | `RESEND_FROM` | `Corolla Detailing <sync@corolla.jhosan.top>` (must be a verified Resend domain) |
 | `OWNER_EMAIL` | `joh.10@pm.me` — only this address gets a real email; others silently accepted |
 | `APP_URL` | `https://corolla.jhosan.top` — base URL embedded in magic link |
+| `R2_ACCOUNT_ID` | Cloudflare account ID for R2 |
+| `R2_BUCKET_NAME` | R2 bucket name |
+| `R2_PUBLIC_URL` | `https://jhosan.top` (no trailing slash) — base URL for public R2 object access |
+| `R2_ACCESS_KEY_ID` | R2 API token key ID |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret |
 
 ### GitHub secrets
 
@@ -106,7 +113,7 @@ npm run scrape:push  # GitHub Actions path: scrape Supercheap + Repco, POST to R
 
 ## Database schema
 
-Seven tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Locally falls back to `file:./db.sqlite` when `TURSO_URL` is not set:
+Eight tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Locally falls back to `file:./db.sqlite` when `TURSO_URL` is not set:
 
 - **`products`** — `id, name, slug, phase, created_at`. Phase 0 = tracked for pricing but not shown in the kit checklist.
 - **`retailer_urls`** — `product_id, retailer, url`. One row per product per retailer. Full URLs stored directly (templates don't work for Supercheap or Repco).
@@ -115,6 +122,7 @@ Seven tables in SQLite via Turso (`@libsql/client` + `drizzle-orm/libsql`). Loca
 - **`magic_tokens`** — `id, token_hash, user_id, expires_at, used_at, created_at`. Single-use 15-minute auth tokens for magic link sign-in.
 - **`sessions`** — `id, session_id, user_id, expires_at, created_at`. 30-day session cookies.
 - **`user_data`** — `id, user_id, key, value_json, updated_at`. Generic key-value JSON store per user. One row per user per key. Stores all synced app state: checklist, wash log, budget, settings (including notification config). Keys must be in `ALLOWED_KEYS` in `routes/auth.ts` to be accepted by `POST /api/sync/:key`.
+- **`photos`** — `id, user_id, log_entry_id (INTEGER — not a FK; wash log lives in user_data JSON), r2_key, thumb_key, mime_type, size_bytes, created_at`. Indexed on `(user_id, log_entry_id)`.
 
 **To add a product or retailer URL**, edit `backend/src/db/seed.ts`. The seed is idempotent — re-running it upserts without duplicating. Run `npm run seed` to apply locally, or let the next Render deploy pick it up.
 
@@ -149,7 +157,7 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 - The `__BACKEND_URL__` guard uses `BACKEND_URL.startsWith('__')` — not strict equality. The `sed` substitution in `deploy.yml` replaces `__BACKEND_URL__` globally, which would corrupt a `=== '__BACKEND_URL__'` check into `=== '<real-url>'`. Never revert this to a string equality check.
 - **Auth cache** (`corolla-auth-v1` in localStorage) — written after a successful `/api/auth/me` response so the signed-in UI state is restored immediately on reload without waiting for the network round-trip. Cleared on auth failure and on sign-out. Sign-out also clears all other local storage keys (`CHECKLIST_V3_KEY`, `LOG_KEY`, `BUDGET_KEY`, `SETTINGS_KEY`, `ALERTS_KEY`, `ROUTINES_KEY`) and reloads the page.
 - **`renderAuthUI()`** — single function that reflects auth state across the entire UI. As well as the login/logout form swap it toggles visibility of: Wash Log tab, Spend tab, routine sub-tabs (Schedules/Configure), bell icons on the Prices tab, and the Vehicle details, Notifications, Display preferences, and Data management settings sections. When a tab is hidden while active it redirects to Wash Routines. `renderPricesTab()` also gates the bell button on `syncEnabled` so it is omitted from rendered HTML when signed out.
-- **Post-sync reload order in `checkAuthAndSync()`**: `loadRoutines → loadChecklist → loadLog → loadBudget → loadSettings → loadAlerts → renderWashReminderCards()`. `ROUTINES_KEY` is included in the sync pull. `loadRoutines` runs first so `routines[]` is populated before `loadSettings` calls `renderWashReminderCards`.
+- **Post-sync reload order in `checkAuthAndSync()`**: `loadRoutines → loadChecklist → loadLog → loadBudget → loadSettings → loadAlerts → renderWashReminderCards()`. After `renderAuthUI()`, `renderLogTypeSelect()` is also called so the New Session form reflects the synced routines immediately. `ROUTINES_KEY` is included in the sync pull. `loadRoutines` runs first so `routines[]` is populated before `loadSettings` calls `renderWashReminderCards`.
 
 ### Storage keys
 
@@ -163,6 +171,8 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 | `corolla-routines-v1` | `Array<{ id, name, subtext, types: string[], steps: [{product, action, enabled}], alerts: [{severity, label, text}] }>` | Fully customisable routine objects |
 
 Bump the version suffix on breaking shape changes rather than writing migrations. The checklist key has gone through three versions: `corolla-detailing-app-v4` (positional `item-N` IDs) → `corolla-checklist-v2` (slug-keyed config) → `corolla-checklist-v3` (phases array with metadata). Each `loadChecklist()` migrates forward automatically on first load.
+
+`entry.type` in `corolla-washlog-v1` stores the routine ID for entries created after the routine-driven form was introduced. Older entries used legacy string values `'full' | 'quick' | 'interior' | 'both'`. `typeLabel(type)` resolves via `routines.find(r => r.id === type)?.name` first, falling back to a legacy map. `entryMatchesSchedule(entry, schedule)` handles both cases (see Routine system below).
 
 ### Kit items and phases
 
@@ -185,8 +195,8 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 **State:** `let routines = []` — loaded from storage, falls back to deep copy of `DEFAULT_ROUTINES`.
 
 **Key functions:**
-- `loadRoutines()` — reads `corolla-routines-v1`, falls back to defaults, calls `buildCatalogDatalist()` + `renderRoutinesView()` + `renderRoutineConfigCards()` + `renderSchedulesUI()`
-- `saveRoutines()` — writes to storage, calls `syncPush()`, re-renders both views, shows saved confirmation
+- `loadRoutines()` — reads `corolla-routines-v1`, falls back to defaults, calls `buildCatalogDatalist()` + `renderRoutinesView()` + `renderRoutineConfigCards()` + `renderSchedulesUI()` + `renderLogTypeSelect()`
+- `saveRoutines()` — writes to storage, calls `syncPush()`, re-renders both views, shows saved confirmation, calls `renderLogTypeSelect()` + `renderSchedulesUI()` so new/renamed routines appear immediately in the log form and schedules config
 - `renderRoutinesView()` — renders into `#routines-view`. One `.product-section` per routine (with `id="routine-view-{id}"`), only enabled steps, numbered rows, callout divs for alerts. Does **not** call `applySchedule()` — the routine view is fully static data.
 - `renderRoutineConfigCards()` — renders into `#routine-config-cards`. One `.routine-config-card` per routine with name/subtext inputs, type checkboxes, step editor rows (product datalist + action + enable toggle + delete), alert editor rows (severity select + label + text + delete), delete routine button. Cards are `draggable=true` for reordering.
 - `buildCatalogDatalist()` — populates `<datalist id="catalog-datalist">` from `CATALOG` names so the product input gets autocomplete
@@ -197,7 +207,9 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 - `updateRoutineAlert(rIdx, aIdx, field, val)` — updates severity, label, or text
 - `addRoutineAlert(rIdx)` / `removeRoutineAlert(rIdx, aIdx)` — add/remove alerts
 - `addRoutine()` — appends blank routine object with generated ID
-- `deleteRoutine(rIdx)` — removes routine after confirm
+- `deleteRoutine(rIdx)` — does not call `confirm()`. Shows an in-card confirm row (`#routine-confirm-{rIdx}`) via `showRoutineDeleteConfirm(rIdx)` / `cancelRoutineDelete(rIdx)`. After deletion calls `renderLogTypeSelect()` + `renderSchedulesUI()`.
+- `renderLogTypeSelect()` — populates `#log-type` from `routines[]`. Called from `loadRoutines()`, `saveRoutines()`, `deleteRoutine()`, and `checkAuthAndSync()` (immediately after `renderAuthUI()`).
+- `renderStepChipsForRoutine(routineId)` — renders step chips into `#steps-checklist` for the given routine. Called on dropdown change, `resetLogForm()`, and `startEditEntry()`.
 
 **Drag-to-reorder:** `routineDragSrc` (separate from `dragSrc` used by step-level drag) tracks the source card index. `dragstart`/`drop` events on each card call `routines.splice()` + `renderRoutineConfigCards()`. Cards show `.drag-over` outline and `.dragging` opacity during drag.
 
@@ -213,16 +225,68 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 
 **`settings.schedules`** (in `corolla-settings-v1`) — array of `{ routineId, intervalValue, intervalUnit }` entries. Drives the reminder cards in the log tab and the 07:00 UTC wash reminder cron. Default: `[]`. Managed via Routines → Schedules sub-tab. `intervalUnit` is `'days' | 'weeks' | 'months' | 'years'`.
 
+**`entryMatchesSchedule(entry, schedule)`** — shared helper used by both `calcScheduleStreak` and `calcRoutineNextDue`. Returns true if `entry.type === schedule.routineId` (new entries storing a routine ID) OR if the entry's legacy type string matches the routine's declared `types` array. The same logic is applied on the backend in `routineMatchesLog()`.
+
 **Wash reminder functions:**
 - `scheduleIntervalDays(schedule)` — converts `{ intervalValue, intervalUnit }` to a number of days
 - `calcScheduleStreak(schedule, forecast)` — counts consecutive on-time completions for a schedule; returns 0 if currently overdue, unless `forecast[0].rain_chance >= 50` (raining today), in which case the streak is held. Both call sites pass `weatherCache`.
-- `calcRoutineNextDue(schedule)` — maps routine types to relevant log entry types, finds the most recent matching log entry, returns next due Date
+- `calcRoutineNextDue(schedule)` — uses `entryMatchesSchedule` to find the most recent matching log entry, returns next due Date
 - `calcBestWashDay(dueDate, forecast)` — returns the `rainDay` name (e.g. `'Thursday'`) when rain is forecast and the due date is ≤ 2 days away; null otherwise
 - `renderWashReminderCards()` — renders `.wash-reminder-card` elements into `#wash-reminder-cards` (above sub-tabs in log tab); called from `renderLog()`, `loadSettings()`, and `saveSettings()`
 - `goToRoutine(routineId)` — clicks the Routines tab and scrolls to `#routine-view-{id}`
 - `sendWashReminderToTickTick(routineId, routineName, btn)` — `POST /api/notify/wash-reminder`; shows "Sent ✓" / "Failed" on the button
 - `renderSchedulesUI()` — renders schedule entry rows (routine dropdown, interval input, unit select, remove button) into `#schedule-list`
 - `updateScheduleField(idx, field, val)` / `addScheduleEntry()` / `removeScheduleEntry(idx)` — mutate `settings.schedules` in-place and re-render
+
+### Log tab
+
+The log tab has three sub-tabs: **History** (default), **New Session**, and **Edit Session**. Edit Session is hidden unless a past entry is being edited; it reuses the `#log-sub-new` panel via `data-log-tab="new"`.
+
+**Log form — routine-driven:**
+- The **Routine** dropdown (`#log-type`) is populated from `routines[]` by `renderLogTypeSelect()`. Each option value is the routine's `id`.
+- **Step chips** in `#steps-checklist` are rendered from the selected routine's enabled steps when the dropdown changes (`renderStepChipsForRoutine(routineId)`).
+- The **Notes** field is labelled **Status**.
+- Badge colour in `renderLog()` is derived from the matched routine's `types` array; falls back to legacy string matching for old entries.
+
+**Ellipsis menu and in-card actions:**
+- Each log card has an ellipsis menu (···) with Edit and Delete actions.
+- Deleting shows an in-card confirm row (`.log-confirm-row`) — no browser `confirm()`.
+- Clicking Edit calls `startEditEntry(id)`, which pre-fills the New Session form, shows the Edit Session sub-tab, and re-renders the log so the ✕ photo remove button only appears on the card being edited.
+- `cancelEditEntry()` and `resetLogForm()` restore the form to new-session state and re-render the log to hide the remove button.
+
+**Module-level state vars (log/photo):**
+- `editingEntryId` — ID of the entry currently being edited, or null
+- `pendingEntryId` — set to the existing entry ID when editing, or `Date.now()` on first photo upload of a new session
+- `pendingPhotos[]` — temp photo state during the form session
+- `photosByEntryId {}` — loaded from server, keyed by log entry ID
+- `lightboxEntryId`, `lightboxIndex` — track which photo the lightbox is showing
+
+### Photo log
+
+Photos are attached to log entries and stored in Cloudflare R2.
+
+**Backend (`routes/photos.ts`):**
+- `POST /photos/upload` — session-protected. Accepts a file upload, generates a sharp thumbnail at 400px width (EXIF stripped), uploads original + thumbnail to R2, inserts a `photos` row, returns `{ id, thumbUrl, originalUrl }`.
+- `GET /photos?logEntryIds=...` — returns `Record<logEntryId, Photo[]>` for the given entry IDs.
+- `DELETE /photos/:id` — deletes R2 keys + DB row (session-protected).
+
+**R2 (`lib/r2.ts`):**
+- `r2Client` — `S3Client` configured for Cloudflare R2.
+- `uploadToR2(key, buf, contentType)` — uploads with `Cache-Control: public, max-age=31536000, immutable`.
+- `deleteFromR2(key)` — deletes a single R2 object.
+- `getPublicUrl(key)` — returns `${R2_PUBLIC_URL}/${key}`.
+- Public URL pattern: `https://jhosan.top/photos/{userId}/{logEntryId}/{uuid}.jpg`. R2 bucket is public.
+
+**Frontend photo functions:**
+- `loadPhotoData(entryIds)` — `GET /api/photos`, merges result into `photosByEntryId` via `Object.assign`.
+- `uploadPendingPhoto(file)` — shows a local `createObjectURL` preview immediately with a spinner overlay (`uploading: true` flag in the pending item); replaces with server URL on success, removes on failure. Revokes the object URL either way.
+- `renderPhotoPreviews()` — renders upload previews into `#log-photo-preview`. Uploading items show a spinner and no remove button; finished items show ✕ with a 180ms scale-fade animation before deletion.
+- `deletePhoto(photoId, entryId)` — `DELETE /api/photos/:id`; updates `photosByEntryId` and `pendingPhotos`.
+- Photos are displayed in log cards as a **horizontal snap-scroll carousel** (`.log-carousel` / `.log-carousel-item`). Clicking a thumbnail opens a full-screen lightbox.
+- `openLightbox(entryId, index)` — preloads all originals for the entry via `new Image()` to avoid per-arrow-click R2 fetches.
+- `closeLightbox()`, `lightboxNav(dir)`, `updateLightbox()` — lightbox controls. Support Esc, ← →, click-outside-to-close. Exposed on `window.*` since called from inline HTML `onclick`.
+- Photo ✕ remove button is only rendered when `editingEntryId === entry.id`. Entering/exiting edit mode calls `renderLog()` to show/hide it.
+- After saving an edit, `photosByEntryId[savedEntryId] = [...pendingPhotos]` gives immediate display, then `loadPhotoData([savedEntryId]).then(() => renderLog())` re-fetches to catch photos whose upload finished after the save click.
 
 ### CSS conventions
 
@@ -232,6 +296,11 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 - Accent: forest green `--accent` (`#2d7d5a`)
 - Reuse existing tokens — don't introduce new colours or size scales
 - `.section-head` / `.section-head--gap` — green uppercase subsection divider used in the Prices tab and Notifications settings. Previously named `.prices-section-head`; renamed global when reused in settings.
+- `[hidden] { display: none !important; }` — at the very top of `styles.css`. Critical: prevents `display: flex` on `.log-confirm-row` and `#lightbox` from overriding the HTML `hidden` attribute.
+- `.log-carousel` / `.log-carousel-item` — horizontal flex scroll strip with snap; used for photos in log cards.
+- `#lightbox` — full-screen overlay (`position: fixed; inset: 0; z-index: 9999`).
+- `.log-photo-spinner::after` — `@keyframes photo-spin` for upload in-progress indicator.
+- `.log-carousel-item.removing` / `.log-photo-item.removing` — `@keyframes photo-remove` (180ms scale-fade) triggered before server delete call.
 
 ## Notifications
 
