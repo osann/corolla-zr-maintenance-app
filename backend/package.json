@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "node --import tsx/esm src/index.ts",
+    "start": "node --import tsx/esm src/db/init.ts && node --import tsx/esm src/db/seed.ts && node --import tsx/esm src/index.ts",
     "db:init": "node --import tsx/esm src/db/init.ts",
     "seed": "node --import tsx/esm src/db/seed.ts",
     "scrape": "node --import tsx/esm src/scrapers/index.ts",
