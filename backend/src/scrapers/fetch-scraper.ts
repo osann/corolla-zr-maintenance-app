@@ -99,16 +99,33 @@ function sleepJitter(ms: number) {
   return sleep(Math.max(1000, Math.round(ms + jitter)));
 }
 
-// Some Auto Barn / Autopro SKUs only respond to short /p/{SKU} URLs; others only to the full
-// canonical path. When a full URL times out, extract the SKU and retry with the short form.
-// Returns null if the stored URL is already in short form (no further fallback possible).
-function shortUrlFallback(url: string): string | null {
+// Some Auto Barn / Autopro SKUs only respond to the full canonical URL; others only to the short
+// /p/{SKU} form. Both URLs are fired simultaneously via Promise.any — whichever responds first
+// with a valid price wins. Products that fail both still only cost one 60s timeout (not two).
+function shortUrlAlternative(url: string): string | null {
   if (url.includes('/ab/p/') || url.includes('/ap/p/')) return null;
   const m = url.match(/\/p\/([^/?#]+)/);
   if (!m) return null;
   if (url.includes('autobarn.com.au')) return `https://www.autobarn.com.au/ab/p/${m[1]}`;
   if (url.includes('autopro.com.au')) return `https://www.autopro.com.au/ap/p/${m[1]}`;
   return null;
+}
+
+type PriceResult = { priceCents: number; compareAtCents: number | null; setCookies: string[] };
+
+// Races the primary URL against an optional alternative. Resolves with the first valid price
+// found, or null if both fail. The losing request runs to completion in the background —
+// no cancellation needed since this is a one-shot CLI process.
+async function fetchBest(primaryUrl: string, altUrl: string | null, opts: GetOptions): Promise<PriceResult | null> {
+  const attempt = async (url: string): Promise<PriceResult> => {
+    const { status, body, setCookies } = await httpsGet(url, opts);
+    if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
+    const price = parsePriceHtml(body);
+    if (!price) throw new Error('no price found');
+    return { ...price, setCookies };
+  };
+  if (!altUrl) return attempt(primaryUrl).catch(() => null);
+  return Promise.any([attempt(primaryUrl), attempt(altUrl)]).catch(() => null);
 }
 
 type FetchRetailer = 'autobarn' | 'autopro';
@@ -254,49 +271,15 @@ export function createFetchScraper(config: FetchScraperConfig) {
     const failed: Row[] = [];
 
     for (const row of rows) {
-      try {
-        console.log(`  Fetching ${row.name}...`);
-        const opts: GetOptions = { cookies, referer: homepageUrl };
-        const { status, body: html, setCookies } = await httpsGet(row.url, opts);
-        cookies = mergeCookies(cookies, setCookies);
-
-        if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
-        if (status < 200 || status >= 300) throw new Error(`HTTP ${status} fetching ${row.url}`);
-
-        const result = parsePriceHtml(html);
-        if (!result) { console.warn(`  No price found at ${row.url}`); await sleepJitter(rateLimitMs); continue; }
-
+      console.log(`  Fetching ${row.name}...`);
+      const opts: GetOptions = { cookies, referer: homepageUrl };
+      const result = await fetchBest(row.url, shortUrlAlternative(row.url), opts);
+      if (result) {
+        cookies = mergeCookies(cookies, result.setCookies);
         results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
         console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
-      } catch (err) {
-        const errMsg = (err as Error).message;
-        const fallback = errMsg.includes('timed out') ? shortUrlFallback(row.url) : null;
-        if (fallback) {
-          console.log(`  [retry] ${row.name} — full URL timed out, trying short URL...`);
-          try {
-            const r2 = await httpsGet(fallback, { cookies, referer: homepageUrl });
-            cookies = mergeCookies(cookies, r2.setCookies);
-            if (r2.status >= 200 && r2.status < 300) {
-              const result = parsePriceHtml(r2.body);
-              if (result) {
-                results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
-                console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
-              } else {
-                console.warn(`  No price found on short URL: ${fallback}`);
-                if (playwrightFallback) failed.push(row);
-              }
-            } else {
-              console.warn(`  ${r2.status} on short URL: ${fallback}`);
-              if (playwrightFallback) failed.push(row);
-            }
-          } catch (err2) {
-            console.error(`  [error] ${row.name} (short URL):`, (err2 as Error).message.split('\n')[0]);
-            if (playwrightFallback) failed.push(row);
-          }
-          await sleepJitter(rateLimitMs);
-          continue;
-        }
-        console.error(`  [error] ${row.name}:`, errMsg.split('\n')[0]);
+      } else {
+        console.warn(`  [miss] ${row.name}`);
         if (playwrightFallback) failed.push(row);
       }
       await sleepJitter(rateLimitMs);
@@ -329,45 +312,17 @@ export function createFetchScraper(config: FetchScraperConfig) {
 
         console.log(`  Fetching ${row.name}...`);
         const opts: GetOptions = { cookies, referer: homepageUrl };
-        const { status, body: html, setCookies } = await httpsGet(row.url, opts);
-        cookies = mergeCookies(cookies, setCookies);
-
-        if (status === 404) { console.warn(`  404 — not found: ${row.url}`); await sleepJitter(rateLimitMs); continue; }
-        if (status < 200 || status >= 300) throw new Error(`HTTP ${status} fetching ${row.url}`);
-
-        const result = parsePriceHtml(html);
-        if (!result) { console.warn(`  No price found at ${row.url}`); await sleepJitter(rateLimitMs); continue; }
-
-        const onSale = isOnSale(result.priceCents, result.compareAtCents, null);
-        await db.insert(priceHistory).values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
-        console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}${onSale ? ' 🔥 ON SALE' : ''}`);
-      } catch (err) {
-        const errMsg = (err as Error).message;
-        const fallback = errMsg.includes('timed out') ? shortUrlFallback(row.url) : null;
-        if (fallback) {
-          console.log(`  [retry] ${row.name} — full URL timed out, trying short URL...`);
-          try {
-            const r2 = await httpsGet(fallback, { cookies, referer: homepageUrl });
-            cookies = mergeCookies(cookies, r2.setCookies);
-            if (r2.status >= 200 && r2.status < 300) {
-              const result = parsePriceHtml(r2.body);
-              if (result) {
-                const onSale = isOnSale(result.priceCents, result.compareAtCents, null);
-                await db.insert(priceHistory).values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
-                console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}${onSale ? ' 🔥 ON SALE' : ''}`);
-              } else {
-                console.warn(`  No price found on short URL: ${fallback}`);
-              }
-            } else {
-              console.warn(`  ${r2.status} on short URL: ${fallback}`);
-            }
-          } catch (err2) {
-            console.error(`  [error] ${row.name} (short URL):`, (err2 as Error).message.split('\n')[0]);
-          }
-          await sleepJitter(rateLimitMs);
-          continue;
+        const result = await fetchBest(row.url, shortUrlAlternative(row.url), opts);
+        if (result) {
+          cookies = mergeCookies(cookies, result.setCookies);
+          const onSale = isOnSale(result.priceCents, result.compareAtCents, null);
+          await db.insert(priceHistory).values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
+          console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}${onSale ? ' 🔥 ON SALE' : ''}`);
+        } else {
+          console.warn(`  [miss] ${row.name}`);
         }
-        console.error(`  [error] ${row.name}:`, errMsg.split('\n')[0]);
+      } catch (err) {
+        console.error(`  [error] ${row.name}:`, (err as Error).message.split('\n')[0]);
       }
       await sleepJitter(rateLimitMs);
     }
