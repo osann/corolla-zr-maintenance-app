@@ -99,6 +99,18 @@ function sleepJitter(ms: number) {
   return sleep(Math.max(1000, Math.round(ms + jitter)));
 }
 
+// Some Auto Barn / Autopro SKUs only respond to short /p/{SKU} URLs; others only to the full
+// canonical path. When a full URL times out, extract the SKU and retry with the short form.
+// Returns null if the stored URL is already in short form (no further fallback possible).
+function shortUrlFallback(url: string): string | null {
+  if (url.includes('/ab/p/') || url.includes('/ap/p/')) return null;
+  const m = url.match(/\/p\/([^/?#]+)/);
+  if (!m) return null;
+  if (url.includes('autobarn.com.au')) return `https://www.autobarn.com.au/ab/p/${m[1]}`;
+  if (url.includes('autopro.com.au')) return `https://www.autopro.com.au/ap/p/${m[1]}`;
+  return null;
+}
+
 type FetchRetailer = 'autobarn' | 'autopro';
 
 interface CrawlWindow {
@@ -257,7 +269,34 @@ export function createFetchScraper(config: FetchScraperConfig) {
         results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
         console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
       } catch (err) {
-        console.error(`  [error] ${row.name}:`, (err as Error).message);
+        const errMsg = (err as Error).message;
+        const fallback = errMsg.includes('timed out') ? shortUrlFallback(row.url) : null;
+        if (fallback) {
+          console.log(`  [retry] ${row.name} — full URL timed out, trying short URL...`);
+          try {
+            const r2 = await httpsGet(fallback, { cookies, referer: homepageUrl });
+            cookies = mergeCookies(cookies, r2.setCookies);
+            if (r2.status >= 200 && r2.status < 300) {
+              const result = parsePriceHtml(r2.body);
+              if (result) {
+                results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
+                console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
+              } else {
+                console.warn(`  No price found on short URL: ${fallback}`);
+                if (playwrightFallback) failed.push(row);
+              }
+            } else {
+              console.warn(`  ${r2.status} on short URL: ${fallback}`);
+              if (playwrightFallback) failed.push(row);
+            }
+          } catch (err2) {
+            console.error(`  [error] ${row.name} (short URL):`, (err2 as Error).message.split('\n')[0]);
+            if (playwrightFallback) failed.push(row);
+          }
+          await sleepJitter(rateLimitMs);
+          continue;
+        }
+        console.error(`  [error] ${row.name}:`, errMsg.split('\n')[0]);
         if (playwrightFallback) failed.push(row);
       }
       await sleepJitter(rateLimitMs);
@@ -303,7 +342,32 @@ export function createFetchScraper(config: FetchScraperConfig) {
         await db.insert(priceHistory).values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
         console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}${onSale ? ' 🔥 ON SALE' : ''}`);
       } catch (err) {
-        console.error(`  [error] ${row.name}:`, (err as Error).message);
+        const errMsg = (err as Error).message;
+        const fallback = errMsg.includes('timed out') ? shortUrlFallback(row.url) : null;
+        if (fallback) {
+          console.log(`  [retry] ${row.name} — full URL timed out, trying short URL...`);
+          try {
+            const r2 = await httpsGet(fallback, { cookies, referer: homepageUrl });
+            cookies = mergeCookies(cookies, r2.setCookies);
+            if (r2.status >= 200 && r2.status < 300) {
+              const result = parsePriceHtml(r2.body);
+              if (result) {
+                const onSale = isOnSale(result.priceCents, result.compareAtCents, null);
+                await db.insert(priceHistory).values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
+                console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}${onSale ? ' 🔥 ON SALE' : ''}`);
+              } else {
+                console.warn(`  No price found on short URL: ${fallback}`);
+              }
+            } else {
+              console.warn(`  ${r2.status} on short URL: ${fallback}`);
+            }
+          } catch (err2) {
+            console.error(`  [error] ${row.name} (short URL):`, (err2 as Error).message.split('\n')[0]);
+          }
+          await sleepJitter(rateLimitMs);
+          continue;
+        }
+        console.error(`  [error] ${row.name}:`, errMsg.split('\n')[0]);
       }
       await sleepJitter(rateLimitMs);
     }
