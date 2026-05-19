@@ -2441,9 +2441,21 @@ Output only the CSV starting with the header row.`;
     document.getElementById(`maint-hist-confirm-${entryId}`)?.setAttribute('hidden', '');
   }
 
-  function deleteMaintenanceLogEntry(entryId) {
+  async function deleteMaintenanceLogEntry(entryId) {
+    const deleted = maintenanceLog.find(e => e.id === entryId);
     maintenanceLog = maintenanceLog.filter(e => e.id !== entryId);
-    saveMaintenanceLog();
+
+    if (deleted) {
+      const item = maintenanceItems.find(i => i.id === deleted.itemId);
+      if (item) {
+        const remaining = maintenanceLog.filter(e => e.itemId === deleted.itemId);
+        item.lastCompletedDate     = remaining[0]?.date     ?? null;
+        item.lastCompletedOdometer = remaining[0]?.odometer ?? null;
+      }
+    }
+
+    await saveMaintenanceLog();
+    await saveMaintenance();
   }
 
   async function saveMaintenanceComplete(itemId) {
