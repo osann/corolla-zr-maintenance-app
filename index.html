@@ -24,6 +24,7 @@
     <div class="tabs-inner">
       <button class="tab" data-tab="log" style="display:none">Wash Log</button>
       <button class="tab active" data-tab="routine">Wash Routines</button>
+      <button class="tab" data-tab="maintenance">Maintenance</button>
       <button class="tab" data-tab="spend">Spend</button>
       <button class="tab" data-tab="prices">Current Prices</button>
       <button class="tab" data-tab="guide">Technique Guide</button>
@@ -818,6 +819,42 @@
     </div><!-- /routine-sub-configure -->
   </div>
 
+  <!-- ═══ MAINTENANCE PANEL ══════════════════════════ -->
+  <div class="panel" id="maintenance">
+
+    <div class="maintenance-sub-tabs">
+      <button class="maintenance-sub-tab active" data-maintenance-tab="upcoming">Upcoming</button>
+      <button class="maintenance-sub-tab" data-maintenance-tab="schedule">Schedule</button>
+      <button class="maintenance-sub-tab" data-maintenance-tab="configure">Configuration</button>
+    </div>
+
+    <!-- ── Upcoming sub-panel ── -->
+    <div class="maintenance-sub-panel active" id="maintenance-sub-upcoming">
+      <div id="maintenance-upcoming-cards"></div>
+    </div>
+
+    <!-- ── Schedule sub-panel ── -->
+    <div class="maintenance-sub-panel" id="maintenance-sub-schedule">
+      <div id="maintenance-schedule-list"></div>
+    </div>
+
+    <!-- ── Configuration sub-panel ── -->
+    <div class="maintenance-sub-panel" id="maintenance-sub-configure">
+      <div class="settings-save-bar" style="margin-bottom:24px;">
+        <button class="settings-save-btn" onclick="exportMaintenanceCSV()">Export CSV</button>
+        <button class="settings-reset-btn" onclick="importMaintenanceCSV()">Import CSV</button>
+        <button class="settings-reset-btn" onclick="downloadMaintenanceTemplate()">Download template</button>
+        <input type="file" id="maintenance-csv-input" accept=".csv" style="display:none;">
+      </div>
+      <div id="maintenance-config-cards"></div>
+      <div class="settings-save-bar" style="margin-bottom:32px;">
+        <button class="settings-reset-btn" onclick="addMaintenanceItem()">+ Add item</button>
+        <span class="settings-saved-msg" id="maintenance-saved">Saved ✓</span>
+      </div>
+    </div>
+
+  </div>
+
   <!-- ═══ WASH LOG PANEL ══════════════════════════════ -->
   <div class="panel" id="log">
 
@@ -893,6 +930,10 @@
           <div class="log-field full">
             <label class="log-label" for="log-notes">Status</label>
             <textarea class="log-textarea" id="log-notes" placeholder="Condition, issues noticed, anything unusual…"></textarea>
+          </div>
+          <div class="log-field">
+            <label class="log-label" for="log-odometer">Odometer (km) <span class="log-label-hint">optional — updates your saved reading</span></label>
+            <input class="log-input" type="number" id="log-odometer" inputmode="numeric" min="0" placeholder="e.g. 12450">
           </div>
         </div>
         <div class="log-field full" id="log-photo-field" style="display:none;">
@@ -1097,6 +1138,11 @@
           <label class="log-label" for="car-postcode">Postcode</label>
           <input class="log-input" type="text" id="car-postcode"
                  inputmode="numeric" maxlength="4" placeholder="e.g. 3000">
+        </div>
+        <div class="log-field">
+          <label class="log-label" for="car-odometer">Current odometer (km)</label>
+          <input class="log-input" type="number" id="car-odometer"
+                 inputmode="numeric" min="0" placeholder="e.g. 12450">
         </div>
       </div>
 

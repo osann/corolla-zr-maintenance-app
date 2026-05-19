@@ -227,6 +227,85 @@
 
   let routines = JSON.parse(JSON.stringify(DEFAULT_ROUTINES));
 
+  // ─── Maintenance ──────────────────────────────────
+  const MAINTENANCE_KEY = 'corolla-maintenance-v1';
+
+  const DEFAULT_MAINTENANCE_ITEMS = [
+    { id: 'maint-tyre-pressure',  name: 'Tyre Pressure Check',        notes: '33 psi / 2.3 bar front and rear when cold', intervalType: 'time',     intervalValue: 1,    intervalUnit: 'months', intervalKm: null,  lastCompletedDate: null, lastCompletedOdometer: null, enabled: true },
+    { id: 'maint-oil-level',      name: 'Engine Oil Level Check',      notes: 'Check dipstick; top up with 0W-20 if needed', intervalType: 'time',   intervalValue: 1,    intervalUnit: 'months', intervalKm: null,  lastCompletedDate: null, lastCompletedOdometer: null, enabled: true },
+    { id: 'maint-washer-fluid',   name: 'Windscreen Washer Fluid',     notes: '',                                          intervalType: 'time',     intervalValue: 3,    intervalUnit: 'months', intervalKm: null,  lastCompletedDate: null, lastCompletedOdometer: null, enabled: true },
+    { id: 'maint-cabin-filter',   name: 'Cabin Air Filter Inspection', notes: '',                                          intervalType: 'time',     intervalValue: 12,   intervalUnit: 'months', intervalKm: null,  lastCompletedDate: null, lastCompletedOdometer: null, enabled: true },
+    { id: 'maint-logbook-service',name: 'Toyota Log Book Service',     notes: 'Oil change + multi-point inspection at Toyota dealer', intervalType: 'odometer', intervalValue: null, intervalUnit: null, intervalKm: 10000, lastCompletedDate: null, lastCompletedOdometer: null, enabled: true },
+    { id: 'maint-tyre-rotation',  name: 'Tyre Rotation',               notes: '',                                          intervalType: 'odometer', intervalValue: null, intervalUnit: null, intervalKm: 10000, lastCompletedDate: null, lastCompletedOdometer: null, enabled: true },
+    { id: 'maint-brake-fluid',    name: 'Brake Fluid Check',           notes: '',                                          intervalType: 'odometer', intervalValue: null, intervalUnit: null, intervalKm: 40000, lastCompletedDate: null, lastCompletedOdometer: null, enabled: true },
+  ];
+
+  const MAINTENANCE_CSV_TEMPLATE = `You are generating a maintenance schedule in CSV format for import into a car maintenance tracking app.
+
+## Context
+
+Vehicle: 2025 Toyota Corolla Hatch Hybrid ZR (Australian market, GR-Sport variant)
+Engine: 2ZR-FXE 1.8L hybrid (M20A-FXS in some variants — confirm from owner's logbook)
+Transmission: ECVT
+Use: Daily driver, suburban + occasional highway
+
+The app already contains these default items (do not duplicate):
+- Tyre Pressure Check — time, every 1 month
+- Engine Oil Level Check — time, every 1 month
+- Windscreen Washer Fluid — time, every 3 months
+- Cabin Air Filter Inspection — time, every 12 months
+- Toyota Log Book Service — odometer, every 10,000 km
+- Tyre Rotation — odometer, every 10,000 km
+- Brake Fluid Check — odometer, every 40,000 km
+
+## CSV format
+
+One file, 8 columns, always include this exact header row:
+row_type,item_id,name,notes,interval_type,interval_value,interval_unit,interval_km
+
+One row per item (row_type = ITEM):
+  item_id       : unique snake_case identifier (e.g. "spark_plugs", "coolant_top_up")
+  name          : display name shown on the reminder card
+  notes         : one sentence shown on the card — spec, threshold, or reminder tip (leave blank if none)
+  interval_type : "time" or "odometer"
+  interval_value: number for time intervals (e.g. 6 for every 6 months) — leave blank for odometer
+  interval_unit : "days", "weeks", "months", or "years" — leave blank for odometer
+  interval_km   : km interval for odometer items (e.g. 80000) — leave blank for time
+
+Rules:
+- Fields containing commas must be wrapped in double quotes
+- A literal double-quote inside a field is written as two double-quotes ("")
+- Output raw CSV only — no markdown, no explanation, no code fences
+
+## Example
+
+row_type,item_id,name,notes,interval_type,interval_value,interval_unit,interval_km
+ITEM,wiper_blades,Wiper Blade Inspection,"Check for streaking or skipping; replace if needed",time,12,months,
+ITEM,spark_plugs,Spark Plug Replacement,"Toyota iridium plugs — replace at 80,000 km",odometer,,,80000
+
+## Your task
+
+Generate additional maintenance items suitable for the 2025 Toyota Corolla Hatch Hybrid ZR.
+
+Suggested areas to cover (adapt to Toyota's AU service schedule):
+- Wiper blade inspection / replacement
+- Spark plug replacement (iridium — Toyota spec interval)
+- Engine coolant inspection / replacement
+- 12V auxiliary battery check (hybrid vehicles carry a small 12V battery separate from the traction pack)
+- Power steering fluid check (EPS — typically no fluid, but confirm)
+- Tyre condition / tread depth check
+- Brake pad inspection (hybrids use regen braking — pads last longer but still need checking)
+- Air filter (engine) replacement
+- Annual registration renewal reminder (time-based, 12 months)
+- Annual pink slip / safety inspection (NSW/ACT) or equivalent state roadworthy (time-based, 12 months)
+
+Use Toyota Australia's logbook intervals where known. For anything uncertain, err on the conservative side.
+
+Output only the CSV starting with the header row.`;
+
+  let maintenanceItems = [];
+  let maintenanceDragSrc = null;
+
   // Default phases — id order matches original HTML for v4/v2 → v3 migration
   const DEFAULT_PHASES = [
     { id: '1', tag: 'Phase 1 · foundation',                tag2: '', title: 'Wash, dry, glass, sealant, pre-wash',   items: ['nanolicious-wash-pack-ultimate','wet-dreams-pack','2-bucket-wash-kit','boss-gloss-770ml','naked-glass-500ml','inta-mitt','karcher-k2','snow-blow-cannon','snow-job-1l'] },
@@ -1033,8 +1112,18 @@
     const type = document.getElementById('log-type').value;
     const notes = document.getElementById('log-notes').value.trim();
     const steps = Array.from(document.querySelectorAll('.step-chip input:checked')).map(cb => cb.value);
+    const odometerVal = +document.getElementById('log-odometer')?.value || null;
 
     if (!date) { alert('Please select a date.'); return; }
+
+    if (odometerVal && odometerVal > (settings.car?.currentOdometer ?? 0)) {
+      settings.car.currentOdometer = odometerVal;
+      const carOdoEl = document.getElementById('car-odometer');
+      if (carOdoEl) carOdoEl.value = odometerVal;
+      storageSet(SETTINGS_KEY, settings);
+      syncPush(SETTINGS_KEY, settings);
+      renderMaintenanceUpcoming();
+    }
 
     if (editingEntryId !== null) {
       const savedEntryId = editingEntryId;
@@ -1083,6 +1172,8 @@
     const d = new Date();
     document.getElementById('log-date').value =
       `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const logOdoEl = document.getElementById('log-odometer');
+    if (logOdoEl) logOdoEl.value = settings.car?.currentOdometer || '';
   }
 
   function startEditEntry(id) {
@@ -1388,6 +1479,16 @@
       document.querySelectorAll('.routine-sub-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('routine-sub-' + btn.dataset.routineTab).classList.add('active');
+    });
+  });
+
+  // ─── Maintenance sub-tab navigation ───────────────
+  document.querySelectorAll('.maintenance-sub-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.maintenance-sub-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.maintenance-sub-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('maintenance-sub-' + btn.dataset.maintenanceTab).classList.add('active');
     });
   });
 
@@ -2020,6 +2121,397 @@ Output only the CSV starting with the header row.`;
     renderSchedulesUI();
   }
 
+  // ─── Maintenance functions ────────────────────────
+
+  function maintenanceIntervalDays(item) {
+    const u = { days: 1, weeks: 7, months: 30.44, years: 365.25 };
+    return Math.round((item.intervalValue || 1) * (u[item.intervalUnit] || 1));
+  }
+
+  function maintenanceIntervalLabel(item) {
+    if (item.intervalType === 'odometer') return `Every ${(item.intervalKm || 0).toLocaleString()} km`;
+    const val = item.intervalValue || 1;
+    const unit = item.intervalUnit || 'months';
+    return `Every ${val} ${val === 1 ? unit.replace(/s$/, '') : unit}`;
+  }
+
+  function maintenanceNextDue(item) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (item.intervalType === 'time') {
+      if (!item.lastCompletedDate) return { dueDate: null, dueKm: null, status: 'never-done' };
+      const days = maintenanceIntervalDays(item);
+      const [y, m, d] = item.lastCompletedDate.split('-').map(Number);
+      const due = new Date(y, m - 1, d + days);
+      const diffDays = Math.round((due - today) / 86400000);
+      const status = diffDays < 0 ? 'overdue' : diffDays <= 14 ? 'due-soon' : 'ok';
+      return { dueDate: due, dueKm: null, status };
+    }
+    if (item.lastCompletedOdometer == null) return { dueDate: null, dueKm: null, status: 'never-done' };
+    const dueKm = item.lastCompletedOdometer + (item.intervalKm || 0);
+    const currentOdo = settings.car?.currentOdometer ?? null;
+    if (currentOdo == null) return { dueDate: null, dueKm, status: 'ok' };
+    const remaining = dueKm - currentOdo;
+    const status = remaining <= 0 ? 'overdue' : remaining <= 2000 ? 'due-soon' : 'ok';
+    return { dueDate: null, dueKm, status };
+  }
+
+  function maintenanceDueLabel(item) {
+    const { dueDate, dueKm, status } = maintenanceNextDue(item);
+    if (status === 'never-done') return 'Not yet recorded';
+    if (item.intervalType === 'odometer') {
+      const currentOdo = settings.car?.currentOdometer ?? null;
+      if (currentOdo != null) {
+        const remaining = dueKm - currentOdo;
+        if (remaining <= 0) return `Overdue — was due at ${dueKm.toLocaleString()} km`;
+        return `Due at ${dueKm.toLocaleString()} km (${remaining.toLocaleString()} km away)`;
+      }
+      return `Due at ${dueKm.toLocaleString()} km`;
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((dueDate - today) / 86400000);
+    if (diffDays < 0) { const n = Math.abs(diffDays); return `Overdue — was due ${n} day${n !== 1 ? 's' : ''} ago`; }
+    if (diffDays === 0) return 'Due today';
+    if (diffDays === 1) return 'Due tomorrow';
+    const dueFmt = dueDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `Due in ${diffDays} days (${dueFmt})`;
+  }
+
+  function maintenanceItemIsUrgent(item) {
+    if (!item.enabled) return false;
+    const { status } = maintenanceNextDue(item);
+    return status === 'overdue' || status === 'due-soon' || status === 'never-done';
+  }
+
+  async function loadMaintenance() {
+    const saved = await storageGet(MAINTENANCE_KEY);
+    if (saved && Array.isArray(saved) && saved.length) maintenanceItems = saved;
+    else maintenanceItems = JSON.parse(JSON.stringify(DEFAULT_MAINTENANCE_ITEMS));
+    renderMaintenanceUpcoming();
+    renderMaintenanceSchedule();
+    renderMaintenanceConfigCards();
+  }
+
+  async function saveMaintenance() {
+    await storageSet(MAINTENANCE_KEY, maintenanceItems);
+    syncPush(MAINTENANCE_KEY, maintenanceItems);
+    renderMaintenanceUpcoming();
+    renderMaintenanceSchedule();
+    renderMaintenanceConfigCards();
+    showSaved('maintenance-saved');
+  }
+
+  function renderMaintenanceUpcoming() {
+    const el = document.getElementById('maintenance-upcoming-cards');
+    if (!el) return;
+    const urgentOrder = { overdue: 0, 'never-done': 1, 'due-soon': 2 };
+    const urgent = maintenanceItems
+      .filter(item => item.enabled && maintenanceItemIsUrgent(item))
+      .map(item => ({ item, ...maintenanceNextDue(item) }))
+      .sort((a, b) => (urgentOrder[a.status] ?? 3) - (urgentOrder[b.status] ?? 3));
+    if (!urgent.length) {
+      el.innerHTML = '<div class="maintenance-empty">Everything is on schedule.</div>';
+      return;
+    }
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const currentOdo = settings.car?.currentOdometer ?? '';
+    el.innerHTML = urgent.map(({ item, status }) => {
+      const cardClass = status === 'overdue' ? 'wash-reminder-card wash-reminder-card--overdue' : 'wash-reminder-card';
+      const lastLabel = item.lastCompletedDate
+        ? formatDate(item.lastCompletedDate)
+        : item.lastCompletedOdometer != null ? `${item.lastCompletedOdometer.toLocaleString()} km` : 'Never';
+      return `
+        <div class="${cardClass}">
+          <div class="reminder-row">
+            <div class="reminder-body">
+              <div class="reminder-name">${escHtml(item.name)}</div>
+              <div class="reminder-status">${escHtml(maintenanceDueLabel(item))} · ${escHtml(maintenanceIntervalLabel(item))} · Last: ${escHtml(lastLabel)}</div>
+              ${item.notes ? `<div class="reminder-status" style="margin-top:4px;">${escHtml(item.notes)}</div>` : ''}
+            </div>
+            <div class="reminder-actions">
+              <button class="reminder-btn reminder-btn--accent" onclick="showMaintenanceCompleteForm('${escAttr(item.id)}')">Mark Complete</button>
+            </div>
+          </div>
+          <div class="maintenance-complete-form" id="maint-form-${escAttr(item.id)}" hidden>
+            <div class="log-field">
+              <label class="log-label" for="maint-date-${escAttr(item.id)}">Date</label>
+              <input class="log-input" type="date" id="maint-date-${escAttr(item.id)}" value="${todayStr}">
+            </div>
+            <div class="log-field">
+              <label class="log-label" for="maint-odo-${escAttr(item.id)}">Odometer (km)</label>
+              <input class="log-input" type="number" id="maint-odo-${escAttr(item.id)}" min="0" placeholder="e.g. 12450" value="${escAttr(String(currentOdo))}">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="settings-save-btn" onclick="saveMaintenanceComplete('${escAttr(item.id)}')">Save</button>
+              <button class="settings-reset-btn" onclick="hideMaintenanceCompleteForm('${escAttr(item.id)}')">Cancel</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderMaintenanceSchedule() {
+    const el = document.getElementById('maintenance-schedule-list');
+    if (!el) return;
+    const enabled = maintenanceItems.filter(item => item.enabled);
+    if (!enabled.length) {
+      el.innerHTML = '<p class="maintenance-schedule-empty">No items configured. Add some in the Configuration tab.</p>';
+      return;
+    }
+    const withDue = enabled.map(item => ({ item, due: maintenanceNextDue(item) }));
+    withDue.sort((a, b) => {
+      const ord = { overdue: 0, 'never-done': 1, 'due-soon': 2, ok: 3 };
+      return (ord[a.due.status] ?? 4) - (ord[b.due.status] ?? 4);
+    });
+    el.innerHTML = `
+      <table class="routine-table" style="width:100%;table-layout:fixed;">
+        <colgroup><col style="width:35%"><col style="width:22%"><col style="width:20%"><col style="width:23%"></colgroup>
+        <thead><tr>
+          <th style="text-align:left;">Item</th>
+          <th style="text-align:left;">Interval</th>
+          <th style="text-align:left;">Last done</th>
+          <th style="text-align:left;">Next due</th>
+        </tr></thead>
+        <tbody>
+          ${withDue.map(({ item, due }) => {
+            const lastLabel = item.lastCompletedDate
+              ? item.lastCompletedDate
+              : item.lastCompletedOdometer != null ? `${item.lastCompletedOdometer.toLocaleString()} km` : '—';
+            const nextLabel = maintenanceDueLabel(item);
+            const urgent = due.status === 'overdue' || due.status === 'due-soon';
+            const rowStyle = due.status === 'overdue' ? 'style="color:var(--accent);font-weight:600"' : '';
+            return `<tr ${rowStyle}>
+              <td>${escHtml(item.name)}</td>
+              <td>${escHtml(maintenanceIntervalLabel(item))}</td>
+              <td>${escHtml(lastLabel)}</td>
+              <td>${escHtml(nextLabel)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  function renderMaintenanceConfigCards() {
+    const el = document.getElementById('maintenance-config-cards');
+    if (!el) return;
+    el.innerHTML = maintenanceItems.map((item, idx) => `
+      <div class="routine-config-card" draggable="true" id="maint-card-${idx}">
+        <div class="routine-config-card-title">⠿ ${escHtml(item.name || 'Untitled item')}</div>
+        <div class="log-form-grid" style="margin-bottom:12px;">
+          <div class="log-field full">
+            <label class="log-label">Name</label>
+            <input class="log-input" type="text" value="${escAttr(item.name)}"
+              oninput="updateMaintenanceItem(${idx},'name',this.value)">
+          </div>
+          <div class="log-field full">
+            <label class="log-label">Notes <span style="font-weight:400;color:var(--ink-mid)">(optional)</span></label>
+            <input class="log-input" type="text" value="${escAttr(item.notes || '')}"
+              oninput="updateMaintenanceItem(${idx},'notes',this.value)">
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="log-label">Schedule type</label>
+          <div style="display:flex;gap:16px;margin-top:6px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+              <input type="radio" name="maint-type-${idx}" value="time"
+                ${item.intervalType === 'time' ? 'checked' : ''}
+                onchange="updateMaintenanceItem(${idx},'intervalType','time')"> Time-based
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+              <input type="radio" name="maint-type-${idx}" value="odometer"
+                ${item.intervalType === 'odometer' ? 'checked' : ''}
+                onchange="updateMaintenanceItem(${idx},'intervalType','odometer')"> Odometer
+            </label>
+          </div>
+        </div>
+        <div id="maint-time-fields-${idx}" ${item.intervalType === 'odometer' ? 'hidden' : ''}>
+          <div class="log-form-grid" style="margin-bottom:12px;">
+            <div class="log-field">
+              <label class="log-label">Every</label>
+              <input class="log-input" type="number" min="1" max="365" value="${escAttr(String(item.intervalValue || 1))}"
+                oninput="updateMaintenanceItem(${idx},'intervalValue',+this.value||1)">
+            </div>
+            <div class="log-field">
+              <label class="log-label">Unit</label>
+              <select class="log-select" onchange="updateMaintenanceItem(${idx},'intervalUnit',this.value)">
+                ${['days','weeks','months','years'].map(u =>
+                  `<option value="${u}"${item.intervalUnit === u ? ' selected' : ''}>${u}</option>`
+                ).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="maint-odo-fields-${idx}" ${item.intervalType === 'time' ? 'hidden' : ''} style="margin-bottom:12px;">
+          <div class="log-field">
+            <label class="log-label">Every (km)</label>
+            <input class="log-input" type="number" min="100" step="100" value="${escAttr(String(item.intervalKm || ''))}"
+              placeholder="e.g. 10000" oninput="updateMaintenanceItem(${idx},'intervalKm',+this.value||null)">
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+            <input type="checkbox" ${item.enabled ? 'checked' : ''}
+              onchange="updateMaintenanceItem(${idx},'enabled',this.checked)"> Enabled
+          </label>
+        </div>
+        <div class="settings-save-bar">
+          <button class="settings-save-btn" onclick="saveMaintenance()">Save</button>
+          <button class="settings-reset-btn routine-delete-btn" onclick="showMaintenanceDeleteConfirm(${idx})">Delete</button>
+        </div>
+        <div id="maintenance-confirm-${idx}" hidden class="maintenance-confirm-row">
+          <span style="color:var(--ink-mid);font-size:13px;">Delete this item?</span>
+          <button class="settings-save-btn" onclick="deleteMaintenanceItem(${idx})">Delete</button>
+          <button class="settings-reset-btn" onclick="cancelMaintenanceDelete(${idx})">Cancel</button>
+        </div>
+      </div>`).join('');
+
+    el.querySelectorAll('.routine-config-card').forEach((card, idx) => {
+      card.addEventListener('dragstart', e => {
+        maintenanceDragSrc = idx;
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag-over'); });
+      card.addEventListener('dragleave', () => card.classList.remove('drag-over'));
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        if (maintenanceDragSrc === null || maintenanceDragSrc === idx) return;
+        const [moved] = maintenanceItems.splice(maintenanceDragSrc, 1);
+        maintenanceItems.splice(idx, 0, moved);
+        maintenanceDragSrc = null;
+        renderMaintenanceConfigCards();
+      });
+    });
+  }
+
+  function showMaintenanceCompleteForm(itemId) {
+    document.getElementById(`maint-form-${itemId}`)?.removeAttribute('hidden');
+  }
+
+  function hideMaintenanceCompleteForm(itemId) {
+    document.getElementById(`maint-form-${itemId}`)?.setAttribute('hidden', '');
+  }
+
+  async function saveMaintenanceComplete(itemId) {
+    const item = maintenanceItems.find(i => i.id === itemId);
+    if (!item) return;
+    const dateVal = document.getElementById(`maint-date-${itemId}`)?.value || '';
+    const odoVal  = +document.getElementById(`maint-odo-${itemId}`)?.value || null;
+    if (!dateVal) { alert('Please select a date.'); return; }
+    item.lastCompletedDate = dateVal;
+    if (odoVal) item.lastCompletedOdometer = odoVal;
+    if (odoVal && odoVal > (settings.car?.currentOdometer ?? 0)) {
+      settings.car.currentOdometer = odoVal;
+      const carOdoEl = document.getElementById('car-odometer');
+      if (carOdoEl) carOdoEl.value = odoVal;
+      storageSet(SETTINGS_KEY, settings);
+      syncPush(SETTINGS_KEY, settings);
+    }
+    await saveMaintenance();
+  }
+
+  function updateMaintenanceItem(idx, field, val) {
+    if (!maintenanceItems[idx]) return;
+    maintenanceItems[idx][field] = val;
+    if (field === 'intervalType') {
+      const isOdo = val === 'odometer';
+      document.getElementById(`maint-time-fields-${idx}`)?.toggleAttribute('hidden', isOdo);
+      document.getElementById(`maint-odo-fields-${idx}`)?.toggleAttribute('hidden', !isOdo);
+    }
+  }
+
+  function addMaintenanceItem() {
+    maintenanceItems.push({
+      id: `maint-custom-${Date.now()}`,
+      name: '', notes: '',
+      intervalType: 'time', intervalValue: 1, intervalUnit: 'months', intervalKm: null,
+      lastCompletedDate: null, lastCompletedOdometer: null, enabled: true,
+    });
+    renderMaintenanceConfigCards();
+    document.getElementById('maintenance-config-cards')?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function showMaintenanceDeleteConfirm(idx) {
+    document.getElementById(`maintenance-confirm-${idx}`)?.removeAttribute('hidden');
+  }
+
+  function cancelMaintenanceDelete(idx) {
+    document.getElementById(`maintenance-confirm-${idx}`)?.setAttribute('hidden', '');
+  }
+
+  async function deleteMaintenanceItem(idx) {
+    maintenanceItems.splice(idx, 1);
+    await saveMaintenance();
+  }
+
+  function exportMaintenanceCSV() {
+    const header = 'row_type,item_id,name,notes,interval_type,interval_value,interval_unit,interval_km';
+    const rows = [header];
+    maintenanceItems.forEach(item => {
+      rows.push([
+        csvField('ITEM'),
+        csvField(item.id),
+        csvField(item.name),
+        csvField(item.notes || ''),
+        csvField(item.intervalType),
+        csvField(item.intervalType === 'time' ? item.intervalValue : ''),
+        csvField(item.intervalType === 'time' ? item.intervalUnit : ''),
+        csvField(item.intervalType === 'odometer' ? item.intervalKm : ''),
+      ].join(','));
+    });
+    const d = new Date();
+    const date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    triggerDownload('﻿' + rows.join('\r\n'), `maintenance-${date}.csv`, 'text/csv;charset=utf-8;');
+  }
+
+  function parseMaintenanceCSV(text) {
+    const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
+    const items = [];
+    for (const line of lines) {
+      const cols = parseCSVRow(line);
+      if (!cols || cols[0]?.toUpperCase() !== 'ITEM') continue;
+      const [, itemId, name, notes, intervalType, intervalValue, intervalUnit, intervalKm] = cols;
+      if (!name) continue;
+      items.push({
+        id: itemId || `maint-import-${Date.now()}`,
+        name: name.trim(),
+        notes: (notes || '').trim(),
+        intervalType: intervalType === 'odometer' ? 'odometer' : 'time',
+        intervalValue: intervalValue ? +intervalValue : 1,
+        intervalUnit: intervalUnit || 'months',
+        intervalKm: intervalKm ? +intervalKm : null,
+        lastCompletedDate: null,
+        lastCompletedOdometer: null,
+        enabled: true,
+      });
+    }
+    return items;
+  }
+
+  function importMaintenanceCSV() {
+    const input = document.getElementById('maintenance-csv-input');
+    input.value = '';
+    input.onchange = async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const parsed = parseMaintenanceCSV(text);
+      if (!parsed.length) { alert('No valid ITEM rows found in the file.'); return; }
+      if (!confirm(`Import ${parsed.length} item${parsed.length !== 1 ? 's' : ''}? They will be appended to your existing items.`)) return;
+      const ts = Date.now();
+      parsed.forEach((item, i) => { item.id = `maint-import-${item.id}-${ts + i}`; });
+      maintenanceItems.push(...parsed);
+      await saveMaintenance();
+    };
+    input.click();
+  }
+
+  function downloadMaintenanceTemplate() {
+    triggerDownload(MAINTENANCE_CSV_TEMPLATE, 'maintenance-template.txt', 'text/plain;charset=utf-8;');
+  }
+
   // Preferences
   function loadPrefsUI() {
     document.getElementById('pref-show-prices').checked = settings.prefs.showPrices;
@@ -2049,6 +2541,7 @@ Output only the CSV starting with the header row.`;
     document.getElementById('car-colour').value = settings.car.colour || '';
     document.getElementById('car-display-name').value = settings.car.displayName || '';
     document.getElementById('car-postcode').value = settings.car.postcode || '';
+    document.getElementById('car-odometer').value = settings.car.currentOdometer || '';
   }
 
   function loadNotificationsUI() {
@@ -2178,6 +2671,7 @@ Output only the CSV starting with the header row.`;
       settings.car.colour = document.getElementById('car-colour').value.trim();
       settings.car.displayName = document.getElementById('car-display-name').value.trim();
       settings.car.postcode = document.getElementById('car-postcode').value.trim();
+      settings.car.currentOdometer = +document.getElementById('car-odometer').value || null;
     } else if (section === 'notifications') {
       settings.notifications.ticktickEmail    = (document.getElementById('ticktick-email')?.value ?? '').trim();
       settings.notifications.ticktickAlerts   = document.getElementById('pref-ticktick-alerts')?.checked ?? true;
@@ -2610,6 +3104,7 @@ Output only the CSV starting with the header row.`;
       storageSet(SETTINGS_KEY, {}),
       storageSet(ALERTS_KEY, {}),
       storageSet(ROUTINES_KEY, null),
+      storageSet(MAINTENANCE_KEY, null),
       storageSet(AUTH_CACHE_KEY, null),
     ]);
     location.reload();
@@ -2660,7 +3155,7 @@ Output only the CSV starting with the header row.`;
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
@@ -2669,6 +3164,7 @@ Output only the CSV starting with the header row.`;
       // loadRoutines must run before loadLog/loadSettings since
       // renderWashReminderCards (called by both) depends on routines[].
       await loadRoutines();
+      await loadMaintenance();
       await loadChecklist();
       await loadLog();
       await loadBudget();
@@ -3011,6 +3507,7 @@ Output only the CSV starting with the header row.`;
     await loadLog();
     await loadBudget();
     await loadRoutines();
+    await loadMaintenance();
     await loadSettings();
     await loadAlerts();
     // Restore cached auth state immediately so the nav/settings UI shows

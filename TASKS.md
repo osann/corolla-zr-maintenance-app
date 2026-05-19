@@ -141,7 +141,6 @@ Service records, tyre rotations, tyre pressure checks, rego renewal dates. Will 
 - ☐ Same entry shape as wash log: date, type, notes
 - ☐ Recurring reminder support (rego renewal annually, etc.)
 - ☐ `.ics` export for calendar integration
-- ☐ Move wash frequency settings from Routines → Configure to the new Schedule page
 
 ---
 
