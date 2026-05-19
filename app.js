@@ -1781,6 +1781,8 @@ Output only the CSV starting with the header row.`;
     syncPush(ROUTINES_KEY, routines);
     renderRoutinesView();
     renderRoutineConfigCards();
+    renderLogTypeSelect();
+    renderSchedulesUI();
     showSaved('routines-v1-saved');
   }
 
