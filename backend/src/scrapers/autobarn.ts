@@ -3,9 +3,9 @@ import { createFetchScraper } from './fetch-scraper.js';
 // Auto Barn robots.txt: Crawl-delay 10s, window 04:00–08:45 UTC.
 // Both GitHub Actions hosted runners and Render IPs are blocked (HTTP 403).
 // Runs via the self-hosted runner on the home machine (residential IP).
-// ~40–60% of product URLs consistently hang server-side regardless of method —
-// Playwright fallback was tried but those URLs also timeout in the browser.
-// HTTP-only gets ~16–18/40 products; the rest are covered by Autopro.
+// Short /ab/p/{SKU} URLs hang server-side for ~half of products — seed.ts now stores
+// full canonical URLs (autobarnUrl field) which are reliably served.
+// Playwright fallback was tried but does not help — do not re-enable.
 const { scrapeToArray, scrapeAll: scrapeAutobarn } = createFetchScraper({
   retailer: 'autobarn',
   homepageUrl: 'https://www.autobarn.com.au/',

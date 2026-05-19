@@ -150,18 +150,7 @@ Dedicated tab for mechanical maintenance tracking — recurring time and odomete
 
 ---
 
-## 10. Export PDF report
-
-Printable kit-and-technique reference for offline / glovebox use.
-
-- ☐ Extend existing `@media print` styles
-- ☐ Server-side PDF generation via Puppeteer or Playwright
-- ☐ "Export PDF" button in settings
-- ☐ (Optional) Per-session printable wash receipt
-
----
-
-## 11. Community sharing
+## 10. Community sharing
 
 Let other Australian car owners use this as a starting template.
 

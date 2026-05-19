@@ -99,10 +99,11 @@ The wait anchor is `#product-content .product-price` — always present once the
 
 ---
 
-## URL templates don't work for either retailer
+## URL templates don't work — store full URLs for Auto Barn, Repco, and Supercheap
 
-Initial assumption: URLs could be constructed from a product code template. Both are wrong.
+Initial assumption: URLs could be constructed from a product code template. All three are wrong.
 
+- **Auto Barn:** Short `/ab/p/{SKU}` URLs exist but hang at the server level for roughly half of all products. Always store the full canonical URL (e.g. `/ab/Autobarn-Category/.../p/CC04058`). The `autobarnSku` field is kept only to derive Autopro URLs — Autopro's short `/ap/p/{SKU}` form works fine.
 - **Repco:** Paths include full category slugs that vary per product. Store full URLs.
 - **Supercheap:** URL slugs use `bowdens-own-bowdens-own-{name}` or `bowdens-own-{name}` patterns that don't map cleanly to product names, and SPO-prefixed bundle SKUs use a different pattern entirely. Store full URLs.
 
@@ -140,9 +141,11 @@ On GitHub Actions, de-duplication happens server-side in the `POST /api/prices` 
 
 Auto Barn (`autobarn.com.au`) returns HTTP 403 from GitHub Actions hosted runner IPs and Render's cloud IPs. It is scraped from `debian-server`, a home Debian Linux machine with a residential IP, via `scrape-autobarn.yml`.
 
-Even with a residential IP, roughly 40–60% of Auto Barn product URLs consistently hang on plain HTTP (60s timeout). The products that succeed respond in <15s; the failures never respond regardless of timeout length. The failing set shifts slightly between runs depending on server load (homepage pre-fetch taking 70s instead of the usual 15s indicates a high-load day). Typically ~16–18/40 products are captured per run.
+Even with a residential IP, short-form URLs (`/ab/p/{SKU}`) hang on plain HTTP (60s timeout) for roughly half of all products. The products that succeed respond in <15s; the failures never respond regardless of timeout length. **The root cause is the short URL routing, not the products themselves** — the Auto Barn backend does not reliably serve `/ab/p/{SKU}` redirects for all SKUs. Switching to full canonical URLs (e.g. `/ab/Autobarn-Category/.../p/CC04058`) fixes the affected products.
 
-**Playwright fallback was tried and does not work:** the same product URLs that hang on plain HTTP also timeout in a Playwright browser session. Three runs of Playwright confirmed zero valid price captures. The failing URLs appear to hang at the server level — not a bot-detection issue. `playwrightFallback` is disabled on `autobarn.ts`. Do not re-enable it.
+Full canonical URLs are now stored in `seed.ts` via the `autobarnUrl` field. The `autobarnSku` field is kept solely to derive Autopro URLs (`/ap/p/{SKU}`), which use short-form URLs without issues. When adding a new Auto Barn product, always store the full canonical URL from the product page — not the short `/ab/p/{SKU}` form.
+
+**Playwright fallback was tried and does not work:** the same short-URL requests that hang on plain HTTP also timeout in a Playwright browser session. Three runs of Playwright confirmed zero valid price captures. `playwrightFallback` is disabled on `autobarn.ts`. Do not re-enable it.
 
 The OS dependencies for Playwright are installed on `debian-server` (required by the existing `browser.ts` infrastructure used by Supercheap/Repco scrapers):
 
