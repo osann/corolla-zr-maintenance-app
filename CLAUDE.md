@@ -6,15 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market). Built around the Bowden's Own product ecosystem with a few non-Bowden additions (303 Aerospace Protectant, Kärcher pressure washer). All retailer references are Australian (Supercheap Auto, Repco, Auto Barn, Autopro) and pricing is in AUD.
 
-The app has eight tabs:
+The app has nine tabs:
 - **checklist** — kit purchase tracker, customisable phases (add/rename/delete), product prices
 - **guide** — per-product technique reference (mostly static)
 - **routine** — fully customisable wash routines; three sub-tabs: "Routines" (read-only rendered view), "Schedules" (per-routine reminder interval config), and "Configure" (editor cards for name/subtext/type/steps/alerts, CSV import/export, drag reorder, log step chips)
+- **maintenance** — mechanical maintenance tracker; four sub-tabs: "Upcoming" (overdue/due-soon/never-done cards with inline Mark Complete), "Schedule" (full read-only table), "History" (completion log with inline delete), and "Configuration" (editable item cards, CSV import/export, drag reorder)
 - **log** — wash session log with streak counter, reminder cards, and weather hints; three sub-tabs: "History" (default), "New Session", and "Edit Session" (hidden unless editing a past entry)
 - **spend** — spend tracker, budget bar, live sale alerts
 - **prices** — read-only price sheet: all tracked products grouped by functional category, all retailers per product, with sparklines and sale badges
 - **refs** — links to manufacturer pages and community resources
-- **settings** — display preferences, notification config (TickTick + email), vehicle details (incl. postcode for weather). Wash frequency config has moved to Routines → Schedules; routine step chips are in Routines → Configure. When signed out: Vehicle details, Notifications, Display preferences, and Data management sections are hidden.
+- **settings** — display preferences, notification config (TickTick + email), vehicle details (incl. postcode for weather and current odometer). Wash frequency config has moved to Routines → Schedules; routine step chips are in Routines → Configure. Data management includes targeted resets for routines and maintenance. When signed out: Vehicle details, Notifications, Display preferences, and Data management sections are hidden.
 
 ## Current architecture
 
@@ -149,15 +150,15 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 - `storageGet(key)` / `storageSet(key, val)` — storage abstraction that tries `window.storage` (Claude artifact runtime) then falls back to `localStorage`. All persistence goes through these.
 - `render*()` functions write to the DOM from state
 - `apply*()` functions mutate the DOM based on current settings
-- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadRoutines → loadSettings → checkAuthAndSync → loadPriceData() + loadWeather()` (loadRoutines before loadSettings so renderWashReminderCards fires with routines already populated; price data and weather are non-blocking, called after sync so they use the post-sync postcode and settings)
+- `init()` on load: `setupChecklist → loadChecklist → loadLog → loadBudget → loadRoutines → loadMaintenance → loadSettings → checkAuthAndSync → loadPriceData() + loadWeather()` (loadRoutines before loadSettings so renderWashReminderCards fires with routines already populated; price data and weather are non-blocking, called after sync so they use the post-sync postcode and settings)
 - `itemData` array is rebuilt by `renderChecklist()` on every render — includes `slug`, `phase` (phase ID string), `price`, `el`, `input`
 - `loadPriceData()` fetches `GET /api/products`, calls `applyLivePrices()` which updates `.item-price` text, adds 🔥 for on-sale items, updates `item.price` in memory, then calls `recompute()` so spend totals reflect live prices. Fails silently if backend is unreachable. Timeout is 40s (Render free tier cold start is ~30s).
 - `loadPriceHistories()` is called from `loadPriceData()` after prices are applied. It fetches `GET /api/products/prices` (bulk, 90-day window) in a single call, populates `priceHistories` keyed by product ID, then calls `renderPriceList()` (spend tab) and `renderPricesTab()` (prices tab). The old per-product `GET /api/products/:id/prices` endpoint is kept but no longer called by the frontend.
 - `renderPricesTab()` renders the **prices** tab. It iterates a hardcoded `PRICE_CATEGORIES` array (defined inside the function) that maps each functional category and sub-section to an ordered list of product slugs. It builds a `productBySlug` lookup from `liveProducts`, then for each slug renders a `.prices-product` block containing one `.prices-retailer-row` per retailer — each with price, 🔥 Sale badge, sparkline (or "No data yet." placeholder at the same fixed dimensions), and buy link. Each product name row also has a 🔔 bell button (`toggleAlertForm(slug)`) that opens an inline threshold form. At the end of `renderPricesTab()`, `renderAlertsPanel()` is called to refresh the active-alerts summary card at the top of the tab (`#prices-alerts-summary`). The panel is hidden when no alerts are configured. Categories and their sub-sections: Equipment (Microfibre / Wash Pads / Drying Towels / Other), Pressure Washer Equipment (Pressure Washers / Foam Cannons), Exterior Wash (Glass / Prep / Pre-Wash / Contact Wash), Exterior Protection (Sealant / Quick Detailer), Interior Clean (Leather / Fabric), Interior Protect (Leather / Fabric & Suede / Plastic, Vinyl & Rubber), Wheels (Equipment / Clean / Protect). A slug can appear in multiple categories. Products not in the mapping are silently omitted. Cards for categories where no product has a scraped price are not rendered.
 - The `__BACKEND_URL__` guard uses `BACKEND_URL.startsWith('__')` — not strict equality. The `sed` substitution in `deploy.yml` replaces `__BACKEND_URL__` globally, which would corrupt a `=== '__BACKEND_URL__'` check into `=== '<real-url>'`. Never revert this to a string equality check.
-- **Auth cache** (`corolla-auth-v1` in localStorage) — written after a successful `/api/auth/me` response so the signed-in UI state is restored immediately on reload without waiting for the network round-trip. Cleared on auth failure and on sign-out. Sign-out also clears all other local storage keys (`CHECKLIST_V3_KEY`, `LOG_KEY`, `BUDGET_KEY`, `SETTINGS_KEY`, `ALERTS_KEY`, `ROUTINES_KEY`) and reloads the page.
+- **Auth cache** (`corolla-auth-v1` in localStorage) — written after a successful `/api/auth/me` response so the signed-in UI state is restored immediately on reload without waiting for the network round-trip. Cleared on auth failure and on sign-out. Sign-out also clears all other local storage keys (`CHECKLIST_V3_KEY`, `LOG_KEY`, `BUDGET_KEY`, `SETTINGS_KEY`, `ALERTS_KEY`, `ROUTINES_KEY`, `MAINTENANCE_KEY`, `MAINTENANCE_LOG_KEY`) and reloads the page.
 - **`renderAuthUI()`** — single function that reflects auth state across the entire UI. As well as the login/logout form swap it toggles visibility of: Wash Log tab, Spend tab, routine sub-tabs (Schedules/Configure), bell icons on the Prices tab, and the Vehicle details, Notifications, Display preferences, and Data management settings sections. When a tab is hidden while active it redirects to Wash Routines. `renderPricesTab()` also gates the bell button on `syncEnabled` so it is omitted from rendered HTML when signed out.
-- **Post-sync reload order in `checkAuthAndSync()`**: `loadRoutines → loadChecklist → loadLog → loadBudget → loadSettings → loadAlerts → renderWashReminderCards()`. After `renderAuthUI()`, `renderLogTypeSelect()` is also called so the New Session form reflects the synced routines immediately. `ROUTINES_KEY` is included in the sync pull. `loadRoutines` runs first so `routines[]` is populated before `loadSettings` calls `renderWashReminderCards`.
+- **Post-sync reload order in `checkAuthAndSync()`**: `loadRoutines → loadMaintenance → loadChecklist → loadLog → loadBudget → loadSettings → loadAlerts → renderWashReminderCards()`. After `renderAuthUI()`, `renderLogTypeSelect()` is also called so the New Session form reflects the synced routines immediately. `ROUTINES_KEY`, `MAINTENANCE_KEY`, and `MAINTENANCE_LOG_KEY` are all included in the sync pull. `loadRoutines` runs first so `routines[]` is populated before `loadSettings` calls `renderWashReminderCards`.
 
 ### Storage keys
 
@@ -166,9 +167,11 @@ Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is s
 | `corolla-checklist-v3` | `{ phases: [{id, tag, title, items: string[]}], nextId: number, checked: {[slug]: bool} }` | Checklist phases + checked state |
 | `corolla-washlog-v1` | `Array<{id, date, type, steps[], notes}>` | Wash log |
 | `corolla-budget-v1` | `{ target: number }` | Budget target |
-| `corolla-settings-v1` | `{ freq, routines, prefs, car: {model, year, colour, rego, displayName, postcode}, notifications, schedules: [{routineId, intervalValue, intervalUnit}] }` | Settings |
+| `corolla-settings-v1` | `{ freq, routines, prefs, car: {model, year, colour, rego, displayName, postcode, currentOdometer}, notifications, schedules: [{routineId, intervalValue, intervalUnit}] }` | Settings |
 | `corolla-price-alerts-v1` | `{ [slug]: { thresholdCents: number, channel: 'global' \| 'ticktick' \| 'email' } }` | Per-product price alert thresholds |
 | `corolla-routines-v1` | `Array<{ id, name, subtext, types: string[], steps: [{product, action, enabled}], alerts: [{severity, label, text}] }>` | Fully customisable routine objects |
+| `corolla-maintenance-v1` | `Array<{ id, name, notes, intervalType, intervalValue, intervalUnit, intervalKm, lastCompletedDate, lastCompletedOdometer, enabled }>` | Maintenance item definitions |
+| `corolla-maintenance-log-v1` | `Array<{ id, itemId, itemName, date, odometer }>` | Maintenance completion history (newest-first) |
 
 Bump the version suffix on breaking shape changes rather than writing migrations. The checklist key has gone through three versions: `corolla-detailing-app-v4` (positional `item-N` IDs) → `corolla-checklist-v2` (slug-keyed config) → `corolla-checklist-v3` (phases array with metadata). Each `loadChecklist()` migrates forward automatically on first load.
 
@@ -219,7 +222,7 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 - `escAttr(str)` — escapes `"`, `<`, `>`, `&` for safe embedding in HTML attribute values
 - `triggerDownload(content, filename, mime)` — creates a `Blob`, object URL, clicks a hidden `<a>`, revokes URL
 
-**`applySchedule()`** — retained in `app.js` for the future Schedule page. It reads `[data-sched]` attributes from the DOM and overwrites cell text with live frequency labels. It is no longer called from `renderRoutinesView()` — the Maintenance routine shows static step text, not dynamic frequency values.
+**`applySchedule()`** — retained in `app.js` but no longer called anywhere. It reads `[data-sched]` attributes from the DOM and overwrites cell text with live frequency labels. The Maintenance routine shows static step text; the dedicated Maintenance tab handles all scheduling.
 
 **`settings.routines`** (in `corolla-settings-v1`) — the simple name+enabled arrays for log step chips. Untouched by the routines overhaul; still drives the chip editor in Routines → Configure and the log step checklist.
 
@@ -237,6 +240,40 @@ The routine tab is fully dynamic — no static HTML tables. All routine data liv
 - `sendWashReminderToTickTick(routineId, routineName, btn)` — `POST /api/notify/wash-reminder`; shows "Sent ✓" / "Failed" on the button
 - `renderSchedulesUI()` — renders schedule entry rows (routine dropdown, interval input, unit select, remove button) into `#schedule-list`
 - `updateScheduleField(idx, field, val)` / `addScheduleEntry()` / `removeScheduleEntry(idx)` — mutate `settings.schedules` in-place and re-render
+
+### Maintenance system
+
+All maintenance data lives in `corolla-maintenance-v1` (items) and `corolla-maintenance-log-v1` (completion history).
+
+**Constants (`app.js`):**
+- `MAINTENANCE_KEY` / `MAINTENANCE_LOG_KEY` — storage key strings
+- `DEFAULT_MAINTENANCE_ITEMS` — 7 default items (tyre pressure, oil level, washer fluid, cabin filter, logbook service, tyre rotation, brake fluid)
+- `MAINTENANCE_CSV_TEMPLATE` — Claude prompt template for generating AU ZR Hybrid maintenance schedules, downloadable from Configuration tab
+
+**State:** `let maintenanceItems = []` / `let maintenanceLog = []` — loaded from storage, fall back to defaults / empty array.
+
+**Item shape:** `{ id, name, notes, intervalType: 'time'|'odometer', intervalValue, intervalUnit: 'days'|'weeks'|'months'|'years', intervalKm, lastCompletedDate, lastCompletedOdometer, enabled }`. `lastCompletedDate` and `lastCompletedOdometer` are derived from the most-recent matching entry in `maintenanceLog` — when a history entry is deleted, these fields are recalculated from remaining log entries for that item.
+
+**Key functions:**
+- `loadMaintenance()` — reads both keys, falls back to defaults, renders all four sub-panels
+- `saveMaintenance()` — writes items, syncs, re-renders all four sub-panels, shows saved confirmation
+- `saveMaintenanceLog()` — writes log, syncs, re-renders history only
+- `saveMaintenanceComplete(itemId)` — reads inline form (date + odometer), updates item's last-completed fields, updates `settings.car.currentOdometer` if odometer is higher, pushes a new entry to `maintenanceLog`, calls both save functions
+- `deleteMaintenanceLogEntry(entryId)` — removes entry, recalculates `lastCompletedDate`/`lastCompletedOdometer` on the affected item from remaining log entries (or nulls both if none remain), saves both stores
+- `maintenanceNextDue(item)` → `{ dueDate, dueKm, status: 'overdue'|'due-soon'|'ok'|'never-done' }`. Time items: `dueDate = lastCompletedDate + interval`; due-soon = within 14 days. Odometer items: compares `dueKm` to `settings.car.currentOdometer`; due-soon = within 2,000 km. Items with no last-completed → `'never-done'`.
+- `maintenanceDueLabel(item)` — human string: "Overdue — was due 3 days ago", "Due in 5 days (15 May 2026)", "Due at 35,000 km (2,400 km away)", "Not yet recorded"
+- `maintenanceIntervalLabel(item)` — "Every 1 month" or "Every 10,000 km"
+- `maintenanceItemIsUrgent(item)` — true if status is overdue/due-soon/never-done (used to filter Upcoming tab)
+- `renderMaintenanceUpcoming()` / `renderMaintenanceSchedule()` / `renderMaintenanceHistory()` / `renderMaintenanceConfigCards()` — render into their respective `#maintenance-sub-*` panels
+- `showMaintenanceCompleteForm(itemId)` / `hideMaintenanceCompleteForm(itemId)` — toggle inline complete form via `hidden` attribute
+- `showMaintenanceLogDeleteConfirm(entryId)` / `cancelMaintenanceLogDelete(entryId)` — toggle inline history delete confirm
+- `addMaintenanceItem()` / `deleteMaintenanceItem(idx)` / `updateMaintenanceItem(idx, field, val)` — mutate `maintenanceItems`; `updateMaintenanceItem` also toggles `hidden` on `#maint-time-fields-{idx}` / `#maint-odo-fields-{idx}` when field is `'intervalType'`
+- `exportMaintenanceCSV()` / `importMaintenanceCSV()` / `parseMaintenanceCSV(text)` / `downloadMaintenanceTemplate()` — CSV and template helpers mirroring routines pattern
+- `resetMaintenance()` — resets items to defaults and clears log; called from Settings → Data management
+
+**Drag-to-reorder:** `maintenanceDragSrc` tracks source card index; same pattern as routines.
+
+**Odometer field:** `settings.car.currentOdometer` (number | null) is updated from three places: Vehicle Details settings, the odometer field on the wash log New Session form (only if the entered value is greater than the current reading), and the Maintenance Mark Complete form. All three call `saveSettings()` or the equivalent save function after updating.
 
 ### Log tab
 

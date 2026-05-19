@@ -133,14 +133,20 @@ When a Bowden's product is unavailable, suggest an equivalent.
 
 ---
 
-## 9. Maintenance log + Schedule page
+## 9. Maintenance log + Schedule page ✅
 
-Service records, tyre rotations, tyre pressure checks, rego renewal dates. Will include a dedicated Schedule page where wash frequency settings (currently in Routines → Configure) will live alongside maintenance reminders.
+Dedicated tab for mechanical maintenance tracking — recurring time and odometer-based reminders for tyre pressure, oil level, service intervals, etc.
 
-- ☐ New "Maintenance" tab alongside the wash log
-- ☐ Same entry shape as wash log: date, type, notes
-- ☐ Recurring reminder support (rego renewal annually, etc.)
-- ☐ `.ics` export for calendar integration
+- ✅ New "Maintenance" tab with four sub-tabs: Upcoming, Schedule, History, Configuration
+- ✅ Items support time-based intervals (days/weeks/months/years) or odometer-based intervals (km)
+- ✅ Upcoming sub-tab: shows overdue, never-done, and due-soon items only; "Mark Complete" inline form with date + odometer; accent border on overdue cards
+- ✅ Schedule sub-tab: full read-only table of all enabled items with interval, last done, and next due columns
+- ✅ History sub-tab: completion log newest-first; inline delete confirm; deleting an entry recalculates item's last-completed from remaining log entries
+- ✅ Configuration sub-tab: editable item cards with name, notes, interval type/value, enabled toggle, drag-to-reorder, inline delete confirm
+- ✅ CSV export and import (append mode, fresh IDs); Claude prompt template for generating AU-specific maintenance schedules for the ZR Hybrid
+- ✅ `corolla-maintenance-v1` (items) and `corolla-maintenance-log-v1` (completion history) — both synced to backend via `ALLOWED_KEYS`
+- ✅ `settings.car.currentOdometer` — new field in `corolla-settings-v1`; set from Vehicle Details, wash log New Session form, and Maintenance Mark Complete form
+- ✅ Reset routines and Reset maintenance buttons added to Settings → Data management
 
 ---
 
