@@ -1761,7 +1761,7 @@
   }
 
   /* ─── Wash reminder cards ───────────────────────── */
-  #wash-reminder-cards { display: flex; flex-direction: column; gap: 10px; margin: 0 0 8px; }
+  #wash-reminder-cards, #maintenance-upcoming-cards { display: flex; flex-direction: column; gap: 10px; margin: 0 0 8px; }
   .wash-reminder-card {
     background: var(--bg-elev);
     border: 1px solid var(--rule);
