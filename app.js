@@ -2129,8 +2129,32 @@ Output only the CSV starting with the header row.`;
   }
 
   function updateRoutineStep(rIdx, sIdx, field, val) {
-    routines[rIdx].steps[sIdx][field] = field === 'enabled' ? val : val;
-    if (field === 'product') {
+    routines[rIdx].steps[sIdx][field] = val;
+  }
+
+  function addRoutineStep(rIdx) {
+    routines[rIdx].steps.push({ name: '', action: '', products: [] });
+    renderRoutineConfigCards();
+  }
+
+  function removeRoutineStep(rIdx, sIdx) {
+    routines[rIdx].steps.splice(sIdx, 1);
+    renderRoutineConfigCards();
+  }
+
+  function addStepProduct(rIdx, sIdx) {
+    routines[rIdx].steps[sIdx].products.push({ name: '', ml: null });
+    renderRoutineConfigCards();
+  }
+
+  function removeStepProduct(rIdx, sIdx, pIdx) {
+    routines[rIdx].steps[sIdx].products.splice(pIdx, 1);
+    renderRoutineConfigCards();
+  }
+
+  function updateStepProduct(rIdx, sIdx, pIdx, field, val) {
+    routines[rIdx].steps[sIdx].products[pIdx][field] = field === 'ml' ? (val === '' ? null : Number(val)) : val;
+    if (field === 'name') {
       const match = CATALOG.find(p => p.name === val);
       if (match && PRODUCT_ACTIONS[match.slug]) {
         const actionEl = document.getElementById(`step-action-${rIdx}-${sIdx}`);
@@ -2140,16 +2164,6 @@ Output only the CSV starting with the header row.`;
         }
       }
     }
-  }
-
-  function addRoutineStep(rIdx) {
-    routines[rIdx].steps.push({ product: '', action: '', enabled: true });
-    renderRoutineConfigCards();
-  }
-
-  function removeRoutineStep(rIdx, sIdx) {
-    routines[rIdx].steps.splice(sIdx, 1);
-    renderRoutineConfigCards();
   }
 
   function updateRoutineAlert(rIdx, aIdx, field, val) {
