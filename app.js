@@ -3584,24 +3584,10 @@ Output only the CSV starting with the header row.`;
     });
   }
 
-  // Rebuild log step chips from settings
+  // Rebuild log step chips — delegates to the routine-based chip renderer
   function applyLogStepChips() {
-    const container = document.getElementById('steps-checklist');
-    if (!container) return;
-    const steps = (settings.routines.log || DEFAULT_STEPS.log).filter(s => s.enabled);
-    container.innerHTML = steps.map(s =>
-      `<label class="step-chip"><input type="checkbox" value="${s.name}"> ${s.name}</label>`
-    ).join('');
-    // Re-attach toggle listeners
-    container.querySelectorAll('.step-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const cb = chip.querySelector('input');
-        chip.classList.toggle('checked', cb.checked);
-      });
-      chip.querySelector('input').addEventListener('change', function() {
-        chip.classList.toggle('checked', this.checked);
-      });
-    });
+    const sel = document.getElementById('log-type');
+    renderStepChipsForRoutine(sel?.value ?? '');
   }
 
   // Save / load settings
