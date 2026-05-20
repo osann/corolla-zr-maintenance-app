@@ -1723,7 +1723,7 @@ Output only the CSV starting with the header row.`;
       container.innerHTML = `
         <div class="inv-empty-state">
           <p>No items in inventory yet.</p>
-          <p>Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.tab[data-tab=\\'spend\\']')?.click()">Kit Checklist</button> to add them here.</p>
+          <p>Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.inv-sub-tab[data-inv-tab=\\'checklist\\']')?.click()">Kit Checklist</button> to add them here.</p>
         </div>`;
       return;
     }
@@ -2056,7 +2056,7 @@ Output only the CSV starting with the header row.`;
     }
 
     if (!anyRendered) {
-      html = `<div class="inv-empty-state"><p>No items with stock data yet. Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.tab[data-tab=\\'spend\\']')?.click()">Kit Checklist</button> to populate your inventory.</p></div>`;
+      html = `<div class="inv-empty-state"><p>No items with stock data yet. Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.inv-sub-tab[data-inv-tab=\\'checklist\\']')?.click()">Kit Checklist</button> to populate your inventory.</p></div>`;
     }
 
     container.innerHTML = html;
@@ -2073,13 +2073,13 @@ Output only the CSV starting with the header row.`;
     });
   });
 
-  // ─── Spend sub-tab navigation ─────────────────────
-  document.querySelectorAll('.spend-sub-tab').forEach(btn => {
+  // ─── Inventory sub-tab navigation ─────────────────
+  document.querySelectorAll('.inv-sub-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.spend-sub-tab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.spend-sub-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.inv-sub-tab').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.inv-sub-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById('spend-sub-' + btn.dataset.spendTab).classList.add('active');
+      document.getElementById('inv-sub-' + btn.dataset.invTab).classList.add('active');
     });
   });
 
@@ -3949,7 +3949,6 @@ Output only the CSV starting with the header row.`;
     if (!loginForm || !logoutSec) return;
     const logTab           = document.querySelector('.tab[data-tab="log"]');
     const maintenanceTab   = document.querySelector('.tab[data-tab="maintenance"]');
-    const spendTab         = document.querySelector('.tab[data-tab="spend"]');
     const inventoryTab     = document.querySelector('.tab[data-tab="inventory"]');
     const routineSubTabs = document.querySelector('.routine-sub-tabs');
     const vehicleSec     = document.getElementById('settings-vehicle');
@@ -3968,7 +3967,6 @@ Output only the CSV starting with the header row.`;
         if (wasHidden) document.querySelector('.tab[data-tab="log"]')?.click();
       }
       if (maintenanceTab) maintenanceTab.style.display  = '';
-      if (spendTab)       spendTab.style.display       = '';
       if (inventoryTab)   inventoryTab.style.display   = '';
       if (routineSubTabs) routineSubTabs.style.display = '';
       if (vehicleSec)     vehicleSec.style.display     = '';
@@ -3990,10 +3988,6 @@ Output only the CSV starting with the header row.`;
       if (maintenanceTab) {
         maintenanceTab.style.display = 'none';
         if (maintenanceTab.classList.contains('active')) document.querySelector('.tab[data-tab="routine"]')?.click();
-      }
-      if (spendTab) {
-        spendTab.style.display = 'none';
-        if (spendTab.classList.contains('active')) document.querySelector('.tab[data-tab="routine"]')?.click();
       }
       if (inventoryTab) {
         inventoryTab.style.display = 'none';
