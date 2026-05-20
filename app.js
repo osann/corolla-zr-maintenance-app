@@ -356,6 +356,57 @@ Output only the CSV starting with the header row.`;
     'bolp-leather-care-pack':         { volumeMl: 1000, usagePerWashMl: 25  },
   };
 
+  // Maps bundle slugs → ordered component definitions.
+  // Components with a slug are looked up in INVENTORY_DEFAULTS for volume/usage defaults.
+  // Components without a slug (inline) use the values defined here; their state is stored
+  // under a composite key `bundleSlug:component-name-normalised`.
+  const BUNDLE_COMPONENTS = {
+    'nanolicious-wash-pack-ultimate': [
+      { name: 'Nanolicious Wash (500ml)',  volumeMl: 500,  usagePerWashMl: 25  },
+      { slug: 'shagtastic-wash-pad',       name: 'Shagtastic Wash Pad',         equipment: true },
+      { slug: 'the-big-green-sucker',      name: 'The Big Green Sucker',        equipment: true },
+      { name: 'Boss Gloss (125ml)',         volumeMl: 125,  usagePerWashMl: 10  },
+    ],
+    'nanolicious-shag-pack': [
+      { name: 'Nanolicious Wash (500ml)',  volumeMl: 500,  usagePerWashMl: 25  },
+      { slug: 'shagtastic-wash-pad',       name: 'Shagtastic Wash Pad',         equipment: true },
+    ],
+    'wet-dreams-pack': [
+      { slug: 'wet-dreams-770ml',          name: 'Wet Dreams Sealant (770ml)' },
+      { name: 'Big Softie (orange)',        equipment: true },
+    ],
+    'naked-inta-mitt-pack': [
+      { slug: 'naked-glass-500ml',         name: 'Naked Glass (500ml)' },
+      { slug: 'inta-mitt',                 name: 'Inta-Mitt',                   equipment: true },
+    ],
+    'boss-gloss-pack': [
+      { slug: 'boss-gloss-770ml',          name: 'Boss Gloss (770ml)' },
+    ],
+    'bolp-leather-care-pack': [
+      { slug: 'leather-love-v2-500ml',     name: 'Leather Love V2 (500ml)' },
+      { slug: 'leather-guard-500ml',       name: 'Leather Guard (500ml)' },
+      { slug: 'plush-daddy',               name: 'Plush Daddy',                 equipment: true },
+      { slug: 'the-square-bear',           name: 'The Square Bear',             equipment: true },
+    ],
+    '2-bucket-wash-kit': [
+      { name: 'Wash Bucket (15L)',          equipment: true },
+      { name: 'Rinse Bucket (15L)',         equipment: true },
+      { name: 'Great Barrier Thingy (×2)', equipment: true },
+    ],
+    'the-essentials-starters-kit': [
+      { name: 'Wash Bucket (15L)',          equipment: true },
+      { name: 'Rinse Bucket (15L)',         equipment: true },
+      { name: 'Great Barrier Thingy (×2)', equipment: true },
+      { slug: 'microfibre-bucket-lid',     name: 'Microfibre Bucket With Lid',  equipment: true },
+      { name: 'Nanolicious Wash (500ml)',  volumeMl: 500,  usagePerWashMl: 25  },
+      { slug: 'shagtastic-wash-pad',       name: 'Shagtastic Wash Pad',         equipment: true },
+      { slug: 'wet-dreams-770ml',          name: 'Wet Dreams Sealant (770ml)' },
+      { slug: 'boss-gloss-770ml',          name: 'Boss Gloss (770ml)' },
+      { slug: 'twisted-pro-sucker',        name: 'Twisted Pro Sucker',          equipment: true },
+      { slug: 'microfibre-wash-1l',        name: 'Microfibre Wash (1L)' },
+    ],
+  };
+
   let inventoryState = {}; // { [slug]: { purchaseDate, volumeMl, usagePerWashMl, remainingMl, manualOverride } }
 
   // Default phases — id order matches original HTML for v4/v2 → v3 migration
@@ -1713,6 +1764,93 @@ Output only the CSV starting with the header row.`;
         </div>`;
     }
 
+    // Renders a bundle component, which may or may not have its own catalog slug.
+    // Inline components (no slug) use a composite state key derived from the bundle slug + component name.
+    function renderComponentCard(comp, bundleSlug) {
+      const compKey = comp.slug
+        ?? `${bundleSlug}:${comp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      const safeKey = escAttr(compKey);
+      const name = escHtml(comp.name);
+      const isEquip = comp.equipment ?? EQUIPMENT_SLUGS.has(comp.slug ?? '');
+
+      if (!inventoryState[compKey]) inventoryState[compKey] = {};
+      if (!inventoryState[compKey].purchaseDate && inventoryState[bundleSlug]?.purchaseDate) {
+        inventoryState[compKey].purchaseDate = inventoryState[bundleSlug].purchaseDate;
+      }
+
+      const meta     = inventoryState[compKey];
+      const defaults = comp.slug ? (INVENTORY_DEFAULTS[comp.slug] ?? {}) : {};
+
+      if (isEquip) {
+        const uses    = comp.slug ? countProductUses(comp.slug) : 0;
+        const dateStr = meta.purchaseDate
+          ? `Since ${new Date(meta.purchaseDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
+          : '';
+        const usesStr = uses === 1 ? 'Used in 1 session' : uses > 0 ? `Used in ${uses} sessions` : '';
+        const metaStr = [dateStr, usesStr].filter(Boolean).join(' · ');
+        return `
+          <div class="inv-card inv-card--equip">
+            <div class="inv-card-name">${name}</div>
+            ${metaStr ? `<div class="inv-equip-meta">${metaStr}</div>` : ''}
+          </div>`;
+      }
+
+      const volumeMl       = meta.volumeMl       ?? comp.volumeMl       ?? defaults.volumeMl       ?? null;
+      const usagePerWashMl = meta.usagePerWashMl ?? comp.usagePerWashMl ?? defaults.usagePerWashMl ?? null;
+      const remainingMl    = meta.remainingMl;
+      const notConfigured  = remainingMl == null;
+      const pct = (volumeMl && remainingMl != null) ? Math.max(0, Math.min(100, Math.round((remainingMl / volumeMl) * 100))) : null;
+      const isLow = pct != null && pct <= 20;
+
+      let stockHtml = '';
+      if (notConfigured) {
+        stockHtml = `<div class="inv-not-set">Stock not set — <button class="inv-link-btn" onclick="toggleInvAdjustForm('${safeKey}')">configure</button></div>`;
+      } else {
+        const fillColor = pct > 50 ? 'var(--accent)' : pct > 20 ? 'var(--warn)' : 'var(--danger)';
+        const label = volumeMl ? `${remainingMl}ml remaining (${pct}%)` : `${remainingMl}ml remaining`;
+        stockHtml = `
+          <div class="inv-stock-wrap">
+            <div class="inv-stock-bar"><div class="inv-stock-fill" style="width:${pct ?? 0}%;background:${fillColor}"></div></div>
+            <span class="inv-stock-label">${label}</span>
+            ${isLow ? '<span class="inv-low-badge">Running low</span>' : ''}
+          </div>`;
+      }
+
+      let sessionsHtml = '';
+      if (!notConfigured && usagePerWashMl && remainingMl != null) {
+        const sessionsLeft = Math.floor(remainingMl / usagePerWashMl);
+        sessionsHtml = `<div class="inv-sessions-left">${sessionsLeft} wash${sessionsLeft !== 1 ? 'es' : ''} remaining</div>`;
+      }
+
+      const volVal   = meta.volumeMl       ?? comp.volumeMl       ?? defaults.volumeMl       ?? '';
+      const usageVal = meta.usagePerWashMl ?? comp.usagePerWashMl ?? defaults.usagePerWashMl ?? '';
+      const remVal   = meta.remainingMl    ?? '';
+
+      return `
+        <div class="inv-card inv-card--consumable${isLow ? ' inv-card--low' : ''}">
+          <div class="inv-card-row">
+            <div class="inv-card-name">${name}</div>
+            <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${safeKey}')" title="Adjust stock">Adjust</button>
+          </div>
+          ${stockHtml}
+          ${sessionsHtml}
+          <div class="inv-adjust-form" id="inv-adjust-form-${safeKey}" hidden>
+            <div class="inv-adjust-grid">
+              <label class="inv-adjust-label">Volume (ml)</label>
+              <label class="inv-adjust-label">Per wash (ml)</label>
+              <label class="inv-adjust-label">Remaining (ml)</label>
+              <input class="inv-adjust-input" type="number" id="inv-vol-${safeKey}" value="${volVal}" min="1" placeholder="e.g. 500">
+              <input class="inv-adjust-input" type="number" id="inv-usage-${safeKey}" value="${usageVal}" min="1" placeholder="e.g. 25">
+              <input class="inv-adjust-input" type="number" id="inv-remain-${safeKey}" value="${remVal}" min="0" placeholder="e.g. 375">
+            </div>
+            <div class="inv-adjust-actions">
+              <button class="settings-save-btn" onclick="saveInvAdjust('${safeKey}')">Update</button>
+              <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="markItemEmpty('${safeKey}')">Mark empty</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
     let html = '';
     let anyRendered = false;
 
@@ -1724,9 +1862,23 @@ Output only the CSV starting with the header row.`;
         let secHtml = '';
         for (const slug of sec.slugs) {
           if (!ownedSlugs.has(slug)) continue;
-          const inv = inventoryState[slug] ?? {};
-          if (!EQUIPMENT_SLUGS.has(slug) && inv.remainingMl === 0) continue;
-          secHtml += renderInvCard(slug);
+
+          if (BUNDLE_COMPONENTS[slug]) {
+            // Expand bundle into individual component cards
+            for (const comp of BUNDLE_COMPONENTS[slug]) {
+              // Skip slug-referenced components the user also owns independently — they render under their own entry
+              if (comp.slug && ownedSlugs.has(comp.slug)) continue;
+              const compKey = comp.slug ?? `${slug}:${comp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+              const compMeta = inventoryState[compKey] ?? {};
+              const isEquip = comp.equipment ?? EQUIPMENT_SLUGS.has(comp.slug ?? '');
+              if (!isEquip && compMeta.remainingMl === 0) continue;
+              secHtml += renderComponentCard(comp, slug);
+            }
+          } else {
+            const inv = inventoryState[slug] ?? {};
+            if (!EQUIPMENT_SLUGS.has(slug) && inv.remainingMl === 0) continue;
+            secHtml += renderInvCard(slug);
+          }
         }
         if (!secHtml) continue;
         const headClass = firstSec ? 'section-head' : 'section-head section-head--gap';
