@@ -172,16 +172,16 @@
       subtext: 'Follow this sequence every wash. Order matters — steps done out of sequence re-contaminate surfaces already cleaned.',
       types: ['exterior'],
       steps: [
-        { product: 'Plain water rinse',        action: 'Dislodge loose grit before any product contact', enabled: true },
-        { product: 'Wheely Clean V2',          action: 'Spray wheels, agitate with Flat Head + Little Stiffy, rinse', enabled: true },
-        { product: 'Snow Job (foam cannon)',    action: 'Apply pre-wash foam, dwell 2–4 min, rinse top to bottom', enabled: true },
-        { product: 'Nanolicious Wash',         action: 'Two-bucket contact wash, top to bottom, straight strokes', enabled: true },
-        { product: 'Final rinse',              action: 'Free-flow sheet rinse, remove nozzle, top to bottom', enabled: true },
-        { product: 'Wet Dreams',               action: 'Spray onto wet car, dwell 20–30 sec, gentle rinse', enabled: true },
-        { product: 'Happy Ending (foam cannon)', action: 'Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse', enabled: true },
-        { product: 'Big Green Sucker',         action: 'Dry with towel — paint will be noticeably slicker', enabled: true },
-        { product: 'Naked Glass + Inta-Mitt',  action: 'Exterior glass first, then interior windscreen', enabled: true },
-        { product: 'Boss Gloss (optional)',    action: 'Quick detail any remaining water spots or fingerprints', enabled: false },
+        { name: 'Pre-rinse',        action: 'Dislodge loose grit before any product contact', products: [] },
+        { name: 'Wheel clean',      action: 'Spray wheels, agitate with Flat Head + Little Stiffy, rinse', products: [{ name: 'Wheely Clean V2 500ml', ml: null }, { name: 'The Flat Head', ml: null }, { name: 'The Little Stiffy', ml: null }] },
+        { name: 'Pre-wash foam',    action: 'Apply via foam cannon, dwell 2–4 min, rinse top to bottom', products: [{ name: 'Snow Job 1L', ml: null }] },
+        { name: 'Contact wash',     action: 'Two-bucket method, top to bottom, straight strokes', products: [{ name: 'Nanolicious Wash Pack Ultimate', ml: null }] },
+        { name: 'Sheet rinse',      action: 'Free-flow rinse, remove nozzle, top to bottom', products: [] },
+        { name: 'Rinse sealant',    action: 'Spray onto wet car, dwell 20–30 sec, gentle rinse', products: [{ name: 'Wet Dreams Sealant 770ml', ml: null }] },
+        { name: 'Foam rinse aid',   action: 'Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse', products: [{ name: 'Happy Ending Cannon Bottle', ml: null }] },
+        { name: 'Dry',              action: 'Dry with towel — paint will be noticeably slicker', products: [{ name: 'The Big Green Sucker Drying Towel', ml: null }] },
+        { name: 'Glass',            action: 'Exterior glass first, then interior windscreen', products: [{ name: 'Naked Glass 500ml', ml: null }, { name: 'Inta-Mitt', ml: null }] },
+        { name: 'Quick detail',     action: 'Spot-remove any remaining water spots or fingerprints', products: [{ name: 'Boss Gloss 770ml', ml: null }] },
       ],
       alerts: [],
     },
@@ -191,14 +191,14 @@
       subtext: 'Separate from the wash. Monthly, or whenever visibly soiled.',
       types: ['interior'],
       steps: [
-        { product: 'Vacuum',                          action: 'Remove all grit before any liquid application — including floor mats', enabled: true },
-        { product: 'Fabra Cadabra + Plush Brush',     action: 'Clean Ultrasuede inserts in sections, blot with Plush Daddy', enabled: true },
-        { product: 'Leather Love V2 + Square Bear',   action: 'Clean leather seats, steering wheel, gear knob, doors', enabled: true },
-        { product: 'Plush Daddy (damp)',              action: 'Wipe hard plastics, console, door pulls, climate controls', enabled: true },
-        { product: 'Naked Glass + Inta-Mitt',         action: 'Interior windscreen and all windows', enabled: true },
-        { product: 'Leather Guard + Square Bear',     action: 'Apply protectant to leather surfaces (monthly)', enabled: true },
-        { product: '303 Aerospace Protectant',        action: 'UV protection on dashboard, plastic trim, rubber mats (every 4–8 weeks)', enabled: true },
-        { product: 'Fabratection',                    action: 'Reapply to Ultrasuede annually, carpet mats every 6 months', enabled: true },
+        { name: 'Vacuum',           action: 'Remove all grit before any liquid application — including floor mats', products: [] },
+        { name: 'Upholstery clean', action: 'Clean Ultrasuede inserts in sections, blot with Plush Daddy', products: [{ name: 'Fabra Cadabra 500ml', ml: null }, { name: 'Plush Brush', ml: null }] },
+        { name: 'Leather clean',    action: 'Clean leather seats, steering wheel, gear knob, doors', products: [{ name: 'Leather Love V2 500ml', ml: null }, { name: 'The Square Bear Interior Applicator', ml: null }] },
+        { name: 'Hard surfaces',    action: 'Wipe hard plastics, console, door pulls, climate controls', products: [{ name: 'Plush Daddy Interior Microfibre', ml: null }] },
+        { name: 'Interior glass',   action: 'Interior windscreen and all windows', products: [{ name: 'Naked Glass 500ml', ml: null }, { name: 'Inta-Mitt', ml: null }] },
+        { name: 'Leather protect',  action: 'Apply protectant to leather surfaces', products: [{ name: 'Leather Guard 500ml', ml: null }, { name: 'The Square Bear Interior Applicator', ml: null }] },
+        { name: 'Trim & rubber',    action: 'UV protection on dashboard, plastic trim, rubber mats', products: [{ name: '303 Aerospace Protectant 473ml', ml: null }] },
+        { name: 'Fabric protect',   action: 'Reapply to Ultrasuede annually, carpet mats every 6 months', products: [{ name: 'Fabratection', ml: null }] },
       ],
       alerts: [
         { severity: 'warn', label: 'Critical', text: 'Never use the same cloth on Ultrasuede that has touched leather product. Cross-contamination is the most common cause of interior damage.' },
@@ -210,17 +210,17 @@
       subtext: '',
       types: ['maintenance'],
       steps: [
-        { product: 'Full wash',                              action: 'Nanolicious + Wet Dreams + dry with Boss Gloss aid', enabled: true },
-        { product: 'Interior wipe-down',                     action: 'Plush Daddy on high-touch surfaces (wheel, shifter, door pulls, screen)', enabled: true },
-        { product: 'Deep wheel clean',                       action: 'Iron remover check, full tyre brush clean, dress tyres', enabled: true },
-        { product: 'Full interior detail',                   action: 'Fabra Cadabra + Leather Love + Leather Guard', enabled: true },
-        { product: 'Apply 303 Aerospace',                    action: 'Interior plastics + rubber mats. More frequent in summer', enabled: true },
-        { product: 'Tyre pressure check',                    action: 'More critical for tyre life than any cleaning product', enabled: true },
-        { product: 'Reapply Bead Machine',                   action: 'Use Flash Prep first. When water beading flattens, time to reapply', enabled: true },
-        { product: 'Reapply Fabratection — carpet mats',     action: "Driver's mat especially — gets the most wear", enabled: true },
-        { product: 'Reapply Fabratection — Ultrasuede',      action: 'After bead test fails', enabled: true },
-        { product: 'Reapply Leather Guard',                  action: 'Focus on bolsters and seat base — highest contact wear areas', enabled: true },
-        { product: 'Replace mitts',                          action: 'If matted, stiff, or discoloured', enabled: true },
+        { name: 'Full wash',             action: 'Nanolicious + Wet Dreams + dry with Big Green Sucker', products: [] },
+        { name: 'Interior wipe-down',    action: 'Plush Daddy on high-touch surfaces (wheel, shifter, door pulls, screen)', products: [{ name: 'Plush Daddy Interior Microfibre', ml: null }] },
+        { name: 'Deep wheel clean',      action: 'Full tyre brush clean with Wheely Clean', products: [{ name: 'Wheely Clean V2 500ml', ml: null }] },
+        { name: 'Full interior detail',  action: 'Upholstery, leather clean + protect, trim', products: [{ name: 'Fabra Cadabra 500ml', ml: null }, { name: 'Leather Love V2 500ml', ml: null }, { name: 'Leather Guard 500ml', ml: null }] },
+        { name: 'Trim & rubber',         action: 'Interior plastics + rubber mats. More frequent in summer', products: [{ name: '303 Aerospace Protectant 473ml', ml: null }] },
+        { name: 'Tyre pressure check',   action: 'More critical for tyre life than any cleaning product', products: [] },
+        { name: 'Sealant reapply',       action: 'Use Flash Prep first. When water beading flattens, time to reapply', products: [{ name: 'Flash Prep 500ml', ml: null }, { name: 'Bead Machine 500ml', ml: null }] },
+        { name: 'Carpet protection',     action: "Driver's mat especially — gets the most wear", products: [{ name: 'Fabratection', ml: null }] },
+        { name: 'Ultrasuede protect',    action: 'Reapply after bead test fails', products: [{ name: 'Fabratection', ml: null }] },
+        { name: 'Leather protection',    action: 'Focus on bolsters and seat base — highest contact wear areas', products: [{ name: 'Leather Guard 500ml', ml: null }] },
+        { name: 'Replace mitts',         action: 'If matted, stiff, or discoloured', products: [] },
       ],
       alerts: [],
     },
@@ -1709,8 +1709,8 @@ Output only the CSV starting with the header row.`;
 
 ## CSV format
 
-One file, 12 columns, always include this exact header row:
-row_type,routine_id,name,subtext,types,product,action,enabled,sched,severity,label,text
+One file, 10 columns, always include this exact header row:
+row_type,routine_id,name,subtext,types,action,products,severity,label,text
 
 Row types:
 
@@ -1722,15 +1722,17 @@ ROUTINE row — one per routine:
 
 STEP row — one per step, grouped after its routine row:
   routine_id : must match the parent routine
-  product    : product or tool name (free text)
-  action     : what to do — one concise sentence
-  enabled    : true or false
-  sched      : leave blank UNLESS this step tracks a recurring frequency (valid values: fullWash / interiorDetail / beadMachine / aerospace / leatherGuard)
+  name       : short step label (e.g. "Pre-wash foam", "Contact wash") — displayed as the Step column
+  action     : what to do — one or two concise sentences (the how-to detail)
+  products   : semicolon-separated list of products used in this step.
+               To include a millilitre amount, append ":ml" after the product name (e.g. "Snow Job 1L:60").
+               Leave blank if no products are needed (e.g. a plain water rinse or vacuum step).
+               Example: "Wheely Clean V2 500ml:30;The Flat Head;The Little Stiffy"
 
 ALERT row — optional, shown as a coloured callout at the bottom of the routine:
   routine_id : must match the parent routine
   severity   : tip (green) | warn (orange) | danger (red)
-  label      : short all-caps label, e.g. "Critical" or "Note" — leave blank if none
+  label      : short label, e.g. "Critical" or "Note" — leave blank if none
   text       : the alert message
 
 Rules:
@@ -1741,19 +1743,19 @@ Rules:
 
 ## Example (two routines)
 
-row_type,routine_id,name,subtext,types,product,action,enabled,sched,severity,label,text
-routine,quick_detail,Quick Detail,Fast finish between full washes,exterior,,,,,,,
-step,quick_detail,,,,Boss Gloss,Mist onto dry panels and buff off with a clean microfibre,true,,,,
-step,quick_detail,,,,Naked Glass + Inta-Mitt,Wipe interior windscreen and all windows,true,,,,
-alert,quick_detail,,,,,,,,tip,Note,Only use on a cool panel in shade — streaks in direct sun
-routine,bead_machine_apply,Bead Machine Application,"Apply after Flash Prep when water beading flattens",exterior,,,,,,,
-step,bead_machine_apply,,,,Flash Prep,Wipe every panel to strip old sealant and oils,true,,,,
-step,bead_machine_apply,,,,Bead Machine,"Spread thin coat, buff to a light haze, wipe off with clean Big Softie",true,beadMachine,,,
-alert,bead_machine_apply,,,,,,,,warn,Timing,Do not apply in direct sun or on a hot panel — product flashes too fast
+row_type,routine_id,name,subtext,types,action,products,severity,label,text
+routine,quick_detail,Quick Detail,Fast finish between full washes — no water needed,exterior,,,,,,
+step,quick_detail,Panel wipe,Mist onto dry panel and buff off with a clean microfibre in straight passes,Boss Gloss 770ml:5,,,
+step,quick_detail,Glass,Wipe interior windscreen and all windows — one side per pane,Naked Glass 500ml:5;Inta-Mitt,,,
+alert,quick_detail,,,,,,,tip,Note,Only use on a cool panel in shade — streaks in direct sun
+routine,bead_machine_apply,Bead Machine Application,"Apply after Flash Prep when water beading flattens or sheeting improves",exterior,,,,,,
+step,bead_machine_apply,Paint prep,"Wipe every panel with Flash Prep to strip old sealant, oils, and contamination",Flash Prep 500ml:10,,,
+step,bead_machine_apply,Apply sealant,"Spread thin coat panel by panel, buff to a light haze, wipe off with clean Big Softie",Bead Machine 500ml:15,,,
+alert,bead_machine_apply,,,,,,,warn,Timing,Do not apply in direct sun or on a hot panel — product flashes too fast
 
-## Available products (use these names for best auto-fill in the app)
+## Available products (use exact names for best auto-fill in the app)
 
-Nanolicious Wash Pack Ultimate, Wet Dreams Pack, Boss Gloss 770ml, Naked Glass 500ml, Naked Glass 770ml, Inta-Mitt, Kärcher K2 Premium Pressure Washer, Bowden's Own Snow Blow Cannon, Snow Job 1L, Snow Job 5L, Wheely Clean V2 500ml, Wheely Clean V2 5L, Wheely Clean 770ml, The Little Stiffy, The Flat Head, Fabra Cadabra 500ml, BOLP — Leather Care Pack, Leather Love V2 500ml, Leather Guard 500ml, Fabratection, 303 Aerospace Protectant 473ml, Pumpy Pump, Nanolicious Wash 5L, Microfibre Wash 1L, Plush Brush, Flash Prep 500ml, Bead Machine 500ml, Big Softie pair (blue + orange), Shagtastic Wash Pad, Happy Ending Cannon Bottle, The Chubby Wheel Brush V2, Naked Inta-Mitt Glass Cleaning Pack, Twisted Pro Sucker Drying Towel, The Square Bear Interior Applicator, The Big Green Sucker Drying Towel, Plush Daddy Interior Microfibre, Wet Dreams Sealant 770ml, Happy Ending Foam 1L, Little Chubby Brush V2, Orange Agent 500ml, Wet Dreams Sealant 5L, Boss Gloss 5L, Happy Ending Foam 5L
+Nanolicious Wash Pack Ultimate, Wet Dreams Pack, Boss Gloss 770ml, Boss Gloss 5L, Naked Glass 500ml, Naked Glass 770ml, Inta-Mitt, Kärcher K2 Premium Pressure Washer, Bowden's Own Snow Blow Cannon, Snow Job 1L, Snow Job 5L, Wheely Clean V2 500ml, Wheely Clean V2 5L, Wheely Clean 770ml, The Little Stiffy, The Flat Head, Fabra Cadabra 500ml, BOLP — Leather Care Pack, Leather Love V2 500ml, Leather Guard 500ml, Fabratection, 303 Aerospace Protectant 473ml, Pumpy Pump, Nanolicious Wash 5L, Microfibre Wash 1L, Plush Brush, Flash Prep 500ml, Bead Machine 500ml, Big Softie pair (blue + orange), Shagtastic Wash Pad, Happy Ending Cannon Bottle, The Chubby Wheel Brush V2, Naked Inta-Mitt Glass Cleaning Pack, Twisted Pro Sucker Drying Towel, The Square Bear Interior Applicator, The Big Green Sucker Drying Towel, Plush Daddy Interior Microfibre, Wet Dreams Sealant 770ml, Happy Ending Foam 1L, Little Chubby Brush V2, Orange Agent 500ml, Wet Dreams Sealant 5L, Happy Ending Foam 5L
 
 ## Your task
 
@@ -1770,16 +1772,34 @@ Output only the CSV starting with the header row.`;
       : s;
   }
 
+  function encodeProducts(products) {
+    return (products || []).map(p => p.ml ? `${p.name}:${p.ml}` : p.name).join(';');
+  }
+
+  function decodeProducts(str) {
+    if (!str) return [];
+    return str.split(';').map(s => {
+      const colon = s.lastIndexOf(':');
+      if (colon !== -1) {
+        const maybeNum = Number(s.slice(colon + 1));
+        if (!isNaN(maybeNum) && s.slice(colon + 1).trim() !== '') {
+          return { name: s.slice(0, colon).trim(), ml: maybeNum };
+        }
+      }
+      return { name: s.trim(), ml: null };
+    }).filter(p => p.name);
+  }
+
   function exportRoutinesCSV() {
-    const rows = ['row_type,routine_id,name,subtext,types,product,action,enabled,sched,severity,label,text'];
+    const rows = ['row_type,routine_id,name,subtext,types,action,products,severity,label,text'];
     routines.forEach(r => {
       const types = (r.types || []).join(';');
-      rows.push([csvField('routine'), csvField(r.id), csvField(r.name), csvField(r.subtext || ''), csvField(types), '', '', '', '', '', '', ''].join(','));
+      rows.push([csvField('routine'), csvField(r.id), csvField(r.name), csvField(r.subtext || ''), csvField(types), '', '', '', '', ''].join(','));
       (r.steps || []).forEach(s => {
-        rows.push([csvField('step'), csvField(r.id), '', '', '', csvField(s.product), csvField(s.action), csvField(s.enabled), csvField(s.sched || ''), '', '', ''].join(','));
+        rows.push([csvField('step'), csvField(r.id), csvField(s.name || ''), '', '', csvField(s.action || ''), csvField(encodeProducts(s.products)), '', '', ''].join(','));
       });
       (r.alerts || []).forEach(a => {
-        rows.push([csvField('alert'), csvField(r.id), '', '', '', '', '', '', '', csvField(a.severity), csvField(a.label || ''), csvField(a.text)].join(','));
+        rows.push([csvField('alert'), csvField(r.id), '', '', '', '', '', csvField(a.severity), csvField(a.label || ''), csvField(a.text)].join(','));
       });
     });
     const csv = '﻿' + rows.join('\r\n');
@@ -1804,14 +1824,10 @@ Output only the CSV starting with the header row.`;
       if (!rid) return;
       if (type === 'routine') {
         const types = get(row, 'types').split(';').map(t => t.trim()).filter(Boolean);
-        const r = { id: rid, name: get(row, 'name'), subtext: get(row, 'subtext'), types, steps: [], alerts: [] };
-        routineMap[rid] = r;
+        routineMap[rid] = { id: rid, name: get(row, 'name'), subtext: get(row, 'subtext'), types, steps: [], alerts: [] };
         order.push(rid);
       } else if (type === 'step' && routineMap[rid]) {
-        const sched = get(row, 'sched');
-        const step = { product: get(row, 'product'), action: get(row, 'action'), enabled: get(row, 'enabled') !== 'false' };
-        if (sched) step.sched = sched;
-        routineMap[rid].steps.push(step);
+        routineMap[rid].steps.push({ name: get(row, 'name'), action: get(row, 'action'), products: decodeProducts(get(row, 'products')) });
       } else if (type === 'alert' && routineMap[rid]) {
         routineMap[rid].alerts.push({ severity: get(row, 'severity') || 'tip', label: get(row, 'label'), text: get(row, 'text') });
       }
@@ -1875,6 +1891,17 @@ Output only the CSV starting with the header row.`;
   async function loadRoutines() {
     const saved = await storageGet(ROUTINES_KEY);
     if (saved && Array.isArray(saved) && saved.length) routines = saved;
+    // Migrate old step shape { product, action, enabled } → { name, action, products }
+    routines = routines.map(routine => ({
+      ...routine,
+      steps: (routine.steps || []).map(step => {
+        if ('product' in step && !('name' in step)) {
+          return { name: '', action: step.action || '', products: step.product ? [{ name: step.product, ml: null }] : [] };
+        }
+        if (!('products' in step)) step.products = [];
+        return step;
+      }),
+    }));
     buildCatalogDatalist();
     renderRoutinesView();
     renderRoutineConfigCards();
@@ -1903,15 +1930,23 @@ Output only the CSV starting with the header row.`;
     if (!container) return;
     container.innerHTML = '';
     routines.forEach(routine => {
-      const enabledSteps = routine.steps.filter(s => s.enabled);
-      if (enabledSteps.length === 0) return;
+      const steps = routine.steps || [];
+      if (steps.length === 0) return;
       const section = document.createElement('div');
       section.className = 'product-section';
       section.id = `routine-view-${routine.id}`;
       const typeLabel = (routine.types || []).map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(', ');
-      const rows = enabledSteps.map((step, i) =>
-        `<tr><td>${i + 1}</td><td>${escHtml(step.product)}</td><td>${escHtml(step.action)}</td></tr>`
-      ).join('');
+      const rows = steps.map((step, i) => {
+        const productsList = (step.products || []).map(p =>
+          p.ml ? `${escHtml(p.name)} (${p.ml} ml)` : escHtml(p.name)
+        ).join('<br>');
+        return `<tr>
+          <td>${i + 1}</td>
+          <td>${escHtml(step.name || '')}</td>
+          <td>${escHtml(step.action || '')}</td>
+          <td class="routine-products-cell">${productsList}</td>
+        </tr>`;
+      }).join('');
       const alertsHtml = (routine.alerts || []).map(a => {
         const label = a.label ? `<span class="callout-label">${escHtml(a.label)}</span>` : '';
         return `<div class="callout ${a.severity}">${label}${escHtml(a.text)}</div>`;
@@ -1921,7 +1956,7 @@ Output only the CSV starting with the header row.`;
         <h2>${escHtml(routine.name)}</h2>
         ${routine.subtext ? `<p class="product-intro">${escHtml(routine.subtext)}</p>` : ''}
         <table class="routine-table">
-          <thead><tr><th>Step</th><th>Product</th><th>Action</th></tr></thead>
+          <thead><tr><th>#</th><th>Step</th><th>Action</th><th>Products</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
         ${alertsHtml}
@@ -1978,24 +2013,40 @@ Output only the CSV starting with the header row.`;
       </label>`
     ).join('');
 
-    const stepsHtml = routine.steps.map((step, sIdx) => `
-      <div class="step-editor-row">
-        <input list="catalog-datalist" value="${escAttr(step.product)}"
-          onchange="updateRoutineStep(${rIdx},${sIdx},'product',this.value)"
-          oninput="updateRoutineStep(${rIdx},${sIdx},'product',this.value)"
-          placeholder="Product…" class="step-product-input">
-        <input value="${escAttr(step.action)}"
-          id="step-action-${rIdx}-${sIdx}"
-          onchange="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
-          placeholder="Action…" class="step-action-input">
-        <label class="toggle-wrap step-toggle">
-          <input type="checkbox" ${step.enabled ? 'checked' : ''}
-            onchange="updateRoutineStep(${rIdx},${sIdx},'enabled',this.checked)">
-          <span class="toggle-track" style="border-radius:100px;"></span>
-        </label>
-        <button class="step-remove-btn" onclick="removeRoutineStep(${rIdx},${sIdx})" title="Remove">✕</button>
-      </div>
-    `).join('');
+    const stepsHtml = routine.steps.map((step, sIdx) => {
+      const productsHtml = (step.products || []).map((p, pIdx) => `
+        <div class="step-product-row">
+          <input list="catalog-datalist" value="${escAttr(p.name)}"
+            onchange="updateStepProduct(${rIdx},${sIdx},${pIdx},'name',this.value)"
+            oninput="updateStepProduct(${rIdx},${sIdx},${pIdx},'name',this.value)"
+            placeholder="Product name…" class="step-product-input">
+          <input type="number" value="${p.ml ?? ''}" min="0" step="5"
+            onchange="updateStepProduct(${rIdx},${sIdx},${pIdx},'ml',this.value)"
+            placeholder="ml" class="step-ml-input">
+          <button class="step-remove-btn" onclick="removeStepProduct(${rIdx},${sIdx},${pIdx})" title="Remove product">✕</button>
+        </div>
+      `).join('');
+      return `
+        <div class="step-editor-block">
+          <div class="step-editor-main">
+            <input value="${escAttr(step.name || '')}"
+              onchange="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
+              oninput="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
+              placeholder="Step name (short)…" class="step-name-input">
+            <input value="${escAttr(step.action || '')}"
+              id="step-action-${rIdx}-${sIdx}"
+              onchange="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
+              oninput="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
+              placeholder="Action (what to do)…" class="step-action-input">
+            <button class="step-remove-btn" onclick="removeRoutineStep(${rIdx},${sIdx})" title="Remove step">✕</button>
+          </div>
+          <div class="step-products-section">
+            ${productsHtml}
+            <button class="add-product-btn" onclick="addStepProduct(${rIdx},${sIdx})">+ Add product</button>
+          </div>
+        </div>
+      `;
+    }).join('');
 
     const alertsHtml = (routine.alerts || []).map((alert, aIdx) => `
       <div class="alert-editor-row">
