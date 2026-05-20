@@ -1955,6 +1955,7 @@ Output only the CSV starting with the header row.`;
         ).join('<br>');
         return `<tr>
           <td>${i + 1}</td>
+          <td>${escHtml(step.name || '')}</td>
           <td>${escHtml(step.action || '')}</td>
           <td class="routine-products-cell">${productsList}</td>
         </tr>`;
@@ -1968,7 +1969,7 @@ Output only the CSV starting with the header row.`;
         <h2>${escHtml(routine.name)}</h2>
         ${routine.subtext ? `<p class="product-intro">${escHtml(routine.subtext)}</p>` : ''}
         <table class="routine-table">
-          <thead><tr><th>#</th><th>Action</th><th>Products</th></tr></thead>
+          <thead><tr><th>#</th><th>Step</th><th>Action</th><th>Products</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
         ${alertsHtml}
