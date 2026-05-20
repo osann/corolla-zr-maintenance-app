@@ -1548,19 +1548,29 @@ Output only the CSV starting with the header row.`;
     form.hidden = !isHidden;
   }
 
+  // Returns ml-per-wash for a slug by looking up its product name across all routine steps.
+  function getRoutineUsageMl(slug) {
+    const catalogName = CATALOG.find(p => p.slug === slug)?.name;
+    if (!catalogName) return null;
+    for (const routine of routines) {
+      for (const step of (routine.steps ?? [])) {
+        const prod = step.products?.find(p => p.name === catalogName && p.ml != null);
+        if (prod) return prod.ml;
+      }
+    }
+    return null;
+  }
+
   function saveInvAdjust(slug) {
-    const volumeEl    = document.getElementById(`inv-vol-${slug}`);
-    const usageEl     = document.getElementById(`inv-usage-${slug}`);
-    const remainEl    = document.getElementById(`inv-remain-${slug}`);
-    const defaults    = INVENTORY_DEFAULTS[slug] ?? {};
-    const volumeMl    = volumeEl  && volumeEl.value !== ''  ? +volumeEl.value  : (inventoryState[slug]?.volumeMl    ?? defaults.volumeMl    ?? null);
-    const usagePerWashMl = usageEl && usageEl.value !== ''  ? +usageEl.value   : (inventoryState[slug]?.usagePerWashMl ?? defaults.usagePerWashMl ?? null);
-    const remainingMl = remainEl  && remainEl.value !== ''  ? +remainEl.value  : null;
+    const volumeEl  = document.getElementById(`inv-vol-${slug}`);
+    const remainEl  = document.getElementById(`inv-remain-${slug}`);
+    const defaults  = INVENTORY_DEFAULTS[slug] ?? {};
+    const volumeMl  = volumeEl && volumeEl.value !== '' ? +volumeEl.value : (inventoryState[slug]?.volumeMl ?? defaults.volumeMl ?? null);
+    const remainingMl = remainEl && remainEl.value !== '' ? +remainEl.value : null;
 
     inventoryState[slug] = {
       ...(inventoryState[slug] ?? {}),
       volumeMl,
-      usagePerWashMl,
       remainingMl: remainingMl !== null ? Math.max(0, Math.min(volumeMl ?? Infinity, remainingMl)) : inventoryState[slug]?.remainingMl ?? null,
       manualOverride: remainingMl !== null,
     };
@@ -1592,14 +1602,13 @@ Output only the CSV starting with the header row.`;
     for (const stepName of (entry.steps ?? [])) {
       const step = routine.steps.find(s => s.name === stepName);
       if (!step?.products?.length) continue;
-      for (const { name } of step.products) {
+      for (const { name, ml } of step.products) {
         const slug = catalogByName.get(name);
         if (!slug || EQUIPMENT_SLUGS.has(slug)) continue;
         const inv = inventoryState[slug];
         if (!inv || inv.remainingMl == null) continue;
-        const usageMl = inv.usagePerWashMl ?? INVENTORY_DEFAULTS[slug]?.usagePerWashMl ?? null;
-        if (usageMl == null) continue;
-        inv.remainingMl = Math.max(0, inv.remainingMl - usageMl);
+        if (ml == null) continue;
+        inv.remainingMl = Math.max(0, inv.remainingMl - ml);
         changed = true;
       }
     }
@@ -1705,8 +1714,8 @@ Output only the CSV starting with the header row.`;
       }
 
       // Consumable
-      const volumeMl       = meta.volumeMl       ?? defaults.volumeMl       ?? null;
-      const usagePerWashMl = meta.usagePerWashMl ?? defaults.usagePerWashMl ?? null;
+      const volumeMl       = meta.volumeMl  ?? defaults.volumeMl ?? null;
+      const usagePerWashMl = getRoutineUsageMl(slug);
       const remainingMl    = meta.remainingMl;
       const notConfigured  = remainingMl == null;
       const pct            = (volumeMl && remainingMl != null) ? Math.max(0, Math.min(100, Math.round((remainingMl / volumeMl) * 100))) : null;
@@ -1735,9 +1744,8 @@ Output only the CSV starting with the header row.`;
         sessionsHtml = `<div class="inv-sessions-left">${sessionsLeft} wash${sessionsLeft !== 1 ? 'es' : ''} remaining</div>`;
       }
 
-      const volVal    = meta.volumeMl       ?? defaults.volumeMl       ?? '';
-      const usageVal  = meta.usagePerWashMl ?? defaults.usagePerWashMl ?? '';
-      const remVal    = meta.remainingMl    ?? '';
+      const volVal = meta.volumeMl ?? defaults.volumeMl ?? '';
+      const remVal = meta.remainingMl ?? '';
 
       return `
         <div class="inv-card inv-card--consumable${isLow ? ' inv-card--low' : ''}">
@@ -1750,10 +1758,8 @@ Output only the CSV starting with the header row.`;
           <div class="inv-adjust-form" id="inv-adjust-form-${safeSlug}" hidden>
             <div class="inv-adjust-grid">
               <label class="inv-adjust-label">Volume (ml)</label>
-              <label class="inv-adjust-label">Per wash (ml)</label>
               <label class="inv-adjust-label">Remaining (ml)</label>
               <input class="inv-adjust-input" type="number" id="inv-vol-${safeSlug}" value="${volVal}" min="1" placeholder="e.g. 500">
-              <input class="inv-adjust-input" type="number" id="inv-usage-${safeSlug}" value="${usageVal}" min="1" placeholder="e.g. 25">
               <input class="inv-adjust-input" type="number" id="inv-remain-${safeSlug}" value="${remVal}" min="0" placeholder="e.g. 375">
             </div>
             <div class="inv-adjust-actions">
@@ -1795,8 +1801,8 @@ Output only the CSV starting with the header row.`;
           </div>`;
       }
 
-      const volumeMl       = meta.volumeMl       ?? comp.volumeMl       ?? defaults.volumeMl       ?? null;
-      const usagePerWashMl = meta.usagePerWashMl ?? comp.usagePerWashMl ?? defaults.usagePerWashMl ?? null;
+      const volumeMl       = meta.volumeMl ?? comp.volumeMl ?? defaults.volumeMl ?? null;
+      const usagePerWashMl = comp.slug ? getRoutineUsageMl(comp.slug) : (comp.usagePerWashMl ?? null);
       const remainingMl    = meta.remainingMl;
       const notConfigured  = remainingMl == null;
       const pct = (volumeMl && remainingMl != null) ? Math.max(0, Math.min(100, Math.round((remainingMl / volumeMl) * 100))) : null;
@@ -1822,9 +1828,8 @@ Output only the CSV starting with the header row.`;
         sessionsHtml = `<div class="inv-sessions-left">${sessionsLeft} wash${sessionsLeft !== 1 ? 'es' : ''} remaining</div>`;
       }
 
-      const volVal   = meta.volumeMl       ?? comp.volumeMl       ?? defaults.volumeMl       ?? '';
-      const usageVal = meta.usagePerWashMl ?? comp.usagePerWashMl ?? defaults.usagePerWashMl ?? '';
-      const remVal   = meta.remainingMl    ?? '';
+      const volVal = meta.volumeMl ?? comp.volumeMl ?? defaults.volumeMl ?? '';
+      const remVal = meta.remainingMl ?? '';
 
       return `
         <div class="inv-card inv-card--consumable${isLow ? ' inv-card--low' : ''}">
@@ -1837,10 +1842,8 @@ Output only the CSV starting with the header row.`;
           <div class="inv-adjust-form" id="inv-adjust-form-${safeKey}" hidden>
             <div class="inv-adjust-grid">
               <label class="inv-adjust-label">Volume (ml)</label>
-              <label class="inv-adjust-label">Per wash (ml)</label>
               <label class="inv-adjust-label">Remaining (ml)</label>
               <input class="inv-adjust-input" type="number" id="inv-vol-${safeKey}" value="${volVal}" min="1" placeholder="e.g. 500">
-              <input class="inv-adjust-input" type="number" id="inv-usage-${safeKey}" value="${usageVal}" min="1" placeholder="e.g. 25">
               <input class="inv-adjust-input" type="number" id="inv-remain-${safeKey}" value="${remVal}" min="0" placeholder="e.g. 375">
             </div>
             <div class="inv-adjust-actions">
