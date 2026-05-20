@@ -3961,9 +3961,10 @@ Output only the CSV starting with the header row.`;
     const emailDisplay = document.getElementById('auth-email-display');
     const navBtn       = document.getElementById('nav-auth-btn');
     if (!loginForm || !logoutSec) return;
-    const logTab         = document.querySelector('.tab[data-tab="log"]');
-    const spendTab       = document.querySelector('.tab[data-tab="spend"]');
-    const inventoryTab   = document.querySelector('.tab[data-tab="inventory"]');
+    const logTab           = document.querySelector('.tab[data-tab="log"]');
+    const maintenanceTab   = document.querySelector('.tab[data-tab="maintenance"]');
+    const spendTab         = document.querySelector('.tab[data-tab="spend"]');
+    const inventoryTab     = document.querySelector('.tab[data-tab="inventory"]');
     const routineSubTabs = document.querySelector('.routine-sub-tabs');
     const vehicleSec     = document.getElementById('settings-vehicle');
     const notifSec       = document.getElementById('settings-notifications');
@@ -3980,6 +3981,7 @@ Output only the CSV starting with the header row.`;
         logTab.style.display = '';
         if (wasHidden) document.querySelector('.tab[data-tab="log"]')?.click();
       }
+      if (maintenanceTab) maintenanceTab.style.display  = '';
       if (spendTab)       spendTab.style.display       = '';
       if (inventoryTab)   inventoryTab.style.display   = '';
       if (routineSubTabs) routineSubTabs.style.display = '';
@@ -3998,6 +4000,10 @@ Output only the CSV starting with the header row.`;
       if (logTab) {
         logTab.style.display = 'none';
         if (logTab.classList.contains('active')) document.querySelector('.tab[data-tab="routine"]')?.click();
+      }
+      if (maintenanceTab) {
+        maintenanceTab.style.display = 'none';
+        if (maintenanceTab.classList.contains('active')) document.querySelector('.tab[data-tab="routine"]')?.click();
       }
       if (spendTab) {
         spendTab.style.display = 'none';
