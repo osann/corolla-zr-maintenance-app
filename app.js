@@ -2046,7 +2046,7 @@ Output only the CSV starting with the header row.`;
 
         if (!secHtml) continue;
         const headClass = firstSec ? 'section-head' : 'section-head section-head--gap';
-        categoryBody += `<div class="${headClass}">${escHtml(sec.label)}</div>${secHtml}`;
+        categoryBody += `<div class="${headClass}">${escHtml(sec.label)}</div><div class="inv-grid">${secHtml}</div>`;
         firstSec = false;
       }
 
