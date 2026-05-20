@@ -356,6 +356,26 @@ Output only the CSV starting with the header row.`;
     'bolp-leather-care-pack':         { volumeMl: 1000, usagePerWashMl: 25  },
   };
 
+  // Groups size/format variants of the same product so depletion can fall back to
+  // whichever variant the user actually owns when the step references a different size.
+  const SLUG_FAMILIES = {
+    'nanolicious-wash-pack-ultimate': 'nanolicious', 'nanolicious-wash-5l': 'nanolicious', 'nanolicious-shag-pack': 'nanolicious',
+    'wet-dreams-pack': 'wet-dreams',   'wet-dreams-770ml': 'wet-dreams',   'wet-dreams-5l': 'wet-dreams',
+    'boss-gloss-770ml': 'boss-gloss',  'boss-gloss-5l': 'boss-gloss',      'boss-gloss-pack': 'boss-gloss',
+    'naked-glass-500ml': 'naked-glass','naked-glass-770ml': 'naked-glass',  'naked-inta-mitt-pack': 'naked-glass',
+    'snow-job-1l': 'snow-job',         'snow-job-5l': 'snow-job',
+    'wheely-clean-v2-500ml': 'wheely-clean', 'wheely-clean-v2-5l': 'wheely-clean', 'wheely-clean-770ml': 'wheely-clean',
+    'happy-ending-cannon-bottle': 'happy-ending', 'happy-ending-1l': 'happy-ending', 'happy-ending-5l': 'happy-ending',
+    'leather-love-v2-500ml': 'leather-love',
+    'leather-guard-500ml': 'leather-guard',
+    'fabra-cadabra-500ml': 'fabra-cadabra',
+    'flash-prep-500ml': 'flash-prep',
+    'bead-machine-500ml': 'bead-machine',
+    'microfibre-wash-1l': 'microfibre-wash',
+    'orange-agent-500ml': 'orange-agent',
+    'bolp-leather-care-pack': 'leather-care',
+  };
+
   // Maps bundle slugs → ordered component definitions.
   // Components with a slug are looked up in INVENTORY_DEFAULTS for volume/usage defaults.
   // Components without a slug (inline) use the values defined here; their state is stored
@@ -1618,6 +1638,35 @@ Output only the CSV starting with the header row.`;
     return count;
   }
 
+  // Resolves a catalog slug to the inventoryState key that actually has remainingMl set,
+  // accounting for bundle expansion and size-variant fallback via SLUG_FAMILIES.
+  function resolveInventoryKey(slug) {
+    const candidates = [slug];
+
+    // Expand bundle to its first consumable component key
+    const bundleKey = (s) => {
+      const comps = BUNDLE_COMPONENTS[s];
+      if (!comps) return s;
+      const first = comps.find(c => !c.equipment);
+      if (!first) return null;
+      return first.slug ?? `${s}:${first.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+    };
+
+    // Add sibling slugs from the same family as additional candidates
+    const family = SLUG_FAMILIES[slug];
+    if (family) {
+      for (const [sib, fam] of Object.entries(SLUG_FAMILIES)) {
+        if (fam === family && sib !== slug) candidates.push(sib);
+      }
+    }
+
+    for (const candidate of candidates) {
+      const key = bundleKey(candidate);
+      if (key && inventoryState[key]?.remainingMl != null) return key;
+    }
+    return null;
+  }
+
   function decrementInventoryForSession(entry) {
     const routine = routines.find(r => r.id === entry.type);
     if (!routine) return;
@@ -1631,19 +1680,10 @@ Output only the CSV starting with the header row.`;
         const slug = catalogByName.get(name);
         if (!slug || EQUIPMENT_SLUGS.has(slug)) continue;
 
-        // For bundle slugs, apply the step ml to the first consumable component
-        // (stock is tracked per-component, not on the bundle slug itself)
-        let stateKey = slug;
-        if (BUNDLE_COMPONENTS[slug]) {
-          const firstConsumable = BUNDLE_COMPONENTS[slug].find(c => !c.equipment);
-          if (!firstConsumable) continue;
-          stateKey = firstConsumable.slug
-            ?? `${slug}:${firstConsumable.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-        }
+        const stateKey = resolveInventoryKey(slug);
+        if (!stateKey) continue;
 
-        const inv = inventoryState[stateKey];
-        if (!inv || inv.remainingMl == null) continue;
-        inv.remainingMl = Math.max(0, inv.remainingMl - ml);
+        inventoryState[stateKey].remainingMl = Math.max(0, inventoryState[stateKey].remainingMl - ml);
         changed = true;
       }
     }
