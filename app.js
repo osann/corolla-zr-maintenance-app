@@ -360,50 +360,55 @@ Output only the CSV starting with the header row.`;
   // Components with a slug are looked up in INVENTORY_DEFAULTS for volume/usage defaults.
   // Components without a slug (inline) use the values defined here; their state is stored
   // under a composite key `bundleSlug:component-name-normalised`.
+  // sectionPath: [categoryLabel, sectionLabel] — tells the renderer where to place inline
+  // components (those without a catalog slug). Slug-referenced components are placed wherever
+  // their slug appears in PRICE_CATEGORIES. Equipment inline items default to Equipment/Other.
   const BUNDLE_COMPONENTS = {
     'nanolicious-wash-pack-ultimate': [
-      { name: 'Nanolicious Wash (500ml)',  volumeMl: 500,  usagePerWashMl: 25  },
-      { slug: 'shagtastic-wash-pad',       name: 'Shagtastic Wash Pad',         equipment: true },
-      { slug: 'the-big-green-sucker',      name: 'The Big Green Sucker',        equipment: true },
-      { name: 'Boss Gloss (125ml)',         volumeMl: 125,  usagePerWashMl: 10  },
+      { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
+      { slug: 'shagtastic-wash-pad',      name: 'Shagtastic Wash Pad',         equipment: true },
+      { slug: 'the-big-green-sucker',     name: 'The Big Green Sucker',        equipment: true },
+      { name: 'Boss Gloss (125ml)',        volumeMl: 125,  sectionPath: ['Exterior Protection', 'Quick Detailer'] },
     ],
     'nanolicious-shag-pack': [
-      { name: 'Nanolicious Wash (500ml)',  volumeMl: 500,  usagePerWashMl: 25  },
-      { slug: 'shagtastic-wash-pad',       name: 'Shagtastic Wash Pad',         equipment: true },
+      { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
+      { slug: 'shagtastic-wash-pad',      name: 'Shagtastic Wash Pad',         equipment: true },
     ],
     'wet-dreams-pack': [
-      { slug: 'wet-dreams-770ml',          name: 'Wet Dreams Sealant (770ml)' },
-      { name: 'Big Softie (orange)',        equipment: true },
+      { slug: 'wet-dreams-770ml',         name: 'Wet Dreams Sealant (770ml)' },
+      { name: 'Big Softie',               equipment: true },
     ],
     'naked-inta-mitt-pack': [
-      { slug: 'naked-glass-500ml',         name: 'Naked Glass (500ml)' },
-      { slug: 'inta-mitt',                 name: 'Inta-Mitt',                   equipment: true },
+      { slug: 'naked-glass-500ml',        name: 'Naked Glass (500ml)' },
+      { slug: 'inta-mitt',                name: 'Inta-Mitt',                   equipment: true },
     ],
     'boss-gloss-pack': [
-      { slug: 'boss-gloss-770ml',          name: 'Boss Gloss (770ml)' },
+      { slug: 'boss-gloss-770ml',         name: 'Boss Gloss (770ml)' },
     ],
     'bolp-leather-care-pack': [
-      { slug: 'leather-love-v2-500ml',     name: 'Leather Love V2 (500ml)' },
-      { slug: 'leather-guard-500ml',       name: 'Leather Guard (500ml)' },
-      { slug: 'plush-daddy',               name: 'Plush Daddy',                 equipment: true },
-      { slug: 'the-square-bear',           name: 'The Square Bear',             equipment: true },
+      { slug: 'leather-love-v2-500ml',    name: 'Leather Love V2 (500ml)' },
+      { slug: 'leather-guard-500ml',      name: 'Leather Guard (500ml)' },
+      { slug: 'plush-daddy',              name: 'Plush Daddy',                 equipment: true },
+      { slug: 'the-square-bear',          name: 'The Square Bear',             equipment: true },
     ],
     '2-bucket-wash-kit': [
-      { name: 'Wash Bucket (15L)',          equipment: true },
-      { name: 'Rinse Bucket (15L)',         equipment: true },
-      { name: 'Great Barrier Thingy (×2)', equipment: true },
+      { name: 'Wash Bucket',              equipment: true },
+      { name: 'Rinse Bucket',             equipment: true },
+      { name: 'Great Barrier Thingy',     equipment: true },
+      { name: 'Great Barrier Thingy',     equipment: true },
     ],
     'the-essentials-starters-kit': [
-      { name: 'Wash Bucket (15L)',          equipment: true },
-      { name: 'Rinse Bucket (15L)',         equipment: true },
-      { name: 'Great Barrier Thingy (×2)', equipment: true },
-      { slug: 'microfibre-bucket-lid',     name: 'Microfibre Bucket With Lid',  equipment: true },
-      { name: 'Nanolicious Wash (500ml)',  volumeMl: 500,  usagePerWashMl: 25  },
-      { slug: 'shagtastic-wash-pad',       name: 'Shagtastic Wash Pad',         equipment: true },
-      { slug: 'wet-dreams-770ml',          name: 'Wet Dreams Sealant (770ml)' },
-      { slug: 'boss-gloss-770ml',          name: 'Boss Gloss (770ml)' },
-      { slug: 'twisted-pro-sucker',        name: 'Twisted Pro Sucker',          equipment: true },
-      { slug: 'microfibre-wash-1l',        name: 'Microfibre Wash (1L)' },
+      { name: 'Wash Bucket',              equipment: true },
+      { name: 'Rinse Bucket',             equipment: true },
+      { name: 'Great Barrier Thingy',     equipment: true },
+      { name: 'Great Barrier Thingy',     equipment: true },
+      { slug: 'microfibre-bucket-lid',    name: 'Microfibre Bucket With Lid',  equipment: true },
+      { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
+      { slug: 'shagtastic-wash-pad',      name: 'Shagtastic Wash Pad',         equipment: true },
+      { slug: 'wet-dreams-770ml',         name: 'Wet Dreams Sealant (770ml)' },
+      { slug: 'boss-gloss-770ml',         name: 'Boss Gloss (770ml)' },
+      { slug: 'twisted-pro-sucker',       name: 'Twisted Pro Sucker',          equipment: true },
+      { slug: 'microfibre-wash-1l',       name: 'Microfibre Wash (1L)' },
     ],
   };
 
@@ -1574,7 +1579,8 @@ Output only the CSV starting with the header row.`;
       remainingMl: remainingMl !== null ? Math.max(0, Math.min(volumeMl ?? Infinity, remainingMl)) : inventoryState[slug]?.remainingMl ?? null,
       manualOverride: remainingMl !== null,
     };
-    saveInventory();
+    renderInventory();   // immediate visual update
+    saveInventory();     // async persist
   }
 
   function countProductUses(slug) {
@@ -1772,8 +1778,9 @@ Output only the CSV starting with the header row.`;
 
     // Renders a bundle component, which may or may not have its own catalog slug.
     // Inline components (no slug) use a composite state key derived from the bundle slug + component name.
-    function renderComponentCard(comp, bundleSlug) {
-      const compKey = comp.slug
+    function renderComponentCard(comp, bundleSlug, stateKey) {
+      const compKey = stateKey
+        ?? comp.slug
         ?? `${bundleSlug}:${comp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
       const safeKey = escAttr(compKey);
       const name = escHtml(comp.name);
@@ -1854,6 +1861,75 @@ Output only the CSV starting with the header row.`;
         </div>`;
     }
 
+    // ── Pre-compute bundle expansion ────────────────────────────────────────────
+    // bundleExpansion: componentSlug → [{comp, bundleSlug, stateKey, displayName?}]
+    // inlineSectionItems: 'catLabel|secLabel' → [{comp, bundleSlug, stateKey, displayName?}]
+    const bundleExpansion = new Map();
+    const inlineSectionItems = new Map();
+
+    for (const bSlug of ownedSlugs) {
+      const components = BUNDLE_COMPONENTS[bSlug];
+      if (!components) continue;
+
+      // Count names within this bundle to detect duplicates needing numbering
+      const nameCounts = {};
+      for (const comp of components) {
+        if (comp.slug && ownedSlugs.has(comp.slug)) continue;
+        nameCounts[comp.name] = (nameCounts[comp.name] ?? 0) + 1;
+      }
+      const nameIdx = {};
+
+      for (const comp of components) {
+        if (comp.slug && ownedSlugs.has(comp.slug)) continue;
+
+        // Compute stable state key from original name (before any numbering suffix)
+        const stateKey = comp.slug
+          ?? `${bSlug}:${comp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+        // Apply numbering suffix to display name when the same name appears multiple times
+        nameIdx[comp.name] = (nameIdx[comp.name] ?? 0) + 1;
+        const displayName = nameCounts[comp.name] > 1
+          ? `${comp.name} (${nameIdx[comp.name]})`
+          : comp.name;
+
+        const item = { comp, bundleSlug: bSlug, stateKey, displayName };
+
+        if (comp.slug) {
+          // Slug-referenced: render in the section where that slug lives in PRICE_CATEGORIES
+          if (!bundleExpansion.has(comp.slug)) bundleExpansion.set(comp.slug, []);
+          bundleExpansion.get(comp.slug).push(item);
+        } else {
+          // Inline: render in the section given by sectionPath, or Equipment/Other by default
+          const catLabel = comp.sectionPath?.[0] ?? 'Equipment';
+          const secLabel = comp.sectionPath?.[1] ?? 'Other';
+          const sKey = `${catLabel}|${secLabel}`;
+          if (!inlineSectionItems.has(sKey)) inlineSectionItems.set(sKey, []);
+          inlineSectionItems.get(sKey).push(item);
+        }
+      }
+    }
+
+    // Also number same-name inline items across different bundles within the same section
+    for (const items of inlineSectionItems.values()) {
+      const crossCounts = {};
+      for (const it of items) crossCounts[it.comp.name] = (crossCounts[it.comp.name] ?? 0) + 1;
+      const crossIdx = {};
+      for (const it of items) {
+        if (crossCounts[it.comp.name] > 1) {
+          crossIdx[it.comp.name] = (crossIdx[it.comp.name] ?? 0) + 1;
+          it.displayName = `${it.comp.name} (${crossIdx[it.comp.name]})`;
+        }
+      }
+    }
+
+    // Also number same-slug components across different owned bundles
+    for (const items of bundleExpansion.values()) {
+      if (items.length > 1) {
+        items.forEach((it, i) => { it.displayName = `${it.comp.name} (${i + 1})`; });
+      }
+    }
+
+    // ── Render ──────────────────────────────────────────────────────────────────
     let html = '';
     let anyRendered = false;
 
@@ -1863,26 +1939,41 @@ Output only the CSV starting with the header row.`;
 
       for (const sec of category.sections) {
         let secHtml = '';
-        for (const slug of sec.slugs) {
-          if (!ownedSlugs.has(slug)) continue;
 
-          if (BUNDLE_COMPONENTS[slug]) {
-            // Expand bundle into individual component cards
-            for (const comp of BUNDLE_COMPONENTS[slug]) {
-              // Skip slug-referenced components the user also owns independently — they render under their own entry
-              if (comp.slug && ownedSlugs.has(comp.slug)) continue;
-              const compKey = comp.slug ?? `${slug}:${comp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-              const compMeta = inventoryState[compKey] ?? {};
+        for (const slug of sec.slugs) {
+          // Bundle slug owned: skip it — its components render at their correct slug positions
+          if (BUNDLE_COMPONENTS[slug] && ownedSlugs.has(slug)) continue;
+
+          // Slug-referenced bundle components that belong in this section
+          const expansions = bundleExpansion.get(slug);
+          if (expansions) {
+            for (const { comp, bundleSlug, stateKey, displayName } of expansions) {
+              const compMeta = inventoryState[stateKey] ?? {};
               const isEquip = comp.equipment ?? EQUIPMENT_SLUGS.has(comp.slug ?? '');
               if (!isEquip && compMeta.remainingMl === 0) continue;
-              secHtml += renderComponentCard(comp, slug);
+              const displayComp = displayName !== comp.name ? { ...comp, name: displayName } : comp;
+              secHtml += renderComponentCard(displayComp, bundleSlug, stateKey);
             }
-          } else {
+          }
+
+          // Directly owned non-bundle item
+          if (ownedSlugs.has(slug) && !BUNDLE_COMPONENTS[slug]) {
             const inv = inventoryState[slug] ?? {};
             if (!EQUIPMENT_SLUGS.has(slug) && inv.remainingMl === 0) continue;
             secHtml += renderInvCard(slug);
           }
         }
+
+        // Inline bundle components assigned to this section
+        const sKey = `${category.label}|${sec.label}`;
+        for (const { comp, bundleSlug, stateKey, displayName } of (inlineSectionItems.get(sKey) ?? [])) {
+          const compMeta = inventoryState[stateKey] ?? {};
+          const isEquip = comp.equipment ?? false;
+          if (!isEquip && compMeta.remainingMl === 0) continue;
+          const displayComp = displayName !== comp.name ? { ...comp, name: displayName } : comp;
+          secHtml += renderComponentCard(displayComp, bundleSlug, stateKey);
+        }
+
         if (!secHtml) continue;
         const headClass = firstSec ? 'section-head' : 'section-head section-head--gap';
         categoryBody += `<div class="${headClass}">${escHtml(sec.label)}</div>${secHtml}`;
