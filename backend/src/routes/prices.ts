@@ -8,7 +8,7 @@ import {
   getOwnerNotificationSettings,
   getOwnerAlertThresholds,
 } from '../lib/email.js';
-import { createTickTickTask } from '../lib/ticktick.js';
+import { createTickTickTask, computeDueDate } from '../lib/ticktick.js';
 
 const router = new Hono();
 
@@ -144,7 +144,7 @@ router.post('/prices', async (c) => {
 
 function sendViaChannel(
   channel: 'global' | 'ticktick' | 'email',
-  notifSettings: { ticktickConnected: boolean; ticktickAlerts: boolean; ticktickProjectId: string | null; ticktickTags: string[]; emailAlerts: boolean },
+  notifSettings: { ticktickConnected: boolean; ticktickAlerts: boolean; ticktickProjectId: string | null; ticktickTags: string[]; ticktickDueDate: string; ticktickPriority: number; emailAlerts: boolean },
   ownerEmail: string,
   baseSubject: string,
   body: string,
@@ -161,7 +161,8 @@ function sendViaChannel(
       content:   body,
       projectId: notifSettings.ticktickProjectId ?? '',
       tags:      notifSettings.ticktickTags ?? [],
-      priority:  1,
+      priority:  notifSettings.ticktickPriority as 0 | 1 | 3 | 5,
+      dueDate:   computeDueDate(notifSettings.ticktickDueDate),
     }).catch(console.error);
   }
   if (sendEmail) {

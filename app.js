@@ -1577,6 +1577,8 @@ Output only the CSV starting with the header row.`;
     ticktickAlerts: true,
     ticktickProjectId: null,
     ticktickTags: [],
+    ticktickDueDate: 'none',
+    ticktickPriority: 0,
     emailAlerts: false,
     washReminders: true,
     emailWashReminders: false,
@@ -2620,6 +2622,8 @@ Output only the CSV starting with the header row.`;
   async function loadNotificationsUI() {
     document.getElementById('pref-ticktick-alerts').checked       = settings.notifications.ticktickAlerts;
     document.getElementById('ticktick-tags').value                = (settings.notifications.ticktickTags ?? []).join(', ');
+    document.getElementById('ticktick-due-date').value            = settings.notifications.ticktickDueDate ?? 'none';
+    document.getElementById('ticktick-priority').value            = String(settings.notifications.ticktickPriority ?? 0);
     document.getElementById('pref-email-alerts').checked          = settings.notifications.emailAlerts;
     document.getElementById('pref-wash-reminders').checked        = settings.notifications.washReminders;
     document.getElementById('pref-email-wash-reminders').checked  = settings.notifications.emailWashReminders;
@@ -2635,8 +2639,10 @@ Output only the CSV starting with the header row.`;
       const statusText   = document.getElementById('ticktick-status-text');
       const connectBtn   = document.getElementById('ticktick-connect-btn');
       const disconnectBtn = document.getElementById('ticktick-disconnect-btn');
-      const projectRow   = document.getElementById('ticktick-project-row');
-      const tagsRow      = document.getElementById('ticktick-tags-row');
+      const projectRow  = document.getElementById('ticktick-project-row');
+      const tagsRow     = document.getElementById('ticktick-tags-row');
+      const dueDateRow  = document.getElementById('ticktick-duedate-row');
+      const priorityRow = document.getElementById('ticktick-priority-row');
       ticktickIsConnected = connected;
       if (connected) {
         statusText.textContent = 'Connected';
@@ -2644,6 +2650,8 @@ Output only the CSV starting with the header row.`;
         disconnectBtn.hidden = false;
         projectRow.hidden    = false;
         tagsRow.hidden       = false;
+        dueDateRow.hidden    = false;
+        priorityRow.hidden   = false;
         await loadTickTickProjects();
       } else {
         statusText.textContent = 'Not connected';
@@ -2651,6 +2659,8 @@ Output only the CSV starting with the header row.`;
         disconnectBtn.hidden = true;
         projectRow.hidden    = true;
         tagsRow.hidden       = true;
+        dueDateRow.hidden    = true;
+        priorityRow.hidden   = true;
       }
       renderWashReminderCards();
     } catch { /* backend unreachable — leave as-is */ }
@@ -2808,6 +2818,8 @@ Output only the CSV starting with the header row.`;
       settings.notifications.ticktickProjectId  = document.getElementById('ticktick-project-id')?.value || null;
       settings.notifications.ticktickTags       = (document.getElementById('ticktick-tags')?.value ?? '')
         .split(',').map(t => t.trim()).filter(Boolean);
+      settings.notifications.ticktickDueDate    = document.getElementById('ticktick-due-date')?.value ?? 'none';
+      settings.notifications.ticktickPriority   = Number(document.getElementById('ticktick-priority')?.value ?? 0);
       settings.notifications.emailAlerts        = document.getElementById('pref-email-alerts')?.checked ?? false;
       settings.notifications.washReminders      = document.getElementById('pref-wash-reminders')?.checked ?? true;
       settings.notifications.emailWashReminders = document.getElementById('pref-email-wash-reminders')?.checked ?? false;

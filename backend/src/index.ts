@@ -10,7 +10,7 @@ import weatherRouter from './routes/weather.js';
 import photosRouter from './routes/photos.js';
 import ticktickRouter from './routes/ticktick.js';
 import { scrapeAutopro } from './scrapers/autopro.js';
-import { createTickTickTask } from './lib/ticktick.js';
+import { createTickTickTask, computeDueDate } from './lib/ticktick.js';
 import { initDb } from './db/init.js';
 import { seed } from './db/seed.js';
 import { db } from './db/connection.js';
@@ -147,7 +147,8 @@ cron.schedule('0 7 * * *', async () => {
             content:   washBody,
             projectId: notifSettings.ticktickProjectId ?? '',
             tags:      notifSettings.ticktickTags ?? [],
-            priority:  3,
+            priority:  notifSettings.ticktickPriority as 0 | 1 | 3 | 5,
+            dueDate:   computeDueDate(notifSettings.ticktickDueDate),
           });
         }
         if (notifSettings.emailWashReminders) {
@@ -179,7 +180,8 @@ cron.schedule('0 7 * * *', async () => {
           content:   washBody,
           projectId: notifSettings.ticktickProjectId ?? '',
           tags:      notifSettings.ticktickTags ?? [],
-          priority:  3,
+          priority:  notifSettings.ticktickPriority as 0 | 1 | 3 | 5,
+          dueDate:   computeDueDate(notifSettings.ticktickDueDate),
         });
       }
       if (notifSettings.emailWashReminders) {
