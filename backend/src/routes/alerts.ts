@@ -4,7 +4,7 @@ import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { sessionMiddleware } from '../lib/auth.js';
 import { getOwnerNotificationSettings } from '../lib/email.js';
-import { createTickTickTask, computeDueDate } from '../lib/ticktick.js';
+import { createTickTickTask } from '../lib/ticktick.js';
 
 const router = new Hono();
 
@@ -59,14 +59,13 @@ router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
 
   if (!notif.washReminders || !notif.ticktickConnected) return c.json({ ok: true });
 
-  const datePart = dueDate ? ` ${dueDate}` : '';
   await createTickTickTask(ownerEmail, {
-    title:     `🚗 ${routineName} due${datePart}`.trim(),
+    title:     `🚗 ${routineName} due`,
     content:   'Wash reminder sent from the Corolla app.',
     projectId: notif.ticktickProjectId ?? '',
     tags:      notif.ticktickTags ?? [],
     priority:  notif.ticktickPriority as 0 | 1 | 3 | 5,
-    dueDate:   computeDueDate(notif.ticktickDueDate),
+    dueDate:   dueDate || undefined,
   });
   return c.json({ ok: true });
 });

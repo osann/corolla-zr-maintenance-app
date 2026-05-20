@@ -11,7 +11,6 @@ export interface NotificationSettings {
   ticktickAlerts:     boolean;
   ticktickProjectId:  string | null;
   ticktickTags:       string[];
-  ticktickDueDate:    'none' | 'today' | 'tomorrow';
   ticktickPriority:   0 | 1 | 3 | 5;
   emailAlerts:        boolean;
   washReminders:      boolean;
@@ -24,7 +23,6 @@ const NOTIF_DEFAULTS: NotificationSettings = {
   ticktickAlerts:     true,
   ticktickProjectId:  null,
   ticktickTags:       [],
-  ticktickDueDate:    'none',
   ticktickPriority:   0,
   emailAlerts:        false,
   washReminders:      true,
@@ -90,7 +88,6 @@ export async function getOwnerNotificationSettings(
       ticktickAlerts:     typeof n.ticktickAlerts     === 'boolean' ? n.ticktickAlerts     : true,
       ticktickProjectId:  typeof n.ticktickProjectId  === 'string'  ? n.ticktickProjectId  : null,
       ticktickTags:       Array.isArray(n.ticktickTags)             ? n.ticktickTags        : [],
-      ticktickDueDate:    ['none','today','tomorrow'].includes(n.ticktickDueDate) ? n.ticktickDueDate : 'none',
       ticktickPriority:   [0,1,3,5].includes(n.ticktickPriority)   ? n.ticktickPriority    : 0,
       emailAlerts:        typeof n.emailAlerts         === 'boolean' ? n.emailAlerts         : false,
       washReminders:      typeof n.washReminders       === 'boolean' ? n.washReminders       : true,

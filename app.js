@@ -1577,7 +1577,6 @@ Output only the CSV starting with the header row.`;
     ticktickAlerts: true,
     ticktickProjectId: null,
     ticktickTags: [],
-    ticktickDueDate: 'none',
     ticktickPriority: 0,
     emailAlerts: false,
     washReminders: true,
@@ -2622,7 +2621,6 @@ Output only the CSV starting with the header row.`;
   async function loadNotificationsUI() {
     document.getElementById('pref-ticktick-alerts').checked       = settings.notifications.ticktickAlerts;
     document.getElementById('ticktick-tags').value                = (settings.notifications.ticktickTags ?? []).join(', ');
-    document.getElementById('ticktick-due-date').value            = settings.notifications.ticktickDueDate ?? 'none';
     document.getElementById('ticktick-priority').value            = String(settings.notifications.ticktickPriority ?? 0);
     document.getElementById('pref-email-alerts').checked          = settings.notifications.emailAlerts;
     document.getElementById('pref-wash-reminders').checked        = settings.notifications.washReminders;
@@ -2641,7 +2639,6 @@ Output only the CSV starting with the header row.`;
       const disconnectBtn = document.getElementById('ticktick-disconnect-btn');
       const projectRow  = document.getElementById('ticktick-project-row');
       const tagsRow     = document.getElementById('ticktick-tags-row');
-      const dueDateRow  = document.getElementById('ticktick-duedate-row');
       const priorityRow = document.getElementById('ticktick-priority-row');
       ticktickIsConnected = connected;
       if (connected) {
@@ -2650,7 +2647,6 @@ Output only the CSV starting with the header row.`;
         disconnectBtn.hidden = false;
         projectRow.hidden    = false;
         tagsRow.hidden       = false;
-        dueDateRow.hidden    = false;
         priorityRow.hidden   = false;
         await loadTickTickProjects();
       } else {
@@ -2659,7 +2655,6 @@ Output only the CSV starting with the header row.`;
         disconnectBtn.hidden = true;
         projectRow.hidden    = true;
         tagsRow.hidden       = true;
-        dueDateRow.hidden    = true;
         priorityRow.hidden   = true;
       }
       renderWashReminderCards();
@@ -2818,7 +2813,6 @@ Output only the CSV starting with the header row.`;
       settings.notifications.ticktickProjectId  = document.getElementById('ticktick-project-id')?.value || null;
       settings.notifications.ticktickTags       = (document.getElementById('ticktick-tags')?.value ?? '')
         .split(',').map(t => t.trim()).filter(Boolean);
-      settings.notifications.ticktickDueDate    = document.getElementById('ticktick-due-date')?.value ?? 'none';
       settings.notifications.ticktickPriority   = Number(document.getElementById('ticktick-priority')?.value ?? 0);
       settings.notifications.emailAlerts        = document.getElementById('pref-email-alerts')?.checked ?? false;
       settings.notifications.washReminders      = document.getElementById('pref-wash-reminders')?.checked ?? true;
@@ -3458,9 +3452,7 @@ Output only the CSV starting with the header row.`;
         statusText = `Best day: ${bestDay}`;
       }
       const hasTickTick = ticktickIsConnected && !!settings.notifications?.ticktickAlerts;
-      const dueDateStr = nextDue
-        ? `${String(nextDue.getDate()).padStart(2,'0')}/${String(nextDue.getMonth()+1).padStart(2,'0')}/${nextDue.getFullYear()}`
-        : '';
+      const dueDateStr = nextDue ? nextDue.toISOString() : '';
       const card = document.createElement('div');
       card.className = `wash-reminder-card${isOverdue ? ' wash-reminder-card--overdue' : ''}`;
       card.innerHTML = `

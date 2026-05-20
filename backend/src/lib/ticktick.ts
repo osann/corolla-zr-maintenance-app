@@ -5,21 +5,6 @@ import { and, eq } from 'drizzle-orm';
 const TICKTICK_API = 'https://api.ticktick.com/open/v1';
 const TOKEN_URL    = 'https://ticktick.com/oauth/token';
 
-// Convert a due-date setting to an ISO 8601 string for the TickTick API, or undefined for no due date.
-export function computeDueDate(setting: string): string | undefined {
-  if (setting === 'today') {
-    const d = new Date();
-    d.setUTCHours(0, 0, 0, 0);
-    return d.toISOString().replace('.000Z', '+0000');
-  }
-  if (setting === 'tomorrow') {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() + 1);
-    d.setUTCHours(0, 0, 0, 0);
-    return d.toISOString().replace('.000Z', '+0000');
-  }
-  return undefined;
-}
 
 interface StoredToken {
   access_token:  string;
