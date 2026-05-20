@@ -1478,7 +1478,20 @@ Output only the CSV starting with the header row.`;
 
   // ─── Routine sub-tab navigation ───────────────────
   document.querySelectorAll('.routine-sub-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
+      const leavingConfigure = document.getElementById('routine-sub-configure')?.classList.contains('active');
+      if (leavingConfigure && btn.dataset.routineTab !== 'configure') {
+        const saved = await storageGet(ROUTINES_KEY);
+        routines = (saved && Array.isArray(saved) && saved.length) ? saved : JSON.parse(JSON.stringify(DEFAULT_ROUTINES));
+        routines = routines.map(r => ({
+          ...r,
+          steps: (r.steps || []).map(s => {
+            if ('product' in s && !('name' in s)) return { name: '', action: s.action || '', products: s.product ? [{ name: s.product, ml: null }] : [] };
+            if (!('products' in s)) s.products = [];
+            return s;
+          }),
+        }));
+      }
       document.querySelectorAll('.routine-sub-tab').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.routine-sub-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
@@ -1942,7 +1955,6 @@ Output only the CSV starting with the header row.`;
         ).join('<br>');
         return `<tr>
           <td>${i + 1}</td>
-          <td>${escHtml(step.name || '')}</td>
           <td>${escHtml(step.action || '')}</td>
           <td class="routine-products-cell">${productsList}</td>
         </tr>`;
@@ -1956,7 +1968,7 @@ Output only the CSV starting with the header row.`;
         <h2>${escHtml(routine.name)}</h2>
         ${routine.subtext ? `<p class="product-intro">${escHtml(routine.subtext)}</p>` : ''}
         <table class="routine-table">
-          <thead><tr><th>#</th><th>Step</th><th>Action</th><th>Products</th></tr></thead>
+          <thead><tr><th>#</th><th>Action</th><th>Products</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
         ${alertsHtml}
@@ -2028,18 +2040,16 @@ Output only the CSV starting with the header row.`;
       `).join('');
       return `
         <div class="step-editor-block">
-          <div class="step-editor-main">
-            <input value="${escAttr(step.name || '')}"
-              onchange="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
-              oninput="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
-              placeholder="Step name (short)…" class="step-name-input">
-            <input value="${escAttr(step.action || '')}"
-              id="step-action-${rIdx}-${sIdx}"
-              onchange="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
-              oninput="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
-              placeholder="Action (what to do)…" class="step-action-input">
-            <button class="step-remove-btn" onclick="removeRoutineStep(${rIdx},${sIdx})" title="Remove step">✕</button>
-          </div>
+          <input value="${escAttr(step.name || '')}"
+            onchange="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
+            oninput="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
+            placeholder="Step name (short)…" class="step-name-input">
+          <button class="step-remove-btn step-remove-top" onclick="removeRoutineStep(${rIdx},${sIdx})" title="Remove step">✕</button>
+          <input value="${escAttr(step.action || '')}"
+            id="step-action-${rIdx}-${sIdx}"
+            onchange="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
+            oninput="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
+            placeholder="Action (what to do)…" class="step-action-input">
           <div class="step-products-section">
             ${productsHtml}
             <button class="add-product-btn" onclick="addStepProduct(${rIdx},${sIdx})">+ Add product</button>
