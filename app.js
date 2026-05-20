@@ -2254,6 +2254,10 @@ Output only the CSV starting with the header row.`;
               <label class="log-label" for="maint-odo-${escAttr(item.id)}">Odometer (km)</label>
               <input class="log-input" type="number" id="maint-odo-${escAttr(item.id)}" min="0" placeholder="e.g. 12450" value="${escAttr(String(currentOdo))}">
             </div>
+            <div class="log-field full">
+              <label class="log-label" for="maint-desc-${escAttr(item.id)}">Notes <span style="font-weight:400;color:var(--ink-mid)">(optional)</span></label>
+              <input class="log-input" type="text" id="maint-desc-${escAttr(item.id)}" placeholder="e.g. used 0W-20, rotated front-to-back">
+            </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button class="settings-save-btn" onclick="saveMaintenanceComplete('${escAttr(item.id)}')">Save</button>
               <button class="settings-reset-btn" onclick="hideMaintenanceCompleteForm('${escAttr(item.id)}')">Cancel</button>
@@ -2321,6 +2325,7 @@ Output only the CSV starting with the header row.`;
             <div class="log-entry-type quick">${escHtml(entry.itemName)}</div>
           </div>
           ${odoText ? `<div style="font-size:13px;color:var(--ink-mid);margin-top:4px;">${odoText}</div>` : ''}
+          ${entry.description ? `<div class="log-entry-notes">${escHtml(entry.description)}</div>` : ''}
           <div class="log-confirm-row" id="maint-hist-confirm-${entry.id}" hidden>
             <span>Delete this entry?</span>
             <button class="log-confirm-cancel" onclick="cancelMaintenanceLogDelete(${entry.id})">Cancel</button>
@@ -2463,6 +2468,7 @@ Output only the CSV starting with the header row.`;
     if (!item) return;
     const dateVal = document.getElementById(`maint-date-${itemId}`)?.value || '';
     const odoVal  = +document.getElementById(`maint-odo-${itemId}`)?.value || null;
+    const descVal = document.getElementById(`maint-desc-${itemId}`)?.value.trim() || '';
     if (!dateVal) { alert('Please select a date.'); return; }
     item.lastCompletedDate = dateVal;
     if (odoVal) item.lastCompletedOdometer = odoVal;
@@ -2473,7 +2479,7 @@ Output only the CSV starting with the header row.`;
       storageSet(SETTINGS_KEY, settings);
       syncPush(SETTINGS_KEY, settings);
     }
-    maintenanceLog.unshift({ id: Date.now(), itemId: item.id, itemName: item.name, date: dateVal, odometer: odoVal });
+    maintenanceLog.unshift({ id: Date.now(), itemId: item.id, itemName: item.name, date: dateVal, odometer: odoVal, description: descVal || null });
     saveMaintenanceLog();
     await saveMaintenance();
   }
