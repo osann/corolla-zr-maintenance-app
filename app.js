@@ -468,18 +468,40 @@ Output only the CSV starting with the header row.`;
     recompute();
   }
 
+  // Sets purchase date and initialises stock to full volume on first check.
+  // For bundles, initialises each consumable component. Safe to call repeatedly —
+  // never overwrites existing remainingMl.
+  function initInventoryStock(slug, today) {
+    if (!inventoryState[slug]) inventoryState[slug] = {};
+    if (!inventoryState[slug].purchaseDate) inventoryState[slug].purchaseDate = today;
+
+    const components = BUNDLE_COMPONENTS[slug];
+    if (components) {
+      for (const comp of components) {
+        if (comp.equipment) continue;
+        const key = comp.slug
+          ?? `${slug}:${comp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        if (!inventoryState[key]) inventoryState[key] = {};
+        if (!inventoryState[key].purchaseDate) inventoryState[key].purchaseDate = today;
+        if (inventoryState[key].remainingMl == null) {
+          const vol = comp.volumeMl ?? (comp.slug ? INVENTORY_DEFAULTS[comp.slug]?.volumeMl : null) ?? null;
+          if (vol != null) { inventoryState[key].volumeMl = vol; inventoryState[key].remainingMl = vol; }
+        }
+      }
+    } else if (!EQUIPMENT_SLUGS.has(slug) && inventoryState[slug].remainingMl == null) {
+      const vol = INVENTORY_DEFAULTS[slug]?.volumeMl ?? null;
+      if (vol != null) { inventoryState[slug].volumeMl = vol; inventoryState[slug].remainingMl = vol; }
+    }
+  }
+
   async function saveChecklist() {
     const today = new Date().toISOString().split('T')[0];
-    // Record purchase date for newly-checked items
+
+    // Initialise inventory (purchase date + full stock) for newly-checked items
     itemData.forEach(item => {
       const wasChecked = checklistState.checked[item.slug];
       const nowChecked = item.input.checked;
-      if (!wasChecked && nowChecked) {
-        if (!inventoryState[item.slug]) inventoryState[item.slug] = {};
-        if (!inventoryState[item.slug].purchaseDate) {
-          inventoryState[item.slug].purchaseDate = today;
-        }
-      }
+      if (!wasChecked && nowChecked) initInventoryStock(item.slug, today);
     });
 
     itemData.forEach(item => { checklistState.checked[item.slug] = item.input.checked; });
@@ -489,11 +511,7 @@ Output only the CSV starting with the header row.`;
       phase.items.length > 0 && phase.items.every(slug => checklistState.checked[slug])
     );
     for (const phase of completedPhases) {
-      // Ensure purchase dates are set for all items in the completed phase
-      for (const slug of phase.items) {
-        if (!inventoryState[slug]) inventoryState[slug] = {};
-        if (!inventoryState[slug].purchaseDate) inventoryState[slug].purchaseDate = today;
-      }
+      for (const slug of phase.items) initInventoryStock(slug, today);
       showInvToast(`${phase.title} complete — items moved to Inventory`);
     }
     const didArchive = completedPhases.length > 0;
