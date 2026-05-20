@@ -454,12 +454,11 @@ Output only the CSV starting with the header row.`;
       syncPush(INVENTORY_KEY, inventoryState);
     }
 
-    // Re-render checklist to remove archived phase cards, then update inventory view
     if (didArchive) {
       renderChecklist();
       recompute();
-      renderInventory();
     }
+    renderInventory();
   }
 
   function createPhaseEl(phase) {
