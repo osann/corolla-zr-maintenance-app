@@ -148,7 +148,7 @@ cron.schedule('0 7 * * *', async () => {
             projectId: notifSettings.ticktickProjectId ?? '',
             tags:      notifSettings.ticktickTags ?? [],
             priority:  notifSettings.ticktickPriority as 0 | 1 | 3 | 5,
-            dueDate:   dueDate.toISOString(),
+            dueDate:   dueDate.toISOString().replace(/\.\d{3}Z$/, '+0000'),
           });
         }
         if (notifSettings.emailWashReminders) {

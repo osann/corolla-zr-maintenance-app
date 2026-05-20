@@ -65,7 +65,7 @@ router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
     projectId: notif.ticktickProjectId ?? '',
     tags:      notif.ticktickTags ?? [],
     priority:  notif.ticktickPriority as 0 | 1 | 3 | 5,
-    dueDate:   dueDate || undefined,
+    dueDate:   dueDate ? new Date(dueDate).toISOString().replace(/\.\d{3}Z$/, '+0000') : undefined,
   });
   return c.json({ ok: true });
 });
