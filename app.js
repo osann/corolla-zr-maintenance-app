@@ -2070,7 +2070,7 @@ Output only the CSV starting with the header row.`;
               <span class="step-field-label">Products</span>
               <button class="add-product-btn" onclick="addStepProduct(${rIdx},${sIdx})">+ Add</button>
             </div>
-            ${productsHtml}
+            ${productsHtml || '<p class="step-no-products">No products yet…</p>'}
           </div>
         </div>
       `;
