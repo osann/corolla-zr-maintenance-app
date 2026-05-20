@@ -309,6 +309,7 @@ Output only the CSV starting with the header row.`;
   let maintenanceItems = [];
   let maintenanceLog = [];
   let maintenanceDragSrc = null;
+  let invCatDragSrc = null;
 
   // ─── Inventory ────────────────────────────────────
   const INVENTORY_KEY = 'corolla-inventory-v1';
@@ -1708,6 +1709,51 @@ Output only the CSV starting with the header row.`;
     toast._timer = setTimeout(() => toast.classList.remove('visible'), 3000);
   }
 
+  const INV_CATEGORIES = [
+    { label: 'Equipment', sections: [
+      { label: 'Microfibre', slugs: ['debugger-cloth', 'inta-mitt', 'plush-daddy', 'big-softie-pair', 'the-square-bear'] },
+      { label: 'Wash Pads', slugs: ['shagtastic-wash-pad'] },
+      { label: 'Drying Towels', slugs: ['twisted-pro-sucker', 'the-big-green-sucker'] },
+      { label: 'Other', slugs: ['plush-brush', '2-bucket-wash-kit', 'microfibre-bucket-lid', 'pumpy-pump', 'the-essentials-starters-kit'] },
+    ]},
+    { label: 'Pressure Washer Equipment', sections: [
+      { label: 'Pressure Washers', slugs: ['karcher-k2'] },
+      { label: 'Foam Cannons', slugs: ['snow-blow-cannon', 'happy-ending-cannon-bottle'] },
+    ]},
+    { label: 'Exterior Wash', sections: [
+      { label: 'Glass', slugs: ['naked-glass-500ml', 'naked-glass-770ml', 'naked-inta-mitt-pack'] },
+      { label: 'Prep', slugs: ['flash-prep-500ml', 'orange-agent-500ml'] },
+      { label: 'Pre-Wash', slugs: ['snow-job-1l', 'snow-job-5l'] },
+      { label: 'Contact Wash', slugs: ['nanolicious-wash-pack-ultimate', 'nanolicious-shag-pack', 'nanolicious-wash-5l'] },
+    ]},
+    { label: 'Exterior Protection', sections: [
+      { label: 'Sealant', slugs: ['bead-machine-500ml', 'wet-dreams-770ml', 'wet-dreams-5l', 'happy-ending-1l', 'happy-ending-5l', 'wet-dreams-pack'] },
+      { label: 'Quick Detailer', slugs: ['boss-gloss-770ml', 'boss-gloss-5l', 'boss-gloss-pack'] },
+      { label: 'Microfibre Wash', slugs: ['microfibre-wash-1l'] },
+    ]},
+    { label: 'Interior Clean', sections: [
+      { label: 'Leather', slugs: ['leather-love-v2-500ml', 'bolp-leather-care-pack'] },
+      { label: 'Fabric', slugs: ['fabra-cadabra-500ml'] },
+    ]},
+    { label: 'Interior Protect', sections: [
+      { label: 'Leather', slugs: ['leather-guard-500ml'] },
+      { label: 'Fabric & Suede', slugs: ['fabratection'] },
+      { label: 'Plastic, Vinyl & Rubber', slugs: ['303-aerospace'] },
+    ]},
+    { label: 'Wheels', sections: [
+      { label: 'Equipment', slugs: ['little-chubby-v2', 'the-little-stiffy', 'the-flat-head', 'the-chubby-wheel-brush-v2'] },
+      { label: 'Clean', slugs: ['wheely-clean-v2-500ml', 'wheely-clean-770ml', 'wheely-clean-v2-5l'] },
+    ]},
+  ];
+
+  function getInvCategoryOrder() {
+    const defaults = INV_CATEGORIES.map(c => c.label);
+    const saved = Array.isArray(inventoryState._order) ? inventoryState._order : [];
+    const merged = saved.filter(l => defaults.includes(l));
+    for (const l of defaults) { if (!merged.includes(l)) merged.push(l); }
+    return merged;
+  }
+
   function renderInventory() {
     const container = document.getElementById('inventory-list');
     if (!container) return;
@@ -1728,43 +1774,6 @@ Output only the CSV starting with the header row.`;
       return;
     }
 
-    // Reuse PRICE_CATEGORIES structure for consistent category layout
-    const PRICE_CATEGORIES = [
-      { label: 'Equipment', sections: [
-        { label: 'Microfibre', slugs: ['debugger-cloth', 'inta-mitt', 'plush-daddy', 'big-softie-pair', 'the-square-bear'] },
-        { label: 'Wash Pads', slugs: ['shagtastic-wash-pad'] },
-        { label: 'Drying Towels', slugs: ['twisted-pro-sucker', 'the-big-green-sucker'] },
-        { label: 'Other', slugs: ['plush-brush', '2-bucket-wash-kit', 'microfibre-bucket-lid', 'pumpy-pump', 'the-essentials-starters-kit'] },
-      ]},
-      { label: 'Pressure Washer Equipment', sections: [
-        { label: 'Pressure Washers', slugs: ['karcher-k2'] },
-        { label: 'Foam Cannons', slugs: ['snow-blow-cannon', 'happy-ending-cannon-bottle'] },
-      ]},
-      { label: 'Exterior Wash', sections: [
-        { label: 'Glass', slugs: ['naked-glass-500ml', 'naked-glass-770ml', 'naked-inta-mitt-pack'] },
-        { label: 'Prep', slugs: ['flash-prep-500ml', 'orange-agent-500ml'] },
-        { label: 'Pre-Wash', slugs: ['snow-job-1l', 'snow-job-5l'] },
-        { label: 'Contact Wash', slugs: ['nanolicious-wash-pack-ultimate', 'nanolicious-shag-pack', 'nanolicious-wash-5l'] },
-      ]},
-      { label: 'Exterior Protection', sections: [
-        { label: 'Sealant', slugs: ['bead-machine-500ml', 'wet-dreams-770ml', 'wet-dreams-5l', 'happy-ending-1l', 'happy-ending-5l', 'wet-dreams-pack'] },
-        { label: 'Quick Detailer', slugs: ['boss-gloss-770ml', 'boss-gloss-5l', 'boss-gloss-pack'] },
-        { label: 'Microfibre Wash', slugs: ['microfibre-wash-1l'] },
-      ]},
-      { label: 'Interior Clean', sections: [
-        { label: 'Leather', slugs: ['leather-love-v2-500ml', 'bolp-leather-care-pack'] },
-        { label: 'Fabric', slugs: ['fabra-cadabra-500ml'] },
-      ]},
-      { label: 'Interior Protect', sections: [
-        { label: 'Leather', slugs: ['leather-guard-500ml'] },
-        { label: 'Fabric & Suede', slugs: ['fabratection'] },
-        { label: 'Plastic, Vinyl & Rubber', slugs: ['303-aerospace'] },
-      ]},
-      { label: 'Wheels', sections: [
-        { label: 'Equipment', slugs: ['little-chubby-v2', 'the-little-stiffy', 'the-flat-head', 'the-chubby-wheel-brush-v2'] },
-        { label: 'Clean', slugs: ['wheely-clean-v2-500ml', 'wheely-clean-770ml', 'wheely-clean-v2-5l'] },
-      ]},
-    ];
 
     function renderInvCard(slug) {
       const catalogItem = CATALOG.find(p => p.slug === slug);
@@ -2002,8 +2011,11 @@ Output only the CSV starting with the header row.`;
     // ── Render ──────────────────────────────────────────────────────────────────
     let html = '';
     let anyRendered = false;
+    const orderedCategories = getInvCategoryOrder()
+      .map(label => INV_CATEGORIES.find(c => c.label === label))
+      .filter(Boolean);
 
-    for (const category of PRICE_CATEGORIES) {
+    for (const [catIdx, category] of orderedCategories.entries()) {
       let categoryBody = '';
       let firstSec = true;
 
@@ -2051,7 +2063,7 @@ Output only the CSV starting with the header row.`;
       }
 
       if (!categoryBody) continue;
-      html += `<div class="inv-category"><div class="inv-category-label">${escHtml(category.label)}</div>${categoryBody}</div>`;
+      html += `<div class="inv-category" draggable="true" data-cat-idx="${catIdx}"><div class="inv-category-header"><span class="inv-drag-handle">⠿</span><span class="inv-category-label">${escHtml(category.label)}</span></div>${categoryBody}</div>`;
       anyRendered = true;
     }
 
@@ -2060,6 +2072,40 @@ Output only the CSV starting with the header row.`;
     }
 
     container.innerHTML = html;
+
+    container.querySelectorAll('.inv-category[data-cat-idx]').forEach(el => {
+      const idx = +el.dataset.catIdx;
+      el.addEventListener('dragstart', e => {
+        invCatDragSrc = idx;
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      el.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        el.classList.add('drag-over');
+      });
+      el.addEventListener('dragleave', e => {
+        if (!el.contains(e.relatedTarget)) el.classList.remove('drag-over');
+      });
+      el.addEventListener('dragend', () => {
+        el.classList.remove('dragging');
+        container.querySelectorAll('.inv-category').forEach(c => c.classList.remove('drag-over'));
+        invCatDragSrc = null;
+      });
+      el.addEventListener('drop', e => {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        if (invCatDragSrc === null || invCatDragSrc === idx) return;
+        const order = getInvCategoryOrder();
+        const moved = order.splice(invCatDragSrc, 1)[0];
+        order.splice(idx, 0, moved);
+        inventoryState._order = order;
+        invCatDragSrc = null;
+        saveInventory();
+        renderInventory();
+      });
+    });
   }
 
   // ─── Tab navigation ──────────────────────────────
