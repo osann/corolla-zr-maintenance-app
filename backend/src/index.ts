@@ -8,14 +8,16 @@ import pricesRouter from './routes/prices.js';
 import authRouter from './routes/auth.js';
 import weatherRouter from './routes/weather.js';
 import photosRouter from './routes/photos.js';
+import ticktickRouter from './routes/ticktick.js';
 import { scrapeAutopro } from './scrapers/autopro.js';
+import { createTickTickTask } from './lib/ticktick.js';
 import { initDb } from './db/init.js';
 import { seed } from './db/seed.js';
 import { db } from './db/connection.js';
 import { users, userData, products, priceHistory } from './db/schema.js';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
-  sendTickTickTask, sendDirectEmail, sendDigestEmail,
+  sendDirectEmail, sendDigestEmail,
   getOwnerNotificationSettings, getOwnerAlertThresholds,
   type DigestThresholdItem,
 } from './lib/email.js';
@@ -42,6 +44,7 @@ app.route('/api', pricesRouter);
 app.route('/api', authRouter);
 app.route('/api', weatherRouter);
 app.route('/api', photosRouter);
+app.route('/api', ticktickRouter);
 
 // Autopro: daily at 05:00 UTC — within robots.txt crawl window (04:00–08:45 UTC).
 // Render node-cron fires punctually; GitHub Actions scheduled runs can be delayed.
@@ -57,7 +60,7 @@ cron.schedule('0 5 * * *', () => {
 cron.schedule('0 7 * * *', async () => {
   const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
   const notifSettings = await getOwnerNotificationSettings(ownerEmail);
-  const canSendWash = (notifSettings.washReminders && !!notifSettings.ticktickEmail) || notifSettings.emailWashReminders;
+  const canSendWash = (notifSettings.washReminders && notifSettings.ticktickConnected) || notifSettings.emailWashReminders;
   if (!canSendWash) return;
 
   try {
@@ -134,17 +137,18 @@ cron.schedule('0 7 * * *', async () => {
 
         const overdueDays = Math.floor((todayUtc.getTime() - dueDate.getTime()) / 86_400_000);
         const lastDateStr = lastDate.toISOString().slice(0, 10);
-        const suffix = notifSettings.ticktickMetadata || '';
         const washBody = overdueDays > 0
           ? `Last session: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
           : `Last session: ${lastDateStr}\nDue today`;
 
-        if (notifSettings.washReminders && notifSettings.ticktickEmail) {
-          await sendTickTickTask(
-            notifSettings.ticktickEmail,
-            `🚗 ${routine.name} due ${suffix}`.trim(),
-            washBody,
-          );
+        if (notifSettings.washReminders && notifSettings.ticktickConnected) {
+          await createTickTickTask(ownerEmail, {
+            title:     `🚗 ${routine.name} due`,
+            content:   washBody,
+            projectId: notifSettings.ticktickProjectId ?? '',
+            tags:      notifSettings.ticktickTags ?? [],
+            priority:  3,
+          });
         }
         if (notifSettings.emailWashReminders) {
           await sendDirectEmail(ownerEmail, `🚗 ${routine.name} due`, washBody);
@@ -169,12 +173,14 @@ cron.schedule('0 7 * * *', async () => {
         ? `Last wash: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
         : `Last wash: ${lastDateStr}\nDue today`;
 
-      if (notifSettings.washReminders && notifSettings.ticktickEmail) {
-        await sendTickTickTask(
-          notifSettings.ticktickEmail,
-          '🚗 Corolla wash due ^Car #Corolla today !Medium',
-          washBody,
-        );
+      if (notifSettings.washReminders && notifSettings.ticktickConnected) {
+        await createTickTickTask(ownerEmail, {
+          title:     '🚗 Corolla wash due',
+          content:   washBody,
+          projectId: notifSettings.ticktickProjectId ?? '',
+          tags:      notifSettings.ticktickTags ?? [],
+          priority:  3,
+        });
       }
       if (notifSettings.emailWashReminders) {
         await sendDirectEmail(ownerEmail, '🚗 Corolla wash due', washBody);

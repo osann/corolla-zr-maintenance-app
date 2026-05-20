@@ -2,27 +2,30 @@ import { Resend } from 'resend';
 import { db } from '../db/connection.js';
 import { users, userData } from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
+import { isTickTickConnected } from './ticktick.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export interface NotificationSettings {
-  ticktickEmail: string | null;
-  ticktickAlerts: boolean;
-  ticktickMetadata: string;
-  emailAlerts: boolean;
-  washReminders: boolean;
+  ticktickConnected:  boolean;
+  ticktickAlerts:     boolean;
+  ticktickProjectId:  string | null;
+  ticktickTags:       string[];
+  emailAlerts:        boolean;
+  washReminders:      boolean;
   emailWashReminders: boolean;
-  emailDigest: boolean;
+  emailDigest:        boolean;
 }
 
 const NOTIF_DEFAULTS: NotificationSettings = {
-  ticktickEmail: null,
-  ticktickAlerts: true,
-  ticktickMetadata: '^Car #Corolla today',
-  emailAlerts: false,
-  washReminders: true,
+  ticktickConnected:  false,
+  ticktickAlerts:     true,
+  ticktickProjectId:  null,
+  ticktickTags:       [],
+  emailAlerts:        false,
+  washReminders:      true,
   emailWashReminders: false,
-  emailDigest: false,
+  emailDigest:        false,
 };
 
 export interface DigestSaleItem {
@@ -74,16 +77,19 @@ export async function getOwnerNotificationSettings(
 
     const parsed = JSON.parse(dataRows[0].valueJson);
     const n = parsed?.notifications;
-    if (!n || typeof n !== 'object') return { ...NOTIF_DEFAULTS };
+    const connected = await isTickTickConnected(ownerEmail);
+
+    if (!n || typeof n !== 'object') return { ...NOTIF_DEFAULTS, ticktickConnected: connected };
 
     return {
-      ticktickEmail:    typeof n.ticktickEmail === 'string' && n.ticktickEmail ? n.ticktickEmail : null,
-      ticktickAlerts:   typeof n.ticktickAlerts  === 'boolean' ? n.ticktickAlerts  : true,
-      ticktickMetadata:    typeof n.ticktickMetadata    === 'string'  ? n.ticktickMetadata    : '^Car #Corolla today',
-      emailAlerts:         typeof n.emailAlerts         === 'boolean' ? n.emailAlerts         : false,
-      washReminders:       typeof n.washReminders       === 'boolean' ? n.washReminders       : true,
-      emailWashReminders:  typeof n.emailWashReminders  === 'boolean' ? n.emailWashReminders  : false,
-      emailDigest:         typeof n.emailDigest         === 'boolean' ? n.emailDigest         : false,
+      ticktickConnected:  connected,
+      ticktickAlerts:     typeof n.ticktickAlerts     === 'boolean' ? n.ticktickAlerts     : true,
+      ticktickProjectId:  typeof n.ticktickProjectId  === 'string'  ? n.ticktickProjectId  : null,
+      ticktickTags:       Array.isArray(n.ticktickTags)             ? n.ticktickTags        : [],
+      emailAlerts:        typeof n.emailAlerts         === 'boolean' ? n.emailAlerts         : false,
+      washReminders:      typeof n.washReminders       === 'boolean' ? n.washReminders       : true,
+      emailWashReminders: typeof n.emailWashReminders  === 'boolean' ? n.emailWashReminders  : false,
+      emailDigest:        typeof n.emailDigest         === 'boolean' ? n.emailDigest         : false,
     };
   } catch {
     return { ...NOTIF_DEFAULTS };
@@ -117,17 +123,6 @@ export async function getOwnerAlertThresholds(
   } catch {
     return {};
   }
-}
-
-export async function sendTickTickTask(to: string, subject: string, body: string): Promise<void> {
-  if (!to) return;
-
-  await resend.emails.send({
-    from:    process.env.RESEND_FROM ?? 'Corolla Detailing <sync@corolla.jhosan.top>',
-    to,
-    subject,
-    text: body,
-  });
 }
 
 export async function sendDirectEmail(to: string, subject: string, bodyText: string): Promise<void> {

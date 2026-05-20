@@ -1,8 +1,9 @@
   // ─── Backend ─────────────────────────────────────
   const BACKEND_URL  = '__BACKEND_URL__';
   const BUILD_DATE   = '__BUILD_DATE__';
-  let syncEnabled   = false;
-  let syncEmail     = null;
+  let syncEnabled        = false;
+  let syncEmail          = null;
+  let ticktickIsConnected = false;
   let lastSyncedAt  = null;
   const AUTH_CACHE_KEY = 'corolla-auth-v1';
 
@@ -1573,9 +1574,9 @@ Output only the CSV starting with the header row.`;
   };
 
   const DEFAULT_NOTIFICATIONS = {
-    ticktickEmail: '',
     ticktickAlerts: true,
-    ticktickMetadata: '^Car #Corolla today',
+    ticktickProjectId: null,
+    ticktickTags: [],
     emailAlerts: false,
     washReminders: true,
     emailWashReminders: false,
@@ -2616,15 +2617,73 @@ Output only the CSV starting with the header row.`;
     document.getElementById('car-odometer').value = settings.car.currentOdometer || '';
   }
 
-  function loadNotificationsUI() {
-    document.getElementById('ticktick-email').value               = settings.notifications.ticktickEmail || '';
+  async function loadNotificationsUI() {
     document.getElementById('pref-ticktick-alerts').checked       = settings.notifications.ticktickAlerts;
-    document.getElementById('ticktick-metadata').value            = settings.notifications.ticktickMetadata || '';
+    document.getElementById('ticktick-tags').value                = (settings.notifications.ticktickTags ?? []).join(', ');
     document.getElementById('pref-email-alerts').checked          = settings.notifications.emailAlerts;
     document.getElementById('pref-wash-reminders').checked        = settings.notifications.washReminders;
     document.getElementById('pref-email-wash-reminders').checked  = settings.notifications.emailWashReminders;
     document.getElementById('pref-email-digest').checked          = settings.notifications.emailDigest;
+    await refreshTickTickStatus();
   }
+
+  async function refreshTickTickStatus() {
+    if (!syncEnabled) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/ticktick/status`, { credentials: 'include' });
+      const { connected } = await res.json();
+      const statusText   = document.getElementById('ticktick-status-text');
+      const connectBtn   = document.getElementById('ticktick-connect-btn');
+      const disconnectBtn = document.getElementById('ticktick-disconnect-btn');
+      const projectRow   = document.getElementById('ticktick-project-row');
+      const tagsRow      = document.getElementById('ticktick-tags-row');
+      ticktickIsConnected = connected;
+      if (connected) {
+        statusText.textContent = 'Connected';
+        connectBtn.hidden    = true;
+        disconnectBtn.hidden = false;
+        projectRow.hidden    = false;
+        tagsRow.hidden       = false;
+        await loadTickTickProjects();
+      } else {
+        statusText.textContent = 'Not connected';
+        connectBtn.hidden    = false;
+        disconnectBtn.hidden = true;
+        projectRow.hidden    = true;
+        tagsRow.hidden       = true;
+      }
+      renderWashReminderCards();
+    } catch { /* backend unreachable — leave as-is */ }
+  }
+
+  async function loadTickTickProjects() {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/ticktick/projects`, { credentials: 'include' });
+      if (!res.ok) return;
+      const projects = await res.json();
+      const sel = document.getElementById('ticktick-project-id');
+      sel.innerHTML = '<option value="">Select a list…</option>';
+      for (const p of projects) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        if (p.id === settings.notifications.ticktickProjectId) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    } catch { /* ignore */ }
+  }
+
+  function connectTickTick() {
+    window.location.href = `${BACKEND_URL}/api/ticktick/auth`;
+  }
+  window.connectTickTick = connectTickTick;
+
+  async function disconnectTickTick() {
+    if (!confirm('Disconnect TickTick?')) return;
+    await fetch(`${BACKEND_URL}/api/ticktick/disconnect`, { method: 'DELETE', credentials: 'include' });
+    await refreshTickTickStatus();
+  }
+  window.disconnectTickTick = disconnectTickTick;
 
   async function loadAlerts() {
     const saved = await storageGet(ALERTS_KEY);
@@ -2745,12 +2804,13 @@ Output only the CSV starting with the header row.`;
       settings.car.postcode = document.getElementById('car-postcode').value.trim();
       settings.car.currentOdometer = +document.getElementById('car-odometer').value || null;
     } else if (section === 'notifications') {
-      settings.notifications.ticktickEmail    = (document.getElementById('ticktick-email')?.value ?? '').trim();
-      settings.notifications.ticktickAlerts   = document.getElementById('pref-ticktick-alerts')?.checked ?? true;
-      settings.notifications.ticktickMetadata = (document.getElementById('ticktick-metadata')?.value ?? '').trim();
-      settings.notifications.emailAlerts         = document.getElementById('pref-email-alerts')?.checked ?? false;
-      settings.notifications.washReminders       = document.getElementById('pref-wash-reminders')?.checked ?? true;
-      settings.notifications.emailWashReminders  = document.getElementById('pref-email-wash-reminders')?.checked ?? false;
+      settings.notifications.ticktickAlerts     = document.getElementById('pref-ticktick-alerts')?.checked ?? true;
+      settings.notifications.ticktickProjectId  = document.getElementById('ticktick-project-id')?.value || null;
+      settings.notifications.ticktickTags       = (document.getElementById('ticktick-tags')?.value ?? '')
+        .split(',').map(t => t.trim()).filter(Boolean);
+      settings.notifications.emailAlerts        = document.getElementById('pref-email-alerts')?.checked ?? false;
+      settings.notifications.washReminders      = document.getElementById('pref-wash-reminders')?.checked ?? true;
+      settings.notifications.emailWashReminders = document.getElementById('pref-email-wash-reminders')?.checked ?? false;
       settings.notifications.emailDigest        = document.getElementById('pref-email-digest')?.checked ?? false;
     } else if (section === 'schedules') {
       // settings.schedules already mutated in-place via updateScheduleField / addScheduleEntry / removeScheduleEntry
@@ -3385,7 +3445,7 @@ Output only the CSV starting with the header row.`;
         subText = `🌧 Rain forecast`;
         statusText = `Best day: ${bestDay}`;
       }
-      const hasTickTick = !!settings.notifications?.ticktickEmail;
+      const hasTickTick = ticktickIsConnected && !!settings.notifications?.ticktickAlerts;
       const dueDateStr = nextDue
         ? `${String(nextDue.getDate()).padStart(2,'0')}/${String(nextDue.getMonth()+1).padStart(2,'0')}/${nextDue.getFullYear()}`
         : '';
@@ -3594,6 +3654,12 @@ Output only the CSV starting with the header row.`;
 
   // ─── Init ────────────────────────────────────────
   async function init() {
+    const ttParam = new URLSearchParams(location.search).get('ticktick');
+    if (ttParam === 'connected' || ttParam === 'error') {
+      history.replaceState({}, '', location.pathname);
+      if (ttParam === 'connected') showTab('settings');
+    }
+
     setupChecklist();
     setupPhotoUploadUI();
     document.addEventListener('keydown', e => {

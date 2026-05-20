@@ -1165,20 +1165,30 @@
 
       <div class="section-head" style="margin-top:4px;">TickTick</div>
 
-      <div class="log-form-grid" style="margin-bottom:0;">
-        <div class="log-field">
-          <label class="log-label" for="ticktick-email">TickTick email</label>
-          <input class="log-input" type="email" id="ticktick-email" placeholder="todo####@mail.ticktick.com">
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>TickTick</strong>
+          <span id="ticktick-status-text">Not connected</span>
+        </div>
+        <div class="settings-control" style="display:flex;gap:8px;">
+          <button class="settings-save-btn" id="ticktick-connect-btn" onclick="connectTickTick()">Connect</button>
+          <button class="settings-reset-btn" id="ticktick-disconnect-btn" onclick="disconnectTickTick()" hidden>Disconnect</button>
         </div>
       </div>
 
-      <div class="settings-row">
-        <div class="settings-row-label">
-          <strong>Subject suffix</strong>
-          <span>Appended to task titles — use for project (^), tags (#), due date, priority (!)</span>
+      <div id="ticktick-project-row" class="log-form-grid" style="margin-bottom:0;" hidden>
+        <div class="log-field">
+          <label class="log-label" for="ticktick-project-id">List</label>
+          <select class="log-input" id="ticktick-project-id">
+            <option value="">Select a list…</option>
+          </select>
         </div>
-        <div class="settings-control">
-          <input class="log-input" type="text" id="ticktick-metadata" placeholder="^Car #Corolla today" style="font-size:12px;padding:5px 8px;width:170px;">
+      </div>
+
+      <div id="ticktick-tags-row" class="log-form-grid" style="margin-bottom:0;" hidden>
+        <div class="log-field">
+          <label class="log-label" for="ticktick-tags">Tags (comma-separated)</label>
+          <input class="log-input" type="text" id="ticktick-tags" placeholder="Corolla, Car">
         </div>
       </div>
 

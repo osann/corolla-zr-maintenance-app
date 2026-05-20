@@ -33,14 +33,15 @@ corolla-zr-maintenance-app/
 │   │   │   ├── init.ts     # Creates tables + runs seed
 │   │   │   └── connection.ts
 │   │   ├── routes/
-│   │   │   ├── products.ts # GET /api/products — all products with latest prices per retailer
-│   │   │   │               # GET /api/products/prices — bulk price history (all products, 90-day window)
-│   │   │   │               # GET /api/products/:id/prices — single product price history
-│   │   │   ├── prices.ts   # POST /api/prices — ingest scraper results
-│   │   │   ├── alerts.ts   # GET /api/alerts, GET /api/prices/current, POST /api/notify/wash-reminder
-│   │   │   ├── auth.ts     # Auth + sync: POST /api/auth/request|verify|logout, GET /api/auth/me, GET|POST /api/sync
-│   │   │   ├── weather.ts  # GET /api/weather?postcode= — Nominatim geocoding + Open-Meteo forecast, 3h cache
-│   │   │   └── photos.ts   # POST /photos/upload, GET /photos, DELETE /photos/:id (session-protected; R2 storage via sharp)
+│   │   │   ├── products.ts  # GET /api/products — all products with latest prices per retailer
+│   │   │   │                # GET /api/products/prices — bulk price history (all products, 90-day window)
+│   │   │   │                # GET /api/products/:id/prices — single product price history
+│   │   │   ├── prices.ts    # POST /api/prices — ingest scraper results
+│   │   │   ├── alerts.ts    # GET /api/alerts, GET /api/prices/current, POST /api/notify/wash-reminder
+│   │   │   ├── auth.ts      # Auth + sync: POST /api/auth/request|verify|logout, GET /api/auth/me, GET|POST /api/sync
+│   │   │   ├── weather.ts   # GET /api/weather?postcode= — Nominatim geocoding + Open-Meteo forecast, 3h cache
+│   │   │   ├── photos.ts    # POST /photos/upload, GET /photos, DELETE /photos/:id (session-protected; R2 storage via sharp)
+│   │   │   └── ticktick.ts  # GET /api/ticktick/auth|callback|status|projects, DELETE /api/ticktick/disconnect
 │   │   ├── scrapers/
 │   │   │   ├── fetch-scraper.ts # createFetchScraper() factory — shared plain-fetch logic for Auto Barn + Autopro
 │   │   │   ├── autobarn.ts      # thin wrapper — self-hosted runner only (residential IP), HTTP-only (~16–18/40)
@@ -54,7 +55,8 @@ corolla-zr-maintenance-app/
 │   │       ├── browser.ts       # createStealthContext() — shared Playwright setup
 │   │       ├── sale-detector.ts
 │   │       ├── auth.ts          # generateToken, hashToken, sessionMiddleware
-│   │       ├── email.ts         # sendMagicLink(), sendTickTickTask(), sendDirectEmail(), sendDigestEmail(), getOwnerNotificationSettings(), getOwnerAlertThresholds() via Resend
+│   │       ├── email.ts         # sendMagicLink(), sendDirectEmail(), sendDigestEmail(), getOwnerNotificationSettings(), getOwnerAlertThresholds() via Resend
+│   │       ├── ticktick.ts      # TickTick REST API client: createTickTickTask(), getValidToken(), storeOAuthTokens(), fetchTickTickProjects(), isTickTickConnected(), disconnectTickTick()
 │   │       └── r2.ts            # S3Client for Cloudflare R2; uploadToR2, deleteFromR2, getPublicUrl
 │   └── package.json
 └── .github/workflows/
@@ -92,6 +94,9 @@ The backend allows two origins: `https://osann.github.io` and `https://corolla.j
 | `R2_PUBLIC_URL` | `https://jhosan.top` (no trailing slash) — base URL for public R2 object access |
 | `R2_ACCESS_KEY_ID` | R2 API token key ID |
 | `R2_SECRET_ACCESS_KEY` | R2 API token secret |
+| `TICKTICK_CLIENT_ID` | TickTick OAuth app client ID (developer.ticktick.com) |
+| `TICKTICK_CLIENT_SECRET` | TickTick OAuth app client secret |
+| `BACKEND_PUBLIC_URL` | Render service URL (no trailing slash) — used to build the OAuth redirect URI |
 
 ### GitHub secrets
 
@@ -341,51 +346,78 @@ Photos are attached to log entries and stored in Cloudflare R2.
 
 ## Notifications
 
-The app delivers notifications via two channels: TickTick (email-to-task) and direct email. Both use Resend. No OAuth or API tokens for TickTick — the user's personal `todo####@mail.ticktick.com` address is the only credential.
+The app delivers notifications via two channels: TickTick REST API and direct email. TickTick uses OAuth 2.0 (access token ~5–6 months; refresh token non-expiring). Token stored server-side in `userData` under `ticktick-oauth-v1` (NOT in `ALLOWED_KEYS` — never synced to client).
 
-**Configuration:** stored in `settings.notifications` within `corolla-settings-v1` (synced via `userData`). Set in Settings → Notifications, which is split into TickTick and Email subsections. Fields:
+**TickTick setup:** register an app at developer.ticktick.com; set redirect URI to `${BACKEND_PUBLIC_URL}/api/ticktick/callback`. Add `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, and `BACKEND_PUBLIC_URL` to Render env vars. User clicks **Connect** in Settings → Notifications → TickTick; OAuth flow stores tokens; project selector appears.
+
+**Configuration:** stored in `settings.notifications` within `corolla-settings-v1` (synced via `userData`). Set in Settings → Notifications, split into TickTick and Email subsections. Fields:
 
 | Field | Default | Meaning |
 |---|---|---|
-| `ticktickEmail` | `null` | User's TickTick inbox address (TickTick → Settings → Email) |
 | `ticktickAlerts` | `true` | Send TickTick task for price alerts |
-| `ticktickMetadata` | `'^Car #Corolla today'` | Suffix appended to all TickTick task subjects (project/tag/date/priority syntax) |
+| `ticktickProjectId` | `null` | ID of the TickTick list to assign tasks to |
+| `ticktickTags` | `[]` | Tags added to every TickTick task |
 | `washReminders` | `true` | Send TickTick task when wash is overdue |
 | `emailAlerts` | `false` | Send direct email for price alerts |
 | `emailWashReminders` | `false` | Send direct email when wash is overdue |
 | `emailDigest` | `false` | Send daily digest email (08:00 UTC) with sale items and threshold breaches |
 
+`ticktickConnected` is a derived field (not stored) — computed by `getOwnerNotificationSettings` via `isTickTickConnected()` and returned in `NotificationSettings`.
+
 **Per-product thresholds:** stored separately in `corolla-price-alerts-v1` (also synced). Shape: `{ [slug]: { thresholdCents, channel: 'global' | 'ticktick' | 'email' } }`. Managed via the 🔔 bell icon on each product card in the Prices tab. An "Active alerts" summary panel at the top of the Prices tab shows all configured thresholds with inline edit and remove.
 
 **Four triggers:**
 
-1. **On-sale price alert** (`routes/prices.ts`) — fires when `POST /api/prices` ingests an observation where `onSale=true` and the prior row for that product+retailer was not on sale (transition only — no repeat sends while a product stays on sale). Routed via `sendViaChannel('global', ...)`. Subject format:
+1. **On-sale price alert** (`routes/prices.ts`) — fires when `POST /api/prices` ingests an observation where `onSale=true` and the prior row for that product+retailer was not on sale (transition only). Routed via `sendViaChannel('global', ...)`. TickTick task title:
    ```
-   🔥 {Product name} on sale at {Retailer} — ${price} ^Car #Corolla today
-   ```
-
-2. **Threshold breach alert** (`routes/prices.ts`) — fires when the new price is at or below the user's configured threshold and the prior price was above it (transition only). Channel follows the per-product `channel` setting. Subject format:
-   ```
-   ⬇️ {Product name} below ${threshold} at {Retailer} — ${price} ^Car #Corolla today
+   🔥 {Product name} on sale at {Retailer} — ${price}
    ```
 
-3. **Wash reminder** (`index.ts` cron, 07:00 UTC daily) — reads the owner's `corolla-washlog-v1` and `corolla-settings-v1` from `userData`, calculates days since last wash vs `freq.fullWash` interval, sends if overdue. Sends TickTick if `washReminders && ticktickEmail`, sends email if `emailWashReminders`. Returns early if neither channel is active. TickTick subject:
+2. **Threshold breach alert** (`routes/prices.ts`) — fires when the new price is at or below the user's configured threshold and the prior price was above it (transition only). Channel follows the per-product `channel` setting. TickTick task title:
    ```
-   🚗 Corolla wash due ^Car #Corolla today !Medium
+   ⬇️ {Product name} below ${threshold} at {Retailer} — ${price}
    ```
 
-4. **Daily price digest** (`index.ts` cron, 08:00 UTC daily) — queries the latest price per product+retailer for on-sale items and threshold breaches. Sends nothing if both lists are empty. Email only (no TickTick). Gated on `emailDigest`. Subject format:
+3. **Wash reminder** (`index.ts` cron, 07:00 UTC daily) — reads the owner's `corolla-washlog-v1` and `corolla-settings-v1` from `userData`, calculates days since last wash vs schedule interval, sends if overdue. Sends TickTick if `washReminders && ticktickConnected`, sends email if `emailWashReminders`. Returns early if neither channel is active. TickTick task title:
+   ```
+   🚗 {Routine name} due
+   ```
+
+4. **Daily price digest** (`index.ts` cron, 08:00 UTC daily) — queries the latest price per product+retailer for on-sale items and threshold breaches. Sends nothing if both lists are empty. Email only (no TickTick). Gated on `emailDigest`. Subject:
    ```
    🏷️ {N} price alerts — {day, date month}
    ```
 
-**Key functions** (`backend/src/lib/email.ts`):
-- `getOwnerNotificationSettings(ownerEmail)` — reads `corolla-settings-v1`, returns full `NotificationSettings` with safe defaults
+**Key functions:**
+
+`backend/src/lib/ticktick.ts`:
+- `createTickTickTask(ownerEmail, { title, content, projectId, tags, priority })` — creates a task via TickTick REST API; auto-refreshes token if within 24h of expiry
+- `getValidToken(ownerEmail)` — returns a fresh access token, refreshing if needed; throws if not connected
+- `storeOAuthTokens(ownerEmail, accessToken, refreshToken, expiresIn)` — writes initial tokens after OAuth callback
+- `fetchTickTickProjects(ownerEmail)` — returns `[{ id, name }]` for the project selector
+- `isTickTickConnected(ownerEmail)` — checks if a stored token exists in `userData`
+- `disconnectTickTick(ownerEmail)` — deletes stored tokens from `userData`
+
+`backend/src/routes/ticktick.ts`:
+- `GET /api/ticktick/auth` (session-protected) — redirects to TickTick OAuth
+- `GET /api/ticktick/callback` — exchanges code for tokens, redirects to app with `?ticktick=connected`
+- `GET /api/ticktick/status` — `{ connected: bool }`, no auth required
+- `GET /api/ticktick/projects` (session-protected) — list of TickTick projects for the selector
+- `DELETE /api/ticktick/disconnect` (session-protected) — removes stored tokens
+
+`backend/src/lib/email.ts`:
+- `getOwnerNotificationSettings(ownerEmail)` — reads `corolla-settings-v1` + calls `isTickTickConnected`, returns full `NotificationSettings`
 - `getOwnerAlertThresholds(ownerEmail)` — reads `corolla-price-alerts-v1`, returns `Record<slug, AlertThreshold>`
-- `sendTickTickTask(to, subject, body)` — plain-text email via Resend; no-op if `to` is falsy
 - `sendDirectEmail(to, subject, bodyText)` — styled HTML email via Resend
-- `sendDigestEmail(to, saleItems, thresholdItems)` — digest HTML email with section headers matching the app's green accent style; no-op if both lists empty
-- `sendViaChannel(channel, notifSettings, ownerEmail, baseSubject, body)` — routes to TickTick (appends `ticktickMetadata` to subject) and/or email based on channel and toggle state
+- `sendDigestEmail(to, saleItems, thresholdItems)` — digest HTML email; no-op if both lists empty
+- `sendViaChannel(channel, notifSettings, ownerEmail, baseSubject, body)` — (in `prices.ts`) routes to TickTick and/or email based on channel and toggle state
+
+`app.js`:
+- `ticktickIsConnected` — module-level bool; set by `refreshTickTickStatus()` after fetching `GET /api/ticktick/status`
+- `refreshTickTickStatus()` — updates connect/disconnect UI, shows/hides project + tags rows, loads project list, then re-renders wash reminder cards
+- `loadTickTickProjects()` — fetches project list, populates `#ticktick-project-id` select, restores saved selection
+- `connectTickTick()` — redirects to `${BACKEND_URL}/api/ticktick/auth`
+- `disconnectTickTick()` — `DELETE /api/ticktick/disconnect`, then refreshes status
 
 **To force a test price alert:** `POST /api/prices` with a real product slug, `priceCents` below the rolling average (or `compareAtCents` higher than `priceCents`), and a prior off-sale row in the DB. **To force a test wash reminder or digest:** temporarily change the respective cron to `* * * * *`, deploy, wait 60s, revert.
 

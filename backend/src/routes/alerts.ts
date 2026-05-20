@@ -3,7 +3,8 @@ import { eq, desc, and, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { sessionMiddleware } from '../lib/auth.js';
-import { getOwnerNotificationSettings, sendTickTickTask } from '../lib/email.js';
+import { getOwnerNotificationSettings } from '../lib/email.js';
+import { createTickTickTask } from '../lib/ticktick.js';
 
 const router = new Hono();
 
@@ -56,15 +57,16 @@ router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
   const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
   const notif = await getOwnerNotificationSettings(ownerEmail);
 
-  if (!notif.washReminders || !notif.ticktickEmail) return c.json({ ok: true });
+  if (!notif.washReminders || !notif.ticktickConnected) return c.json({ ok: true });
 
   const datePart = dueDate ? ` ${dueDate}` : '';
-  const suffix = notif.ticktickMetadata || '';
-  await sendTickTickTask(
-    notif.ticktickEmail,
-    `🚗 ${routineName} due${datePart} ${suffix}`.trim(),
-    'Wash reminder sent from the Corolla app.',
-  );
+  await createTickTickTask(ownerEmail, {
+    title:     `🚗 ${routineName} due${datePart}`.trim(),
+    content:   'Wash reminder sent from the Corolla app.',
+    projectId: notif.ticktickProjectId ?? '',
+    tags:      notif.ticktickTags ?? [],
+    priority:  3,
+  });
   return c.json({ ok: true });
 });
 

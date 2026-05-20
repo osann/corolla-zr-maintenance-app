@@ -4,11 +4,11 @@ import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
 import {
-  sendTickTickTask,
   sendDirectEmail,
   getOwnerNotificationSettings,
   getOwnerAlertThresholds,
 } from '../lib/email.js';
+import { createTickTickTask } from '../lib/ticktick.js';
 
 const router = new Hono();
 
@@ -144,21 +144,25 @@ router.post('/prices', async (c) => {
 
 function sendViaChannel(
   channel: 'global' | 'ticktick' | 'email',
-  notifSettings: { ticktickAlerts: boolean; ticktickEmail: string | null; ticktickMetadata: string; emailAlerts: boolean },
+  notifSettings: { ticktickConnected: boolean; ticktickAlerts: boolean; ticktickProjectId: string | null; ticktickTags: string[]; emailAlerts: boolean },
   ownerEmail: string,
   baseSubject: string,
   body: string,
 ): void {
   const sendTT = notifSettings.ticktickAlerts &&
     (channel === 'ticktick' || channel === 'global') &&
-    !!notifSettings.ticktickEmail;
+    notifSettings.ticktickConnected;
   const sendEmail = notifSettings.emailAlerts &&
     (channel === 'email' || channel === 'global');
 
   if (sendTT) {
-    const meta = notifSettings.ticktickMetadata?.trim();
-    const ttSubject = meta ? `${baseSubject} ${meta}` : baseSubject;
-    sendTickTickTask(notifSettings.ticktickEmail!, ttSubject, body).catch(console.error);
+    createTickTickTask(ownerEmail, {
+      title:     baseSubject,
+      content:   body,
+      projectId: notifSettings.ticktickProjectId ?? '',
+      tags:      notifSettings.ticktickTags ?? [],
+      priority:  1,
+    }).catch(console.error);
   }
   if (sendEmail) {
     sendDirectEmail(ownerEmail, baseSubject, body).catch(console.error);
