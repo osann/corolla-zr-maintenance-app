@@ -1627,11 +1627,22 @@ Output only the CSV starting with the header row.`;
       const step = routine.steps.find(s => s.name === stepName);
       if (!step?.products?.length) continue;
       for (const { name, ml } of step.products) {
+        if (ml == null) continue;
         const slug = catalogByName.get(name);
         if (!slug || EQUIPMENT_SLUGS.has(slug)) continue;
-        const inv = inventoryState[slug];
+
+        // For bundle slugs, apply the step ml to the first consumable component
+        // (stock is tracked per-component, not on the bundle slug itself)
+        let stateKey = slug;
+        if (BUNDLE_COMPONENTS[slug]) {
+          const firstConsumable = BUNDLE_COMPONENTS[slug].find(c => !c.equipment);
+          if (!firstConsumable) continue;
+          stateKey = firstConsumable.slug
+            ?? `${slug}:${firstConsumable.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        }
+
+        const inv = inventoryState[stateKey];
         if (!inv || inv.remainingMl == null) continue;
-        if (ml == null) continue;
         inv.remainingMl = Math.max(0, inv.remainingMl - ml);
         changed = true;
       }
@@ -1639,6 +1650,7 @@ Output only the CSV starting with the header row.`;
     if (changed) {
       storageSet(INVENTORY_KEY, inventoryState);
       syncPush(INVENTORY_KEY, inventoryState);
+      renderInventory();
     }
   }
 
