@@ -2039,21 +2039,38 @@ Output only the CSV starting with the header row.`;
           <button class="step-remove-btn" onclick="removeStepProduct(${rIdx},${sIdx},${pIdx})" title="Remove product">✕</button>
         </div>
       `).join('');
+      const totalSteps = routine.steps.length;
       return `
         <div class="step-editor-block">
-          <input value="${escAttr(step.name || '')}"
-            onchange="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
-            oninput="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
-            placeholder="Step name (short)…" class="step-name-input">
-          <button class="step-remove-btn step-remove-top" onclick="removeRoutineStep(${rIdx},${sIdx})" title="Remove step">✕</button>
-          <input value="${escAttr(step.action || '')}"
-            id="step-action-${rIdx}-${sIdx}"
-            onchange="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
-            oninput="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
-            placeholder="Action (what to do)…" class="step-action-input">
+          <div class="step-editor-header">
+            <span class="step-number-label">Step ${sIdx + 1}</span>
+            <div class="step-reorder-btns">
+              <button class="step-reorder-btn" onclick="moveRoutineStep(${rIdx},${sIdx},-1)" ${sIdx === 0 ? 'disabled' : ''} title="Move up">↑</button>
+              <button class="step-reorder-btn" onclick="moveRoutineStep(${rIdx},${sIdx},1)" ${sIdx === totalSteps - 1 ? 'disabled' : ''} title="Move down">↓</button>
+            </div>
+            <button class="step-remove-btn" onclick="removeRoutineStep(${rIdx},${sIdx})" title="Remove step">✕</button>
+          </div>
+          <div class="step-editor-field-group">
+            <label class="step-field-label">Step</label>
+            <input value="${escAttr(step.name || '')}"
+              onchange="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
+              oninput="updateRoutineStep(${rIdx},${sIdx},'name',this.value)"
+              placeholder="Short description…" class="step-name-input">
+          </div>
+          <div class="step-editor-field-group">
+            <label class="step-field-label">Action</label>
+            <input value="${escAttr(step.action || '')}"
+              id="step-action-${rIdx}-${sIdx}"
+              onchange="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
+              oninput="updateRoutineStep(${rIdx},${sIdx},'action',this.value)"
+              placeholder="What to do (detail)…" class="step-action-input">
+          </div>
           <div class="step-products-section">
+            <div class="step-products-header">
+              <span class="step-field-label">Products</span>
+              <button class="add-product-btn" onclick="addStepProduct(${rIdx},${sIdx})">+ Add</button>
+            </div>
             ${productsHtml}
-            <button class="add-product-btn" onclick="addStepProduct(${rIdx},${sIdx})">+ Add product</button>
           </div>
         </div>
       `;
@@ -2139,6 +2156,14 @@ Output only the CSV starting with the header row.`;
 
   function removeRoutineStep(rIdx, sIdx) {
     routines[rIdx].steps.splice(sIdx, 1);
+    renderRoutineConfigCards();
+  }
+
+  function moveRoutineStep(rIdx, sIdx, dir) {
+    const steps = routines[rIdx].steps;
+    const newIdx = sIdx + dir;
+    if (newIdx < 0 || newIdx >= steps.length) return;
+    [steps[sIdx], steps[newIdx]] = [steps[newIdx], steps[sIdx]];
     renderRoutineConfigCards();
   }
 
