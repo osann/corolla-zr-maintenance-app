@@ -1652,7 +1652,7 @@ Output only the CSV starting with the header row.`;
       item.innerHTML = `
         <span class="drag-handle">⠿</span>
         <span class="step-name-display" id="snd-${routineKey}-${idx}">${step.name}</span>
-        <input class="step-name-input" id="sni-${routineKey}-${idx}" value="${step.name}" onblur="finishEditStep('${routineKey}',${idx})" onkeydown="if(event.key==='Enter')this.blur()">
+        <input class="step-chip-name-input" id="sni-${routineKey}-${idx}" value="${step.name}" onblur="finishEditStep('${routineKey}',${idx})" onkeydown="if(event.key==='Enter')this.blur()">
         <button class="step-edit-btn" onclick="startEditStep('${routineKey}',${idx})" title="Rename">✎</button>
         <label class="toggle-wrap step-toggle" title="${step.enabled ? 'Enabled' : 'Disabled'}">
           <input type="checkbox" ${step.enabled ? 'checked' : ''} onchange="toggleStep('${routineKey}',${idx},this.checked)">
