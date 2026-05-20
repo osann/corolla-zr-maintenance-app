@@ -17,7 +17,7 @@ const router = new Hono<AppEnv>();
 
 const OWNER_EMAIL = process.env.OWNER_EMAIL ?? '';
 const ALLOWED_KEYS = [
-  'corolla-detailing-app-v4',
+  'corolla-checklist-v3',
   'corolla-washlog-v1',
   'corolla-budget-v1',
   'corolla-settings-v1',
@@ -25,6 +25,7 @@ const ALLOWED_KEYS = [
   'corolla-routines-v1',
   'corolla-maintenance-v1',
   'corolla-maintenance-log-v1',
+  'corolla-inventory-v1',
 ];
 
 // In-memory 60s per-email cooldown (resets on Render restart — acceptable)

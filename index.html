@@ -26,6 +26,7 @@
       <button class="tab active" data-tab="routine">Wash Routines</button>
       <button class="tab" data-tab="maintenance">Maintenance</button>
       <button class="tab" data-tab="spend">Spend</button>
+      <button class="tab" data-tab="inventory" style="display:none">Inventory</button>
       <button class="tab" data-tab="prices">Current Prices</button>
       <button class="tab" data-tab="guide">Technique Guide</button>
       <button class="tab" data-tab="settings">Settings</button>
@@ -1014,6 +1015,11 @@
     </div><!-- /spend-sub-summary -->
   </div>
 
+  <!-- ═══ INVENTORY PANEL ══════════════════════════════ -->
+  <div class="panel" id="inventory">
+    <div id="inventory-list"></div>
+  </div>
+
   <!-- ═══ CURRENT PRICES PANEL ════════════════════════ -->
   <div class="panel" id="prices">
     <div id="prices-alerts-summary" style="display:none;"></div>
@@ -1320,6 +1326,16 @@
         </div>
         <div class="settings-control">
           <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="resetMaintenance()">Reset maintenance</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Reset inventory</strong>
+          <span>Clear all stock levels and usage settings. Purchase dates are preserved. Cannot be undone.</span>
+        </div>
+        <div class="settings-control">
+          <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="resetInventory()">Reset inventory</button>
         </div>
       </div>
 

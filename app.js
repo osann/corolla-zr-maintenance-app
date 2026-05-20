@@ -310,6 +310,54 @@ Output only the CSV starting with the header row.`;
   let maintenanceLog = [];
   let maintenanceDragSrc = null;
 
+  // ─── Inventory ────────────────────────────────────
+  const INVENTORY_KEY = 'corolla-inventory-v1';
+
+  const EQUIPMENT_SLUGS = new Set([
+    '2-bucket-wash-kit', 'karcher-k2', 'snow-blow-cannon',
+    'the-little-stiffy', 'the-flat-head', 'pumpy-pump',
+    'inta-mitt', 'plush-brush', 'big-softie-pair',
+    'the-square-bear', 'shagtastic-wash-pad', 'twisted-pro-sucker',
+    'the-big-green-sucker', 'the-chubby-wheel-brush-v2', 'little-chubby-v2',
+    'microfibre-bucket-lid', 'happy-ending-cannon-bottle',
+    'the-essentials-starters-kit', 'debugger-cloth', 'naked-inta-mitt-pack',
+    'plush-daddy',
+  ]);
+
+  const INVENTORY_DEFAULTS = {
+    'nanolicious-wash-pack-ultimate': { volumeMl: 500,  usagePerWashMl: 25  },
+    'nanolicious-wash-5l':            { volumeMl: 5000, usagePerWashMl: 25  },
+    'nanolicious-shag-pack':          { volumeMl: 500,  usagePerWashMl: 25  },
+    'wet-dreams-pack':                { volumeMl: 500,  usagePerWashMl: 20  },
+    'wet-dreams-770ml':               { volumeMl: 770,  usagePerWashMl: 20  },
+    'wet-dreams-5l':                  { volumeMl: 5000, usagePerWashMl: 20  },
+    'boss-gloss-770ml':               { volumeMl: 770,  usagePerWashMl: 10  },
+    'boss-gloss-5l':                  { volumeMl: 5000, usagePerWashMl: 10  },
+    'boss-gloss-pack':                { volumeMl: 770,  usagePerWashMl: 10  },
+    'naked-glass-500ml':              { volumeMl: 500,  usagePerWashMl: 10  },
+    'naked-glass-770ml':              { volumeMl: 770,  usagePerWashMl: 10  },
+    'naked-inta-mitt-pack':           { volumeMl: 500,  usagePerWashMl: 10  },
+    'snow-job-1l':                    { volumeMl: 1000, usagePerWashMl: 50  },
+    'snow-job-5l':                    { volumeMl: 5000, usagePerWashMl: 50  },
+    'wheely-clean-v2-500ml':          { volumeMl: 500,  usagePerWashMl: 20  },
+    'wheely-clean-v2-5l':             { volumeMl: 5000, usagePerWashMl: 20  },
+    'wheely-clean-770ml':             { volumeMl: 770,  usagePerWashMl: 20  },
+    'fabra-cadabra-500ml':            { volumeMl: 500,  usagePerWashMl: 15  },
+    'fabratection':                   { volumeMl: 500,  usagePerWashMl: 15  },
+    '303-aerospace':                  { volumeMl: 473,  usagePerWashMl: 10  },
+    'microfibre-wash-1l':             { volumeMl: 1000, usagePerWashMl: 30  },
+    'flash-prep-500ml':               { volumeMl: 500,  usagePerWashMl: 50  },
+    'bead-machine-500ml':             { volumeMl: 500,  usagePerWashMl: 50  },
+    'leather-love-v2-500ml':          { volumeMl: 500,  usagePerWashMl: 15  },
+    'leather-guard-500ml':            { volumeMl: 500,  usagePerWashMl: 10  },
+    'orange-agent-500ml':             { volumeMl: 500,  usagePerWashMl: 20  },
+    'happy-ending-1l':                { volumeMl: 1000, usagePerWashMl: 50  },
+    'happy-ending-5l':                { volumeMl: 5000, usagePerWashMl: 50  },
+    'bolp-leather-care-pack':         { volumeMl: 1000, usagePerWashMl: 25  },
+  };
+
+  let inventoryState = {}; // { [slug]: { purchaseDate, volumeMl, usagePerWashMl, remainingMl, manualOverride } }
+
   // Default phases — id order matches original HTML for v4/v2 → v3 migration
   const DEFAULT_PHASES = [
     { id: '1', tag: 'Phase 1 · foundation',                tag2: '', title: 'Wash, dry, glass, sealant, pre-wash',   items: ['nanolicious-wash-pack-ultimate','wet-dreams-pack','2-bucket-wash-kit','boss-gloss-770ml','naked-glass-500ml','inta-mitt','karcher-k2','snow-blow-cannon','snow-job-1l'] },
@@ -365,9 +413,53 @@ Output only the CSV starting with the header row.`;
   }
 
   async function saveChecklist() {
+    const today = new Date().toISOString().split('T')[0];
+    // Record purchase date for newly-checked items
+    itemData.forEach(item => {
+      const wasChecked = checklistState.checked[item.slug];
+      const nowChecked = item.input.checked;
+      if (!wasChecked && nowChecked) {
+        if (!inventoryState[item.slug]) inventoryState[item.slug] = {};
+        if (!inventoryState[item.slug].purchaseDate) {
+          inventoryState[item.slug].purchaseDate = today;
+        }
+      }
+    });
+
     itemData.forEach(item => { checklistState.checked[item.slug] = item.input.checked; });
+
+    // Auto-archive phases where every item is checked
+    const completedPhases = checklistState.phases.filter(phase =>
+      phase.items.length > 0 && phase.items.every(slug => checklistState.checked[slug])
+    );
+    for (const phase of completedPhases) {
+      // Ensure purchase dates are set for all items in the completed phase
+      for (const slug of phase.items) {
+        if (!inventoryState[slug]) inventoryState[slug] = {};
+        if (!inventoryState[slug].purchaseDate) inventoryState[slug].purchaseDate = today;
+      }
+      showInvToast(`${phase.title} complete — items moved to Inventory`);
+    }
+    const didArchive = completedPhases.length > 0;
+    if (didArchive) {
+      const completedIds = new Set(completedPhases.map(p => p.id));
+      checklistState.phases = checklistState.phases.filter(p => !completedIds.has(p.id));
+    }
+
     await storageSet(CHECKLIST_V3_KEY, checklistState);
     syncPush(CHECKLIST_V3_KEY, checklistState);
+
+    if (Object.keys(inventoryState).length > 0) {
+      await storageSet(INVENTORY_KEY, inventoryState);
+      syncPush(INVENTORY_KEY, inventoryState);
+    }
+
+    // Re-render checklist to remove archived phase cards, then update inventory view
+    if (didArchive) {
+      renderChecklist();
+      recompute();
+      renderInventory();
+    }
   }
 
   function createPhaseEl(phase) {
@@ -1142,6 +1234,16 @@ Output only the CSV starting with the header row.`;
       saveLog();
       renderLog();
       document.querySelector('.log-sub-tab[data-log-tab="history"]')?.click();
+      // Inventory: steps may have changed — remind user to check stock levels manually
+      const hasInventoryItems = steps.some(stepName => {
+        const routine = routines.find(r => r.id === type);
+        const step = routine?.steps?.find(s => s.name === stepName);
+        return step?.products?.some(({ name }) => {
+          const slug = CATALOG.find(p => p.name === name)?.slug;
+          return slug && !EQUIPMENT_SLUGS.has(slug) && checklistState.checked[slug];
+        });
+      });
+      if (hasInventoryItems) showInvToast('Session edited — check Inventory if stock levels need adjusting');
       // Re-fetch from server: catches photos whose upload finished after the save click
       loadPhotoData([savedEntryId]).then(() => renderLog());
       return;
@@ -1152,6 +1254,7 @@ Output only the CSV starting with the header row.`;
     pendingPhotos = [];
     renderPhotoPreviews();
 
+    decrementInventoryForSession(entry);
     washLog.unshift(entry);
     saveLog();
     renderLog();
@@ -1348,6 +1451,300 @@ Output only the CSV starting with the header row.`;
       `;
       container.appendChild(div);
     });
+  }
+
+  // ─── Inventory ────────────────────────────────────
+
+  async function loadInventory() {
+    const saved = await storageGet(INVENTORY_KEY);
+    inventoryState = saved ?? {};
+    renderInventory();
+  }
+
+  async function saveInventory() {
+    await storageSet(INVENTORY_KEY, inventoryState);
+    syncPush(INVENTORY_KEY, inventoryState);
+    renderInventory();
+  }
+
+  function updateInventoryItem(slug, updates) {
+    inventoryState[slug] = { ...(inventoryState[slug] ?? {}), ...updates };
+    saveInventory();
+  }
+
+  function markItemEmpty(slug) {
+    updateInventoryItem(slug, { remainingMl: 0 });
+  }
+
+  async function resetInventory() {
+    if (!confirm('Reset all inventory stock levels? Purchase dates are preserved. Cannot be undone.')) return;
+    const today = new Date().toISOString().split('T')[0];
+    const fresh = {};
+    for (const slug of Object.keys(inventoryState)) {
+      fresh[slug] = { purchaseDate: inventoryState[slug].purchaseDate ?? today };
+    }
+    inventoryState = fresh;
+    await storageSet(INVENTORY_KEY, inventoryState);
+    syncPush(INVENTORY_KEY, inventoryState);
+    renderInventory();
+  }
+
+  function toggleInvAdjustForm(slug) {
+    const form = document.getElementById(`inv-adjust-form-${slug}`);
+    if (!form) return;
+    const isHidden = form.hidden;
+    // Close any other open forms first
+    document.querySelectorAll('.inv-adjust-form').forEach(f => { f.hidden = true; });
+    form.hidden = !isHidden;
+  }
+
+  function saveInvAdjust(slug) {
+    const volumeEl    = document.getElementById(`inv-vol-${slug}`);
+    const usageEl     = document.getElementById(`inv-usage-${slug}`);
+    const remainEl    = document.getElementById(`inv-remain-${slug}`);
+    const defaults    = INVENTORY_DEFAULTS[slug] ?? {};
+    const volumeMl    = volumeEl  && volumeEl.value !== ''  ? +volumeEl.value  : (inventoryState[slug]?.volumeMl    ?? defaults.volumeMl    ?? null);
+    const usagePerWashMl = usageEl && usageEl.value !== ''  ? +usageEl.value   : (inventoryState[slug]?.usagePerWashMl ?? defaults.usagePerWashMl ?? null);
+    const remainingMl = remainEl  && remainEl.value !== ''  ? +remainEl.value  : null;
+
+    inventoryState[slug] = {
+      ...(inventoryState[slug] ?? {}),
+      volumeMl,
+      usagePerWashMl,
+      remainingMl: remainingMl !== null ? Math.max(0, Math.min(volumeMl ?? Infinity, remainingMl)) : inventoryState[slug]?.remainingMl ?? null,
+      manualOverride: remainingMl !== null,
+    };
+    saveInventory();
+  }
+
+  function countProductUses(slug) {
+    const productName = CATALOG.find(p => p.slug === slug)?.name;
+    if (!productName) return 0;
+    let count = 0;
+    for (const entry of washLog) {
+      if (!entry.steps || !entry.steps.length) continue;
+      const routine = routines.find(r => r.id === entry.type);
+      if (!routine) continue;
+      const usedInSession = entry.steps.some(stepName => {
+        const step = routine.steps.find(s => s.name === stepName);
+        return step?.products?.some(p => p.name === productName);
+      });
+      if (usedInSession) count++;
+    }
+    return count;
+  }
+
+  function decrementInventoryForSession(entry) {
+    const routine = routines.find(r => r.id === entry.type);
+    if (!routine) return;
+    const catalogByName = new Map(CATALOG.map(p => [p.name, p.slug]));
+    let changed = false;
+    for (const stepName of (entry.steps ?? [])) {
+      const step = routine.steps.find(s => s.name === stepName);
+      if (!step?.products?.length) continue;
+      for (const { name } of step.products) {
+        const slug = catalogByName.get(name);
+        if (!slug || EQUIPMENT_SLUGS.has(slug)) continue;
+        const inv = inventoryState[slug];
+        if (!inv || inv.remainingMl == null) continue;
+        const usageMl = inv.usagePerWashMl ?? INVENTORY_DEFAULTS[slug]?.usagePerWashMl ?? null;
+        if (usageMl == null) continue;
+        inv.remainingMl = Math.max(0, inv.remainingMl - usageMl);
+        changed = true;
+      }
+    }
+    if (changed) {
+      storageSet(INVENTORY_KEY, inventoryState);
+      syncPush(INVENTORY_KEY, inventoryState);
+    }
+  }
+
+  function showInvToast(msg) {
+    let toast = document.getElementById('inv-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'inv-toast';
+      toast.className = 'inv-toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.add('visible');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove('visible'), 3000);
+  }
+
+  function renderInventory() {
+    const container = document.getElementById('inventory-list');
+    if (!container) return;
+
+    // Build the set of owned slugs from checklist state
+    const ownedSlugs = new Set(
+      Object.entries(checklistState.checked ?? {})
+        .filter(([, v]) => v)
+        .map(([k]) => k)
+    );
+
+    if (ownedSlugs.size === 0) {
+      container.innerHTML = `
+        <div class="inv-empty-state">
+          <p>No items in inventory yet.</p>
+          <p>Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.tab[data-tab=\\'spend\\']')?.click()">Kit Checklist</button> to add them here.</p>
+        </div>`;
+      return;
+    }
+
+    // Reuse PRICE_CATEGORIES structure for consistent category layout
+    const PRICE_CATEGORIES = [
+      { label: 'Equipment', sections: [
+        { label: 'Microfibre', slugs: ['debugger-cloth', 'inta-mitt', 'plush-daddy', 'big-softie-pair', 'the-square-bear'] },
+        { label: 'Wash Pads', slugs: ['shagtastic-wash-pad'] },
+        { label: 'Drying Towels', slugs: ['twisted-pro-sucker', 'the-big-green-sucker'] },
+        { label: 'Other', slugs: ['plush-brush', '2-bucket-wash-kit', 'microfibre-bucket-lid', 'pumpy-pump', 'the-essentials-starters-kit'] },
+      ]},
+      { label: 'Pressure Washer Equipment', sections: [
+        { label: 'Pressure Washers', slugs: ['karcher-k2'] },
+        { label: 'Foam Cannons', slugs: ['snow-blow-cannon', 'happy-ending-cannon-bottle'] },
+      ]},
+      { label: 'Exterior Wash', sections: [
+        { label: 'Glass', slugs: ['naked-glass-500ml', 'naked-glass-770ml', 'naked-inta-mitt-pack'] },
+        { label: 'Prep', slugs: ['flash-prep-500ml', 'orange-agent-500ml'] },
+        { label: 'Pre-Wash', slugs: ['snow-job-1l', 'snow-job-5l'] },
+        { label: 'Contact Wash', slugs: ['nanolicious-wash-pack-ultimate', 'nanolicious-shag-pack', 'nanolicious-wash-5l'] },
+      ]},
+      { label: 'Exterior Protection', sections: [
+        { label: 'Sealant', slugs: ['bead-machine-500ml', 'wet-dreams-770ml', 'wet-dreams-5l', 'happy-ending-1l', 'happy-ending-5l', 'wet-dreams-pack'] },
+        { label: 'Quick Detailer', slugs: ['boss-gloss-770ml', 'boss-gloss-5l', 'boss-gloss-pack'] },
+        { label: 'Microfibre Wash', slugs: ['microfibre-wash-1l'] },
+      ]},
+      { label: 'Interior Clean', sections: [
+        { label: 'Leather', slugs: ['leather-love-v2-500ml', 'bolp-leather-care-pack'] },
+        { label: 'Fabric', slugs: ['fabra-cadabra-500ml'] },
+      ]},
+      { label: 'Interior Protect', sections: [
+        { label: 'Leather', slugs: ['leather-guard-500ml'] },
+        { label: 'Fabric & Suede', slugs: ['fabratection'] },
+        { label: 'Plastic, Vinyl & Rubber', slugs: ['303-aerospace'] },
+      ]},
+      { label: 'Wheels', sections: [
+        { label: 'Equipment', slugs: ['little-chubby-v2', 'the-little-stiffy', 'the-flat-head', 'the-chubby-wheel-brush-v2'] },
+        { label: 'Clean', slugs: ['wheely-clean-v2-500ml', 'wheely-clean-770ml', 'wheely-clean-v2-5l'] },
+      ]},
+    ];
+
+    function renderInvCard(slug) {
+      const catalogItem = CATALOG.find(p => p.slug === slug);
+      if (!catalogItem) return '';
+      const meta = inventoryState[slug] ?? {};
+      const defaults = INVENTORY_DEFAULTS[slug] ?? {};
+      const isEquip = EQUIPMENT_SLUGS.has(slug);
+      const safeSlug = escAttr(slug);
+      const name = escHtml(catalogItem.name);
+
+      if (isEquip) {
+        const uses = countProductUses(slug);
+        const dateStr = meta.purchaseDate
+          ? `Since ${new Date(meta.purchaseDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
+          : '';
+        const usesStr = uses === 1 ? 'Used in 1 session' : uses > 0 ? `Used in ${uses} sessions` : '';
+        const meta2 = [dateStr, usesStr].filter(Boolean).join(' · ');
+        return `
+          <div class="inv-card inv-card--equip">
+            <div class="inv-card-name">${name}</div>
+            ${meta2 ? `<div class="inv-equip-meta">${meta2}</div>` : ''}
+          </div>`;
+      }
+
+      // Consumable
+      const volumeMl       = meta.volumeMl       ?? defaults.volumeMl       ?? null;
+      const usagePerWashMl = meta.usagePerWashMl ?? defaults.usagePerWashMl ?? null;
+      const remainingMl    = meta.remainingMl;
+      const notConfigured  = remainingMl == null;
+      const pct            = (volumeMl && remainingMl != null) ? Math.max(0, Math.min(100, Math.round((remainingMl / volumeMl) * 100))) : null;
+      const isLow          = pct != null && pct <= 20;
+
+      let stockHtml = '';
+      if (notConfigured) {
+        stockHtml = `<div class="inv-not-set">Stock not set — <button class="inv-link-btn" onclick="toggleInvAdjustForm('${safeSlug}')">configure</button></div>`;
+      } else {
+        const fillColor = pct > 50 ? 'var(--accent)' : pct > 20 ? 'var(--warn)' : 'var(--danger)';
+        const label = volumeMl
+          ? `${remainingMl}ml remaining (${pct}%)`
+          : `${remainingMl}ml remaining`;
+        stockHtml = `
+          <div class="inv-stock-wrap">
+            <div class="inv-stock-bar"><div class="inv-stock-fill" style="width:${pct ?? 0}%;background:${fillColor}"></div></div>
+            <span class="inv-stock-label">${label}</span>
+            ${isLow ? '<span class="inv-low-badge">Running low</span>' : ''}
+          </div>`;
+      }
+
+      // Sessions remaining estimate
+      let sessionsHtml = '';
+      if (!notConfigured && usagePerWashMl && remainingMl != null) {
+        const sessionsLeft = Math.floor(remainingMl / usagePerWashMl);
+        sessionsHtml = `<div class="inv-sessions-left">${sessionsLeft} wash${sessionsLeft !== 1 ? 'es' : ''} remaining</div>`;
+      }
+
+      const volVal    = meta.volumeMl       ?? defaults.volumeMl       ?? '';
+      const usageVal  = meta.usagePerWashMl ?? defaults.usagePerWashMl ?? '';
+      const remVal    = meta.remainingMl    ?? '';
+
+      return `
+        <div class="inv-card inv-card--consumable${isLow ? ' inv-card--low' : ''}">
+          <div class="inv-card-row">
+            <div class="inv-card-name">${name}</div>
+            <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${safeSlug}')" title="Adjust stock">Adjust</button>
+          </div>
+          ${stockHtml}
+          ${sessionsHtml}
+          <div class="inv-adjust-form" id="inv-adjust-form-${safeSlug}" hidden>
+            <div class="inv-adjust-grid">
+              <label class="inv-adjust-label">Volume (ml)</label>
+              <label class="inv-adjust-label">Per wash (ml)</label>
+              <label class="inv-adjust-label">Remaining (ml)</label>
+              <input class="inv-adjust-input" type="number" id="inv-vol-${safeSlug}" value="${volVal}" min="1" placeholder="e.g. 500">
+              <input class="inv-adjust-input" type="number" id="inv-usage-${safeSlug}" value="${usageVal}" min="1" placeholder="e.g. 25">
+              <input class="inv-adjust-input" type="number" id="inv-remain-${safeSlug}" value="${remVal}" min="0" placeholder="e.g. 375">
+            </div>
+            <div class="inv-adjust-actions">
+              <button class="settings-save-btn" onclick="saveInvAdjust('${safeSlug}')">Update</button>
+              <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="markItemEmpty('${safeSlug}')">Mark empty</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    let html = '';
+    let anyRendered = false;
+
+    for (const category of PRICE_CATEGORIES) {
+      let categoryBody = '';
+      let firstSec = true;
+
+      for (const sec of category.sections) {
+        let secHtml = '';
+        for (const slug of sec.slugs) {
+          if (!ownedSlugs.has(slug)) continue;
+          const inv = inventoryState[slug] ?? {};
+          if (!EQUIPMENT_SLUGS.has(slug) && inv.remainingMl === 0) continue;
+          secHtml += renderInvCard(slug);
+        }
+        if (!secHtml) continue;
+        const headClass = firstSec ? 'section-head' : 'section-head section-head--gap';
+        categoryBody += `<div class="${headClass}">${escHtml(sec.label)}</div>${secHtml}`;
+        firstSec = false;
+      }
+
+      if (!categoryBody) continue;
+      html += `<div class="inv-category"><div class="inv-category-label">${escHtml(category.label)}</div>${categoryBody}</div>`;
+      anyRendered = true;
+    }
+
+    if (!anyRendered) {
+      html = `<div class="inv-empty-state"><p>No items with stock data yet. Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.tab[data-tab=\\'spend\\']')?.click()">Kit Checklist</button> to populate your inventory.</p></div>`;
+    }
+
+    container.innerHTML = html;
   }
 
   // ─── Tab navigation ──────────────────────────────
@@ -3120,6 +3517,7 @@ Output only the CSV starting with the header row.`;
         syncPush(ROUTINES_KEY, []),
         syncPush(MAINTENANCE_KEY, []),
         syncPush(MAINTENANCE_LOG_KEY, []),
+        syncPush(INVENTORY_KEY, {}),
       ]);
       syncEnabled = false;
     }
@@ -3131,6 +3529,7 @@ Output only the CSV starting with the header row.`;
     await storageSet(ROUTINES_KEY, null);
     await storageSet(MAINTENANCE_KEY, null);
     await storageSet(MAINTENANCE_LOG_KEY, null);
+    await storageSet(INVENTORY_KEY, {});
     location.reload();
   }
 
@@ -3249,6 +3648,7 @@ Output only the CSV starting with the header row.`;
     if (!loginForm || !logoutSec) return;
     const logTab         = document.querySelector('.tab[data-tab="log"]');
     const spendTab       = document.querySelector('.tab[data-tab="spend"]');
+    const inventoryTab   = document.querySelector('.tab[data-tab="inventory"]');
     const routineSubTabs = document.querySelector('.routine-sub-tabs');
     const vehicleSec     = document.getElementById('settings-vehicle');
     const notifSec       = document.getElementById('settings-notifications');
@@ -3266,6 +3666,7 @@ Output only the CSV starting with the header row.`;
         if (wasHidden) document.querySelector('.tab[data-tab="log"]')?.click();
       }
       if (spendTab)       spendTab.style.display       = '';
+      if (inventoryTab)   inventoryTab.style.display   = '';
       if (routineSubTabs) routineSubTabs.style.display = '';
       if (vehicleSec)     vehicleSec.style.display     = '';
       if (notifSec)       notifSec.style.display       = '';
@@ -3286,6 +3687,10 @@ Output only the CSV starting with the header row.`;
       if (spendTab) {
         spendTab.style.display = 'none';
         if (spendTab.classList.contains('active')) document.querySelector('.tab[data-tab="routine"]')?.click();
+      }
+      if (inventoryTab) {
+        inventoryTab.style.display = 'none';
+        if (inventoryTab.classList.contains('active')) document.querySelector('.tab[data-tab="routine"]')?.click();
       }
       if (routineSubTabs) routineSubTabs.style.display = 'none';
       if (vehicleSec)     vehicleSec.style.display     = 'none';
@@ -3372,6 +3777,7 @@ Output only the CSV starting with the header row.`;
       storageSet(ALERTS_KEY, {}),
       storageSet(ROUTINES_KEY, null),
       storageSet(MAINTENANCE_KEY, null),
+      storageSet(INVENTORY_KEY, {}),
       storageSet(AUTH_CACHE_KEY, null),
     ]);
     location.reload();
@@ -3422,7 +3828,7 @@ Output only the CSV starting with the header row.`;
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY, INVENTORY_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
@@ -3433,6 +3839,7 @@ Output only the CSV starting with the header row.`;
       await loadRoutines();
       await loadMaintenance();
       await loadChecklist();
+      await loadInventory();
       await loadLog();
       await loadBudget();
       await loadSettings();
@@ -3775,6 +4182,7 @@ Output only the CSV starting with the header row.`;
       else if (e.key === 'ArrowRight') lightboxNav(1);
     });
     await loadChecklist();
+    await loadInventory();
     await loadLog();
     await loadBudget();
     await loadRoutines();

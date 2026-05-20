@@ -1856,6 +1856,175 @@
   .schedule-remove-btn:hover { background: var(--bg-muted); }
   .settings-hint { font-size: 13px; color: var(--ink-mid); margin: 8px 0; }
 
+  /* ─── Inventory ─────────────────────────────────── */
+  .inv-category { margin-bottom: 28px; }
+  .inv-category-label {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    padding: 10px 0 6px;
+    border-bottom: 2px solid var(--rule);
+    margin-bottom: 2px;
+  }
+  .inv-card {
+    padding: 10px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .section-head + .inv-card { border-top: none; padding-top: 0; }
+  .inv-card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 5px;
+  }
+  .inv-card-name {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .inv-equip-meta {
+    font-size: 12.5px;
+    color: var(--ink-mid);
+    margin-top: 2px;
+  }
+  .inv-stock-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .inv-stock-bar {
+    flex: 1;
+    min-width: 80px;
+    height: 6px;
+    background: var(--bg-muted);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .inv-stock-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 300ms ease;
+  }
+  .inv-stock-label {
+    font-size: 12.5px;
+    color: var(--ink-mid);
+    white-space: nowrap;
+  }
+  .inv-low-badge {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--danger);
+    background: var(--danger-tint);
+    border-radius: 4px;
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+  .inv-card--low .inv-card-name { color: var(--danger); }
+  .inv-sessions-left {
+    font-size: 12px;
+    color: var(--ink-low);
+    margin-top: 4px;
+  }
+  .inv-not-set {
+    font-size: 12.5px;
+    color: var(--ink-mid);
+    font-style: italic;
+  }
+  .inv-adjust-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--ink-mid);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 160ms ease;
+  }
+  .inv-adjust-btn:hover { background: var(--bg-muted); color: var(--ink); }
+  .inv-adjust-form {
+    border-top: 1px solid var(--rule);
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+  .inv-adjust-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px 10px;
+    margin-bottom: 10px;
+  }
+  .inv-adjust-label {
+    font-size: 11.5px;
+    color: var(--ink-mid);
+    font-weight: 500;
+  }
+  .inv-adjust-input {
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: var(--bg-elev);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    padding: 6px 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .inv-adjust-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .inv-empty-state {
+    padding: 32px 0;
+    color: var(--ink-mid);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .inv-link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent);
+    font-size: inherit;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .inv-link-btn:hover { opacity: 0.8; }
+
+  /* Toast notification for phase archival and edit warnings */
+  .inv-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    background: var(--ink);
+    color: var(--bg);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms ease, transform 220ms ease;
+    z-index: 10000;
+    white-space: nowrap;
+    max-width: calc(100vw - 48px);
+    text-align: center;
+  }
+  .inv-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
   /* ─── Responsive ────────────────────────────────── */
   @media (max-width: 600px) {
     h1 { font-size: 32px; }
