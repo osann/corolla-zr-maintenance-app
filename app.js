@@ -1159,7 +1159,7 @@ Output only the CSV starting with the header row.`;
     const routine = routines.find(r => r.id === routineId);
     const steps = (routine?.steps ?? []).filter(s => s.enabled !== false);
     container.innerHTML = steps.map(s =>
-      `<label class="step-chip"><input type="checkbox" value="${escAttr(s.product)}"> ${escHtml(s.product)}</label>`
+      `<label class="step-chip"><input type="checkbox" value="${escAttr(s.name)}"> ${escHtml(s.name)}</label>`
     ).join('');
     container.querySelectorAll('.step-chip').forEach(chip => {
       chip.addEventListener('click', () => chip.classList.toggle('checked', chip.querySelector('input').checked));
