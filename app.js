@@ -2772,6 +2772,7 @@ Output only the CSV starting with the header row.`;
         if (_catalogDropdownInput) _catalogDropdownInput.value = name;
         updateStepProduct(+ridx, +sidx, +pidx, 'name', name);
         dd.style.display = 'none';
+        renderRoutineConfigCards();
       });
     }
     Object.assign(dd.dataset, { ridx: rIdx, sidx: sIdx, pidx: pIdx });
