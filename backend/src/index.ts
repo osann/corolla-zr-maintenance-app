@@ -23,9 +23,14 @@ import {
 } from './lib/email.js';
 
 // Ensure schema and seed data exist on every startup (idempotent).
-// Handles first boot on a fresh Render deploy where the SQLite file doesn't exist yet.
-await initDb();
-await seed();
+// Wrapped in try/catch so a transient Turso 502 on startup doesn't prevent the server
+// from binding — npm start already runs init+seed as separate steps before this file.
+try {
+  await initDb();
+  await seed();
+} catch (e) {
+  console.error('Startup init/seed failed (continuing):', e);
+}
 
 const app = new Hono();
 
