@@ -2,8 +2,9 @@ import { Hono } from 'hono';
 import { eq, desc, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory, retailerUrls } from '../db/schema.js';
+import { sessionMiddleware, type AppEnv } from '../lib/auth.js';
 
-const router = new Hono();
+const router = new Hono<AppEnv>();
 
 // GET /products — all products with their latest price per retailer
 router.get('/products', async (c) => {
@@ -97,6 +98,38 @@ router.get('/products/:id/prices', async (c) => {
     .orderBy(desc(priceHistory.observedAt));
 
   return c.json(history);
+});
+
+// PUT /products/:id/url — upsert a retailer URL (session-protected)
+router.put('/products/:id/url', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
+  const id = parseInt(c.req.param('id') ?? '', 10);
+  if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
+
+  const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'] as const;
+  const body = await c.req.json<{ retailer?: string; url?: string }>();
+  const { retailer, url } = body;
+
+  if (!retailer || !SCRAPED_RETAILERS.includes(retailer as typeof SCRAPED_RETAILERS[number])) {
+    return c.json({ error: 'Invalid retailer' }, 400);
+  }
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+    return c.json({ error: 'Valid URL required' }, 400);
+  }
+
+  const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
+  if (!prod.length) return c.json({ error: 'Product not found' }, 404);
+
+  await db.insert(retailerUrls)
+    .values({ productId: id, retailer: retailer as typeof SCRAPED_RETAILERS[number], url })
+    .onConflictDoUpdate({
+      target: [retailerUrls.productId, retailerUrls.retailer],
+      set: { url },
+    });
+
+  return c.json({ ok: true });
 });
 
 export default router;

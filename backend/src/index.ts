@@ -31,7 +31,7 @@ const app = new Hono();
 
 app.use('*', cors({
   origin: ['https://osann.github.io', 'https://corolla.jhosan.top'],
-  allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS'],
   allowHeaders: ['Content-Type'],
   credentials: true,
 }));

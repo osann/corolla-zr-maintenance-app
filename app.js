@@ -924,6 +924,7 @@ Output only the CSV starting with the header row.`;
       for (const slug of slugs) {
         const product = productBySlug[slug];
         if (!product) continue;
+        const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'];
         const RETAILER_ORDER = ['supercheap', 'repco', 'autobarn', 'autopro', 'bowdens'];
         const retailers = Object.entries(product.latestPrice ?? {})
           .sort(([a], [b]) => {
@@ -933,14 +934,23 @@ Output only the CSV starting with the header row.`;
         if (retailers.length === 0) continue;
         const history = priceHistories[product.id] ?? [];
         let retailerRows = '';
+        let urlForms = '';
         for (const [retailer, data] of retailers) {
           const price = `$${(data.priceCents / 100).toFixed(2)}`;
           const saleTag = data.onSale ? '<span class="price-on-sale">🔥 Sale</span>' : '';
           const retailerName = RETAILER_NAMES[retailer] || retailer;
           const url = product.urls?.[retailer] || null;
-          const linkEl = url
-            ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
-            : '<span class="price-row-link-none"></span>';
+          let linkEl;
+          if (url) {
+            const editBtn = syncEnabled
+              ? `<button class="url-edit-btn" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')" title="Edit URL">✎</button>`
+              : '';
+            linkEl = `<a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>${editBtn}`;
+          } else if (syncEnabled) {
+            linkEl = `<button class="url-edit-btn url-edit-btn--add" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')">+ URL</button>`;
+          } else {
+            linkEl = '<span class="price-row-link-none"></span>';
+          }
           const sparkline = buildSparklineSVG(history, retailer)
             || '<span class="prices-no-data">No data yet.</span>';
           retailerRows += `
@@ -952,6 +962,35 @@ Output only the CSV starting with the header row.`;
               </div>
               ${linkEl}
             </div>`;
+          if (syncEnabled) {
+            urlForms += `
+              <div class="url-inline-form" id="url-form-${product.id}-${retailer}" style="display:none">
+                <div class="url-form-row">
+                  <span class="url-form-label">${escHtml(retailerName)}</span>
+                  <input type="url" class="url-input" id="url-input-${product.id}-${retailer}" value="${escAttr(url ?? '')}" placeholder="https://...">
+                  <button class="alert-set-btn" onclick="saveRetailerUrl(${product.id},'${retailer}')">Save</button>
+                </div>
+              </div>`;
+          }
+        }
+        let addRetailerHtml = '';
+        if (syncEnabled) {
+          const existingRetailers = new Set(retailers.map(([r]) => r));
+          const missingRetailers = SCRAPED_RETAILERS.filter(r => !existingRetailers.has(r));
+          if (missingRetailers.length > 0) {
+            const options = missingRetailers
+              .map(r => `<option value="${r}">${escHtml(RETAILER_NAMES[r] || r)}</option>`)
+              .join('');
+            addRetailerHtml = `
+              <div class="url-add-section" id="url-add-section-${product.id}" style="display:none">
+                <div class="url-form-row">
+                  <select class="url-retailer-select" id="url-add-retailer-${product.id}">${options}</select>
+                  <input type="url" class="url-input" id="url-add-url-${product.id}" placeholder="https://...">
+                  <button class="alert-set-btn" onclick="saveAddRetailerUrl(${product.id})">Add</button>
+                </div>
+              </div>
+              <button class="url-add-retailer-btn" onclick="toggleAddRetailerForm(${product.id})">+ Retailer</button>`;
+          }
         }
         const hasAlert = !!priceAlerts[slug];
         const alertTitle = hasAlert ? 'Alert set — click to edit' : 'Set price alert';
@@ -979,6 +1018,8 @@ Output only the CSV starting with the header row.`;
               </div>
             </div>
             ${retailerRows}
+            ${urlForms}
+            ${addRetailerHtml}
           </div>`;
       }
       return html;
@@ -3932,6 +3973,68 @@ Output only the CSV starting with the header row.`;
     const form = document.getElementById(`alert-form-${slug}`);
     if (form) form.style.display = 'none';
     renderAlertsPanel();
+  }
+
+  function toggleRetailerUrlForm(productId, retailer) {
+    // Close any other open url forms on this product card
+    document.querySelectorAll(`[id^="url-form-${productId}-"], #url-add-section-${productId}`)
+      .forEach(el => { if (el.id !== `url-form-${productId}-${retailer}`) el.style.display = 'none'; });
+    const form = document.getElementById(`url-form-${productId}-${retailer}`);
+    if (!form) return;
+    const opening = form.style.display === 'none';
+    form.style.display = opening ? 'block' : 'none';
+    if (opening) document.getElementById(`url-input-${productId}-${retailer}`)?.focus();
+  }
+
+  function toggleAddRetailerForm(productId) {
+    document.querySelectorAll(`[id^="url-form-${productId}-"]`)
+      .forEach(el => { el.style.display = 'none'; });
+    const section = document.getElementById(`url-add-section-${productId}`);
+    if (!section) return;
+    const opening = section.style.display === 'none';
+    section.style.display = opening ? 'block' : 'none';
+    if (opening) document.getElementById(`url-add-url-${productId}`)?.focus();
+  }
+
+  async function saveRetailerUrl(productId, retailer) {
+    const input = document.getElementById(`url-input-${productId}-${retailer}`);
+    const url = input?.value?.trim();
+    if (!url || !url.startsWith('http')) { input?.focus(); return; }
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}/url`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ retailer, url }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const prod = liveProducts.find(p => p.id === productId);
+      if (prod) { prod.urls = prod.urls ?? {}; prod.urls[retailer] = url; }
+      renderPricesTab();
+    } catch (e) {
+      console.error('saveRetailerUrl:', e);
+    }
+  }
+
+  async function saveAddRetailerUrl(productId) {
+    const retailer = document.getElementById(`url-add-retailer-${productId}`)?.value;
+    const input = document.getElementById(`url-add-url-${productId}`);
+    const url = input?.value?.trim();
+    if (!retailer || !url || !url.startsWith('http')) { input?.focus(); return; }
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}/url`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ retailer, url }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const prod = liveProducts.find(p => p.id === productId);
+      if (prod) { prod.urls = prod.urls ?? {}; prod.urls[retailer] = url; }
+      renderPricesTab();
+    } catch (e) {
+      console.error('saveAddRetailerUrl:', e);
+    }
   }
 
   function showSaved(id) {
