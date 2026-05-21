@@ -2716,30 +2716,26 @@ Output only the CSV starting with the header row.`;
     showSaved('routines-v1-saved');
   }
 
-  function buildCatalogDatalist() {
-    const dl = document.getElementById('catalog-datalist');
-    if (!dl) return;
+  function _buildCatalogGroups() {
     const slugToName = (slug) => {
       const family = SLUG_FAMILIES[slug];
       return (family && FAMILY_NAMES[family]) ? FAMILY_NAMES[family] : (CATALOG.find(c => c.slug === slug)?.name ?? slug);
     };
     const seen = new Set();
-    const options = [];
-    // Emit options in INV_CATEGORIES order, alphabetically within each top-level category
+    const groups = [];
     for (const cat of INV_CATEGORIES) {
-      const catNames = [];
+      const names = [];
       for (const section of cat.sections) {
         for (const slug of section.slugs) {
           const name = slugToName(slug);
           if (seen.has(name)) continue;
           seen.add(name);
-          catNames.push(name);
+          names.push(name);
         }
       }
-      catNames.sort();
-      catNames.forEach(n => options.push(`<option value="${n}">`));
+      names.sort();
+      if (names.length) groups.push({ label: cat.label, names });
     }
-    // Any CATALOG products not covered by INV_CATEGORIES, alphabetically
     const remaining = [];
     for (const p of CATALOG) {
       const name = slugToName(p.slug);
@@ -2748,8 +2744,77 @@ Output only the CSV starting with the header row.`;
       remaining.push(name);
     }
     remaining.sort();
-    remaining.forEach(n => options.push(`<option value="${n}">`));
-    dl.innerHTML = options.join('');
+    if (remaining.length) groups.push({ label: 'Other', names: remaining });
+    return groups;
+  }
+
+  function buildCatalogDatalist() {
+    // Kept for any legacy consumers; no input uses list= any more
+    const dl = document.getElementById('catalog-datalist');
+    if (!dl) return;
+    dl.innerHTML = _buildCatalogGroups().flatMap(g => g.names.map(n => `<option value="${n}">`)).join('');
+  }
+
+  function openCatalogDropdown(event, rIdx, sIdx, pIdx) {
+    _catalogDropdownInput = event.target;
+    let dd = document.getElementById('catalog-dropdown');
+    if (!dd) {
+      dd = document.createElement('div');
+      dd.id = 'catalog-dropdown';
+      dd.className = 'catalog-dropdown';
+      document.body.appendChild(dd);
+      dd.addEventListener('mousedown', e => {
+        const item = e.target.closest('.catalog-dropdown-item');
+        if (!item) return;
+        e.preventDefault();
+        const { ridx, sidx, pidx } = dd.dataset;
+        const name = item.dataset.name;
+        if (_catalogDropdownInput) _catalogDropdownInput.value = name;
+        updateStepProduct(+ridx, +sidx, +pidx, 'name', name);
+        dd.style.display = 'none';
+      });
+    }
+    Object.assign(dd.dataset, { ridx: rIdx, sidx: sIdx, pidx: pIdx });
+    dd.innerHTML = _buildCatalogGroups().map(g => `
+      <div class="catalog-dd-cat">
+        <div class="catalog-dd-header">${escHtml(g.label)}</div>
+        ${g.names.map(n => `<div class="catalog-dropdown-item" data-name="${escAttr(n)}">${escHtml(n)}</div>`).join('')}
+      </div>
+    `).join('');
+    const rect = _catalogDropdownInput.getBoundingClientRect();
+    Object.assign(dd.style, {
+      display: 'block',
+      top: `${rect.bottom + window.scrollY + 2}px`,
+      left: `${rect.left + window.scrollX}px`,
+      width: `${Math.max(rect.width, 220)}px`,
+    });
+    _filterCatalogDropdown(_catalogDropdownInput.value);
+  }
+
+  function filterCatalogDropdown(event) {
+    _filterCatalogDropdown(event.target.value);
+  }
+
+  function _filterCatalogDropdown(query) {
+    const dd = document.getElementById('catalog-dropdown');
+    if (!dd || dd.style.display === 'none') return;
+    const q = query.toLowerCase().trim();
+    dd.querySelectorAll('.catalog-dd-cat').forEach(cat => {
+      let catHas = false;
+      cat.querySelectorAll('.catalog-dropdown-item').forEach(item => {
+        const show = !q || item.dataset.name.toLowerCase().includes(q);
+        item.style.display = show ? '' : 'none';
+        if (show) catHas = true;
+      });
+      cat.style.display = catHas ? '' : 'none';
+    });
+  }
+
+  function hideCatalogDropdown() {
+    setTimeout(() => {
+      const dd = document.getElementById('catalog-dropdown');
+      if (dd) dd.style.display = 'none';
+    }, 150);
   }
 
   function renderRoutinesView() {
@@ -2793,6 +2858,7 @@ Output only the CSV starting with the header row.`;
   }
 
   let routineDragSrc = null;
+  let _catalogDropdownInput = null;
 
   function renderRoutineConfigCards() {
     const container = document.getElementById('routine-config-cards');
@@ -2846,10 +2912,12 @@ Output only the CSV starting with the header row.`;
         const isEquipment = catEntry && EQUIPMENT_SLUGS.has(catEntry.slug);
         return `
         <div class="step-product-row${isEquipment ? ' step-product-row--equipment' : ''}">
-          <input list="catalog-datalist" value="${escAttr(p.name)}"
+          <input value="${escAttr(p.name)}"
+            onfocus="openCatalogDropdown(event,${rIdx},${sIdx},${pIdx})"
             onchange="updateStepProduct(${rIdx},${sIdx},${pIdx},'name',this.value)"
-            oninput="updateStepProduct(${rIdx},${sIdx},${pIdx},'name',this.value)"
-            placeholder="Product name…" class="step-product-input">
+            oninput="updateStepProduct(${rIdx},${sIdx},${pIdx},'name',this.value);filterCatalogDropdown(event)"
+            onblur="hideCatalogDropdown()"
+            placeholder="Product name…" class="step-product-input" autocomplete="off">
           ${isEquipment ? '' : `<input type="number" value="${p.ml ?? ''}" min="0" step="5"
             onchange="updateStepProduct(${rIdx},${sIdx},${pIdx},'ml',this.value)"
             placeholder="ml" class="step-ml-input">`}
