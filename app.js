@@ -383,7 +383,7 @@ Output only the CSV starting with the header row.`;
   // under a composite key `bundleSlug:component-name-normalised`.
   // sectionPath: [categoryLabel, sectionLabel] — tells the renderer where to place inline
   // components (those without a catalog slug). Slug-referenced components are placed wherever
-  // their slug appears in PRICE_CATEGORIES. Equipment inline items default to Equipment/Other.
+  // their slug appears in INV_CATEGORIES. Equipment inline items default to Equipment/Other.
   const BUNDLE_COMPONENTS = {
     'nanolicious-wash-pack-ultimate': [
       { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
@@ -397,7 +397,7 @@ Output only the CSV starting with the header row.`;
     ],
     'wet-dreams-pack': [
       { slug: 'wet-dreams-770ml',         name: 'Wet Dreams Sealant (770ml)' },
-      { name: 'Big Softie',               equipment: true },
+      { name: 'Big Softie',               equipment: true, sectionPath: ['Equipment', 'Microfibre'] },
     ],
     'naked-inta-mitt-pack': [
       { slug: 'naked-glass-500ml',        name: 'Naked Glass (500ml)' },
@@ -413,16 +413,16 @@ Output only the CSV starting with the header row.`;
       { slug: 'the-square-bear',          name: 'The Square Bear',             equipment: true },
     ],
     '2-bucket-wash-kit': [
-      { name: 'Wash Bucket',              equipment: true },
-      { name: 'Rinse Bucket',             equipment: true },
-      { name: 'Great Barrier Thingy',     equipment: true },
-      { name: 'Great Barrier Thingy',     equipment: true },
+      { name: 'Wash Bucket',              equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+      { name: 'Rinse Bucket',             equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+      { name: 'Great Barrier Thingy',     equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+      { name: 'Great Barrier Thingy',     equipment: true, sectionPath: ['Equipment', 'Buckets'] },
     ],
     'the-essentials-starters-kit': [
-      { name: 'Wash Bucket',              equipment: true },
-      { name: 'Rinse Bucket',             equipment: true },
-      { name: 'Great Barrier Thingy',     equipment: true },
-      { name: 'Great Barrier Thingy',     equipment: true },
+      { name: 'Wash Bucket',              equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+      { name: 'Rinse Bucket',             equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+      { name: 'Great Barrier Thingy',     equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+      { name: 'Great Barrier Thingy',     equipment: true, sectionPath: ['Equipment', 'Buckets'] },
       { slug: 'microfibre-bucket-lid',    name: 'Microfibre Bucket With Lid',  equipment: true },
       { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
       { slug: 'shagtastic-wash-pad',      name: 'Shagtastic Wash Pad',         equipment: true },
@@ -891,64 +891,6 @@ Output only the CSV starting with the header row.`;
     const container = document.getElementById('prices-list');
     if (!container) return;
 
-    const PRICE_CATEGORIES = [
-      {
-        label: 'Equipment',
-        sections: [
-          { label: 'Microfibre', slugs: ['debugger-cloth', 'inta-mitt', 'plush-daddy', 'big-softie-pair', 'the-square-bear'] },
-          { label: 'Wash Pads', slugs: ['shagtastic-wash-pad'] },
-          { label: 'Drying Towels', slugs: ['twisted-pro-sucker', 'the-big-green-sucker'] },
-          { label: 'Other', slugs: ['plush-brush', '2-bucket-wash-kit', 'microfibre-bucket-lid', 'pumpy-pump', 'microfibre-wash-1l', 'the-essentials-starters-kit'] },
-        ],
-      },
-      {
-        label: 'Pressure Washer Equipment',
-        sections: [
-          { label: 'Pressure Washers', slugs: ['karcher-k2'] },
-          { label: 'Foam Cannons', slugs: ['snow-blow-cannon', 'happy-ending-cannon-bottle'] },
-        ],
-      },
-      {
-        label: 'Exterior Wash',
-        sections: [
-          { label: 'Glass', slugs: ['naked-glass-500ml', 'naked-glass-770ml', 'naked-inta-mitt-pack'] },
-          { label: 'Prep', slugs: ['flash-prep-500ml', 'orange-agent-500ml'] },
-          { label: 'Pre-Wash', slugs: ['snow-job-1l', 'snow-job-5l'] },
-          { label: 'Contact Wash', slugs: ['nanolicious-wash-pack-ultimate', 'nanolicious-shag-pack', 'nanolicious-wash-5l'] },
-        ],
-      },
-      {
-        label: 'Exterior Protection',
-        sections: [
-          { label: 'Sealant', slugs: ['bead-machine-500ml', 'wet-dreams-770ml', 'wet-dreams-5l', 'happy-ending-1l', 'happy-ending-5l', 'wet-dreams-pack'] },
-          { label: 'Quick Detailer', slugs: ['boss-gloss-770ml', 'boss-gloss-5l', 'boss-gloss-pack'] },
-        ],
-      },
-      {
-        label: 'Interior Clean',
-        sections: [
-          { label: 'Leather', slugs: ['leather-love-v2-500ml', 'bolp-leather-care-pack'] },
-          { label: 'Fabric', slugs: ['fabra-cadabra-500ml'] },
-        ],
-      },
-      {
-        label: 'Interior Protect',
-        sections: [
-          { label: 'Leather', slugs: ['leather-guard-500ml'] },
-          { label: 'Fabric & Suede', slugs: ['fabratection'] },
-          { label: 'Plastic, Vinyl & Rubber', slugs: ['303-aerospace'] },
-        ],
-      },
-      {
-        label: 'Wheels',
-        sections: [
-          { label: 'Equipment', slugs: ['little-chubby-v2', 'the-little-stiffy', 'the-flat-head', 'the-chubby-wheel-brush-v2'] },
-          { label: 'Clean', slugs: ['wheely-clean-v2-500ml', 'wheely-clean-770ml', 'wheely-clean-v2-5l'] },
-          { label: 'Protect', slugs: [] },
-        ],
-      },
-    ];
-
     const productBySlug = Object.fromEntries(liveProducts.map(p => [p.slug, p]));
 
     function renderProducts(slugs) {
@@ -1014,7 +956,7 @@ Output only the CSV starting with the header row.`;
     container.innerHTML = '';
     let anyCard = false;
 
-    for (const category of PRICE_CATEGORIES) {
+    for (const category of INV_CATEGORIES) {
       let body = '';
       let firstSec = true;
       for (const sec of category.sections) {
@@ -1714,7 +1656,8 @@ Output only the CSV starting with the header row.`;
       { label: 'Microfibre', slugs: ['debugger-cloth', 'inta-mitt', 'plush-daddy', 'big-softie-pair', 'the-square-bear'] },
       { label: 'Wash Pads', slugs: ['shagtastic-wash-pad'] },
       { label: 'Drying Towels', slugs: ['twisted-pro-sucker', 'the-big-green-sucker'] },
-      { label: 'Other', slugs: ['plush-brush', '2-bucket-wash-kit', 'microfibre-bucket-lid', 'pumpy-pump', 'the-essentials-starters-kit'] },
+      { label: 'Buckets', slugs: ['2-bucket-wash-kit', 'microfibre-bucket-lid'] },
+      { label: 'Other', slugs: ['plush-brush', 'pumpy-pump', 'the-essentials-starters-kit'] },
     ]},
     { label: 'Pressure Washer Equipment', sections: [
       { label: 'Pressure Washers', slugs: ['karcher-k2'] },
@@ -1974,7 +1917,7 @@ Output only the CSV starting with the header row.`;
         const item = { comp, bundleSlug: bSlug, stateKey, displayName };
 
         if (comp.slug) {
-          // Slug-referenced: render in the section where that slug lives in PRICE_CATEGORIES
+          // Slug-referenced: render in the section where that slug lives in INV_CATEGORIES
           if (!bundleExpansion.has(comp.slug)) bundleExpansion.set(comp.slug, []);
           bundleExpansion.get(comp.slug).push(item);
         } else {

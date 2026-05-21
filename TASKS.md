@@ -97,14 +97,22 @@ Access data from phone + desktop after moving storage to the backend.
 
 ---
 
-## 6. Inventory tracking with depletion forecast
+## 6. Inventory tracking with depletion forecast ✅
 
 Know when you're running low on a product before you run out.
 
-- ☐ Add `volume_ml` and `usage_per_wash_ml` fields per kit item (seed defaults from Bowden's product pages)
-- ☐ Each wash log entry decrements running totals for products used
-- ☐ "Running low" indicator when below 20% remaining
-- ☐ Couple with price tracker: "Nanolicious is 30% off and you're at 15% remaining — buy now"
+- ✅ `corolla-inventory-v1` storage: `{ [slug|compositeKey]: { purchaseDate, volumeMl, remainingMl, manualOverride }, _order: string[] }`
+- ✅ `INVENTORY_DEFAULTS`: default `volumeMl` values per slug seeded from Bowden's product pages
+- ✅ `BUNDLE_COMPONENTS`: bundles expanded to individual components; each component routed to the correct inventory category via `sectionPath` or `comp.slug`
+- ✅ `SLUG_FAMILIES` + `resolveInventoryKey()`: size-variant fallback so a routine step for a 500ml product can deplete a 5L bottle if that's what the user owns
+- ✅ Stock auto-initialised when item is checked in Kit Checklist (`initInventoryStock()`)
+- ✅ Wash session depletion via `decrementInventoryForSession()` — walks log entry steps → matches routine step by name → iterates `step.products[].{name, ml}` → resolves inventory key → decrements `remainingMl`
+- ✅ `DEFAULT_ROUTINES` steps include `products: [{name, ml}]` arrays for all consumable products
+- ✅ "Running low" indicator: progress bar colour-coded (green ≥50%, amber 20–50%, red <20%); red card border at ≤20%
+- ✅ Sessions remaining estimate derived from `getRoutineUsageMl()` (sums ml per wash across all enabled routine steps)
+- ✅ Responsive grid layout (`auto-fill, minmax(190px, 1fr)`) with standalone bordered cards
+- ✅ Drag-to-reorder inventory categories; order persisted in `inventoryState._order` (synced automatically as part of `corolla-inventory-v1`)
+- ✅ Inventory, Checklist, Summary, Prices consolidated as sub-tabs within a single Inventory tab (standalone Spend and Prices tabs removed)
 
 ---
 
