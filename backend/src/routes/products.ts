@@ -100,6 +100,44 @@ router.get('/products/:id/prices', async (c) => {
   return c.json(history);
 });
 
+// POST /products — create a new product (session-protected)
+router.post('/products', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
+  const body = await c.req.json<{ name?: string; slug?: string; retailer?: string; url?: string }>();
+  const { name, slug, retailer, url } = body;
+
+  if (!name || typeof name !== 'string' || !name.trim()) return c.json({ error: 'Name required' }, 400);
+  if (!slug || typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug)) {
+    return c.json({ error: 'Slug must contain only lowercase letters, numbers and hyphens' }, 400);
+  }
+
+  const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'] as const;
+  if (retailer && !SCRAPED_RETAILERS.includes(retailer as typeof SCRAPED_RETAILERS[number])) {
+    return c.json({ error: 'Invalid retailer' }, 400);
+  }
+  if (retailer && (!url || !url.startsWith('http'))) {
+    return c.json({ error: 'URL required when retailer is specified' }, 400);
+  }
+
+  const existing = await db.select({ id: products.id }).from(products).where(eq(products.slug, slug)).limit(1);
+  if (existing.length) return c.json({ error: 'A product with that slug already exists' }, 409);
+
+  await db.insert(products).values({ name: name.trim(), slug, phase: 0 });
+  const [newProduct] = await db.select().from(products).where(eq(products.slug, slug)).limit(1);
+
+  if (retailer && url) {
+    await db.insert(retailerUrls).values({
+      productId: newProduct.id,
+      retailer: retailer as typeof SCRAPED_RETAILERS[number],
+      url,
+    });
+  }
+
+  return c.json({ id: newProduct.id, name: newProduct.name, slug: newProduct.slug, phase: newProduct.phase });
+});
+
 // PUT /products/:id/url — upsert a retailer URL (session-protected)
 router.put('/products/:id/url', sessionMiddleware, async (c) => {
   const userId = c.var.userId;

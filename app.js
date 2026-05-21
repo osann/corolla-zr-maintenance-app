@@ -1051,8 +1051,50 @@ Output only the CSV starting with the header row.`;
       anyCard = true;
     }
 
+    // Uncategorised products (added via UI, not in INV_CATEGORIES)
+    const categorisedSlugs = new Set(INV_CATEGORIES.flatMap(c => c.sections.flatMap(s => s.slugs)));
+    const uncategorisedSlugs = liveProducts
+      .filter(p => !categorisedSlugs.has(p.slug) && Object.keys(p.latestPrice ?? {}).length > 0)
+      .map(p => p.slug);
+    if (uncategorisedSlugs.length > 0) {
+      const body = renderProducts(uncategorisedSlugs);
+      if (body) {
+        const card = document.createElement('div');
+        card.className = 'phase-spend-card';
+        card.innerHTML = `<div class="phase-spend-head"><div class="phase-spend-name">Other</div></div>${body}`;
+        container.appendChild(card);
+        anyCard = true;
+      }
+    }
+
     if (!anyCard) {
       container.innerHTML = '<p class="prices-empty">No prices loaded yet.</p>';
+    }
+
+    if (syncEnabled) {
+      const addWrap = document.createElement('div');
+      addWrap.className = 'prices-add-product-wrap';
+      addWrap.innerHTML = `
+        <button class="url-add-retailer-btn" onclick="toggleAddProductForm()">+ Add product</button>
+        <div class="url-add-section" id="prices-add-product-form" style="display:none">
+          <div class="url-form-row">
+            <input type="text" class="url-input" id="add-product-name" placeholder="Product name" oninput="autoFillProductSlug()">
+            <input type="text" class="url-input add-product-slug-input" id="add-product-slug" placeholder="product-slug">
+          </div>
+          <div class="url-form-row" style="margin-top:6px">
+            <select class="url-retailer-select" id="add-product-retailer">
+              <option value="">No URL yet</option>
+              <option value="supercheap">Supercheap Auto</option>
+              <option value="repco">Repco</option>
+              <option value="autobarn">Auto Barn</option>
+              <option value="autopro">Autopro</option>
+            </select>
+            <input type="url" class="url-input" id="add-product-url" placeholder="https://...">
+            <button class="alert-set-btn" onclick="saveNewProduct()">Add</button>
+          </div>
+          <div id="add-product-error" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
+        </div>`;
+      container.appendChild(addWrap);
     }
 
     renderAlertsPanel();
@@ -4034,6 +4076,66 @@ Output only the CSV starting with the header row.`;
       renderPricesTab();
     } catch (e) {
       console.error('saveAddRetailerUrl:', e);
+    }
+  }
+
+  function toggleAddProductForm() {
+    const form = document.getElementById('prices-add-product-form');
+    if (!form) return;
+    const opening = form.style.display === 'none';
+    form.style.display = opening ? 'block' : 'none';
+    if (opening) document.getElementById('add-product-name')?.focus();
+  }
+
+  function autoFillProductSlug() {
+    const name = document.getElementById('add-product-name')?.value ?? '';
+    const slugEl = document.getElementById('add-product-slug');
+    if (slugEl) slugEl.value = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  async function saveNewProduct() {
+    const nameEl  = document.getElementById('add-product-name');
+    const slugEl  = document.getElementById('add-product-slug');
+    const retEl   = document.getElementById('add-product-retailer');
+    const urlEl   = document.getElementById('add-product-url');
+    const errorEl = document.getElementById('add-product-error');
+
+    const name     = nameEl?.value.trim() ?? '';
+    const slug     = slugEl?.value.trim() ?? '';
+    const retailer = retEl?.value || null;
+    const url      = urlEl?.value.trim() || null;
+
+    function showErr(msg) {
+      if (errorEl) { errorEl.textContent = msg; errorEl.style.display = 'block'; }
+    }
+    if (errorEl) errorEl.style.display = 'none';
+
+    if (!name) { showErr('Product name is required.'); nameEl?.focus(); return; }
+    if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+      showErr('Slug must be lowercase letters, numbers and hyphens.'); slugEl?.focus(); return;
+    }
+    if (retailer && (!url || !url.startsWith('http'))) {
+      showErr('A URL is required when a retailer is selected.'); urlEl?.focus(); return;
+    }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name, slug, retailer: retailer || undefined, url: url || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+        showErr(err.error || 'Failed to add product.');
+        return;
+      }
+      const newProd = await res.json();
+      liveProducts.push({ ...newProd, latestPrice: {}, urls: retailer && url ? { [retailer]: url } : {} });
+      renderPricesTab();
+    } catch (e) {
+      console.error('saveNewProduct:', e);
+      if (errorEl) { errorEl.textContent = 'Network error — try again.'; errorEl.style.display = 'block'; }
     }
   }
 
