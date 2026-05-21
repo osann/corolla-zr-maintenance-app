@@ -924,7 +924,12 @@ Output only the CSV starting with the header row.`;
       for (const slug of slugs) {
         const product = productBySlug[slug];
         if (!product) continue;
-        const retailers = Object.entries(product.latestPrice ?? {});
+        const RETAILER_ORDER = ['supercheap', 'repco', 'autobarn', 'autopro', 'bowdens'];
+        const retailers = Object.entries(product.latestPrice ?? {})
+          .sort(([a], [b]) => {
+            const ai = RETAILER_ORDER.indexOf(a), bi = RETAILER_ORDER.indexOf(b);
+            return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          });
         if (retailers.length === 0) continue;
         const history = priceHistories[product.id] ?? [];
         let retailerRows = '';
