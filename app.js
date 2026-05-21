@@ -2719,7 +2719,15 @@ Output only the CSV starting with the header row.`;
   function _buildCatalogGroups() {
     const slugToName = (slug) => {
       const family = SLUG_FAMILIES[slug];
-      return (family && FAMILY_NAMES[family]) ? FAMILY_NAMES[family] : (CATALOG.find(c => c.slug === slug)?.name ?? slug);
+      if (!family) return CATALOG.find(c => c.slug === slug)?.name ?? slug;
+      // Equipment slugs that share a family with consumables keep their full CATALOG name,
+      // so the canonical family name is reserved for the consumable (e.g. cannon bottle
+      // stays "Happy Ending Cannon Bottle"; the foam liquid gets "Happy Ending").
+      if (EQUIPMENT_SLUGS.has(slug)) {
+        const hasConsumable = CATALOG.some(c => SLUG_FAMILIES[c.slug] === family && !EQUIPMENT_SLUGS.has(c.slug));
+        if (hasConsumable) return CATALOG.find(c => c.slug === slug)?.name ?? slug;
+      }
+      return FAMILY_NAMES[family] ?? (CATALOG.find(c => c.slug === slug)?.name ?? slug);
     };
     const seen = new Set();
     const groups = [];
