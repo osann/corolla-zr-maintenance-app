@@ -2719,18 +2719,36 @@ Output only the CSV starting with the header row.`;
   function buildCatalogDatalist() {
     const dl = document.getElementById('catalog-datalist');
     if (!dl) return;
-    const seenFamilies = new Set();
+    const slugToName = (slug) => {
+      const family = SLUG_FAMILIES[slug];
+      return (family && FAMILY_NAMES[family]) ? FAMILY_NAMES[family] : (CATALOG.find(c => c.slug === slug)?.name ?? slug);
+    };
+    const seen = new Set();
     const options = [];
-    for (const p of CATALOG) {
-      const family = SLUG_FAMILIES[p.slug];
-      if (family) {
-        if (seenFamilies.has(family)) continue;
-        seenFamilies.add(family);
-        options.push(`<option value="${FAMILY_NAMES[family] ?? p.name}">`);
-      } else {
-        options.push(`<option value="${p.name}">`);
+    // Emit options in INV_CATEGORIES order, alphabetically within each top-level category
+    for (const cat of INV_CATEGORIES) {
+      const catNames = [];
+      for (const section of cat.sections) {
+        for (const slug of section.slugs) {
+          const name = slugToName(slug);
+          if (seen.has(name)) continue;
+          seen.add(name);
+          catNames.push(name);
+        }
       }
+      catNames.sort();
+      catNames.forEach(n => options.push(`<option value="${n}">`));
     }
+    // Any CATALOG products not covered by INV_CATEGORIES, alphabetically
+    const remaining = [];
+    for (const p of CATALOG) {
+      const name = slugToName(p.slug);
+      if (seen.has(name)) continue;
+      seen.add(name);
+      remaining.push(name);
+    }
+    remaining.sort();
+    remaining.forEach(n => options.push(`<option value="${n}">`));
     dl.innerHTML = options.join('');
   }
 
