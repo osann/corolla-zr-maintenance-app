@@ -1564,6 +1564,14 @@ Output only the CSV starting with the header row.`;
     saveInventory();     // async persist
   }
 
+  function saveInvEquipDate(key) {
+    const dateEl = document.getElementById(`inv-date-${key}`);
+    if (!dateEl) return;
+    inventoryState[key] = { ...(inventoryState[key] ?? {}), purchaseDate: dateEl.value || null };
+    renderInventory();
+    saveInventory();
+  }
+
   function countProductUses(slug) {
     const productName = CATALOG.find(p => p.slug === slug)?.name;
     if (!productName) return 0;
@@ -1734,10 +1742,23 @@ Output only the CSV starting with the header row.`;
           : '';
         const usesStr = uses === 1 ? 'Used in 1 session' : uses > 0 ? `Used in ${uses} sessions` : '';
         const meta2 = [dateStr, usesStr].filter(Boolean).join(' · ');
+        const dateVal = escAttr(meta.purchaseDate ?? '');
         return `
           <div class="inv-card inv-card--equip">
-            <div class="inv-card-name">${name}</div>
+            <div class="inv-card-row">
+              <div class="inv-card-name">${name}</div>
+              <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${safeSlug}')" title="Adjust">Adjust</button>
+            </div>
             ${meta2 ? `<div class="inv-equip-meta">${meta2}</div>` : ''}
+            <div class="inv-adjust-form" id="inv-adjust-form-${safeSlug}" hidden>
+              <div class="inv-adjust-grid inv-adjust-grid--single">
+                <label class="inv-adjust-label">Acquired</label>
+                <input class="inv-adjust-input" type="date" id="inv-date-${safeSlug}" value="${dateVal}">
+              </div>
+              <div class="inv-adjust-actions">
+                <button class="settings-save-btn" onclick="saveInvEquipDate('${safeSlug}')">Update</button>
+              </div>
+            </div>
           </div>`;
       }
 
@@ -1823,10 +1844,23 @@ Output only the CSV starting with the header row.`;
           : '';
         const usesStr = uses === 1 ? 'Used in 1 session' : uses > 0 ? `Used in ${uses} sessions` : '';
         const metaStr = [dateStr, usesStr].filter(Boolean).join(' · ');
+        const dateVal = escAttr(meta.purchaseDate ?? '');
         return `
           <div class="inv-card inv-card--equip">
-            <div class="inv-card-name">${name}</div>
+            <div class="inv-card-row">
+              <div class="inv-card-name">${name}</div>
+              <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${safeKey}')" title="Adjust">Adjust</button>
+            </div>
             ${metaStr ? `<div class="inv-equip-meta">${metaStr}</div>` : ''}
+            <div class="inv-adjust-form" id="inv-adjust-form-${safeKey}" hidden>
+              <div class="inv-adjust-grid inv-adjust-grid--single">
+                <label class="inv-adjust-label">Acquired</label>
+                <input class="inv-adjust-input" type="date" id="inv-date-${safeKey}" value="${dateVal}">
+              </div>
+              <div class="inv-adjust-actions">
+                <button class="settings-save-btn" onclick="saveInvEquipDate('${safeKey}')">Update</button>
+              </div>
+            </div>
           </div>`;
       }
 
