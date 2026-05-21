@@ -173,15 +173,15 @@
       types: ['exterior'],
       steps: [
         { name: 'Pre-rinse',        action: 'Dislodge loose grit before any product contact', products: [] },
-        { name: 'Wheel clean',      action: 'Spray wheels, agitate with Flat Head + Little Stiffy, rinse', products: [{ name: 'Wheely Clean V2 500ml', ml: 20 }, { name: 'The Flat Head', ml: null }, { name: 'The Little Stiffy', ml: null }] },
-        { name: 'Pre-wash foam',    action: 'Apply via foam cannon, dwell 2–4 min, rinse top to bottom', products: [{ name: 'Snow Job 1L', ml: 50 }] },
-        { name: 'Contact wash',     action: 'Two-bucket method, top to bottom, straight strokes', products: [{ name: 'Nanolicious Wash Pack Ultimate', ml: 25 }] },
+        { name: 'Wheel clean',      action: 'Spray wheels, agitate with Flat Head + Little Stiffy, rinse', products: [{ name: 'Wheely Clean', ml: 20 }, { name: 'The Flat Head', ml: null }, { name: 'The Little Stiffy', ml: null }] },
+        { name: 'Pre-wash foam',    action: 'Apply via foam cannon, dwell 2–4 min, rinse top to bottom', products: [{ name: 'Snow Job', ml: 50 }] },
+        { name: 'Contact wash',     action: 'Two-bucket method, top to bottom, straight strokes', products: [{ name: 'Nanolicious Wash', ml: 25 }] },
         { name: 'Sheet rinse',      action: 'Free-flow rinse, remove nozzle, top to bottom', products: [] },
-        { name: 'Rinse sealant',    action: 'Spray onto wet car, dwell 20–30 sec, gentle rinse', products: [{ name: 'Wet Dreams Sealant 770ml', ml: 20 }] },
-        { name: 'Foam rinse aid',   action: 'Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse', products: [{ name: 'Happy Ending Cannon Bottle', ml: 50 }] },
+        { name: 'Rinse sealant',    action: 'Spray onto wet car, dwell 20–30 sec, gentle rinse', products: [{ name: 'Wet Dreams', ml: 20 }] },
+        { name: 'Foam rinse aid',   action: 'Apply foam onto wet car, dwell 30 sec, gentle low-pressure rinse', products: [{ name: 'Happy Ending', ml: 50 }] },
         { name: 'Dry',              action: 'Dry with towel — paint will be noticeably slicker', products: [{ name: 'The Big Green Sucker Drying Towel', ml: null }] },
-        { name: 'Glass',            action: 'Exterior glass first, then interior windscreen', products: [{ name: 'Naked Glass 500ml', ml: 10 }, { name: 'Inta-Mitt', ml: null }] },
-        { name: 'Quick detail',     action: 'Spot-remove any remaining water spots or fingerprints', products: [{ name: 'Boss Gloss 770ml', ml: 10 }] },
+        { name: 'Glass',            action: 'Exterior glass first, then interior windscreen', products: [{ name: 'Naked Glass', ml: 10 }, { name: 'Inta-Mitt', ml: null }] },
+        { name: 'Quick detail',     action: 'Spot-remove any remaining water spots or fingerprints', products: [{ name: 'Boss Gloss', ml: 10 }] },
       ],
       alerts: [],
     },
@@ -192,11 +192,11 @@
       types: ['interior'],
       steps: [
         { name: 'Vacuum',           action: 'Remove all grit before any liquid application — including floor mats', products: [] },
-        { name: 'Upholstery clean', action: 'Clean Ultrasuede inserts in sections, blot with Plush Daddy', products: [{ name: 'Fabra Cadabra 500ml', ml: 15 }, { name: 'Plush Brush', ml: null }] },
-        { name: 'Leather clean',    action: 'Clean leather seats, steering wheel, gear knob, doors', products: [{ name: 'Leather Love V2 500ml', ml: 15 }, { name: 'The Square Bear Interior Applicator', ml: null }] },
+        { name: 'Upholstery clean', action: 'Clean Ultrasuede inserts in sections, blot with Plush Daddy', products: [{ name: 'Fabra Cadabra', ml: 15 }, { name: 'Plush Brush', ml: null }] },
+        { name: 'Leather clean',    action: 'Clean leather seats, steering wheel, gear knob, doors', products: [{ name: 'Leather Love', ml: 15 }, { name: 'The Square Bear Interior Applicator', ml: null }] },
         { name: 'Hard surfaces',    action: 'Wipe hard plastics, console, door pulls, climate controls', products: [{ name: 'Plush Daddy Interior Microfibre', ml: null }] },
-        { name: 'Interior glass',   action: 'Interior windscreen and all windows', products: [{ name: 'Naked Glass 500ml', ml: 10 }, { name: 'Inta-Mitt', ml: null }] },
-        { name: 'Leather protect',  action: 'Apply protectant to leather surfaces', products: [{ name: 'Leather Guard 500ml', ml: 10 }, { name: 'The Square Bear Interior Applicator', ml: null }] },
+        { name: 'Interior glass',   action: 'Interior windscreen and all windows', products: [{ name: 'Naked Glass', ml: 10 }, { name: 'Inta-Mitt', ml: null }] },
+        { name: 'Leather protect',  action: 'Apply protectant to leather surfaces', products: [{ name: 'Leather Guard', ml: 10 }, { name: 'The Square Bear Interior Applicator', ml: null }] },
         { name: 'Trim & rubber',    action: 'UV protection on dashboard, plastic trim, rubber mats', products: [{ name: '303 Aerospace Protectant 473ml', ml: 10 }] },
         { name: 'Fabric protect',   action: 'Reapply to Ultrasuede annually, carpet mats every 6 months', products: [{ name: 'Fabratection', ml: 15 }] },
       ],
@@ -212,14 +212,14 @@
       steps: [
         { name: 'Full wash',             action: 'Nanolicious + Wet Dreams + dry with Big Green Sucker', products: [] },
         { name: 'Interior wipe-down',    action: 'Plush Daddy on high-touch surfaces (wheel, shifter, door pulls, screen)', products: [{ name: 'Plush Daddy Interior Microfibre', ml: null }] },
-        { name: 'Deep wheel clean',      action: 'Full tyre brush clean with Wheely Clean', products: [{ name: 'Wheely Clean V2 500ml', ml: 20 }] },
-        { name: 'Full interior detail',  action: 'Upholstery, leather clean + protect, trim', products: [{ name: 'Fabra Cadabra 500ml', ml: 15 }, { name: 'Leather Love V2 500ml', ml: 15 }, { name: 'Leather Guard 500ml', ml: 10 }] },
+        { name: 'Deep wheel clean',      action: 'Full tyre brush clean with Wheely Clean', products: [{ name: 'Wheely Clean', ml: 20 }] },
+        { name: 'Full interior detail',  action: 'Upholstery, leather clean + protect, trim', products: [{ name: 'Fabra Cadabra', ml: 15 }, { name: 'Leather Love', ml: 15 }, { name: 'Leather Guard', ml: 10 }] },
         { name: 'Trim & rubber',         action: 'Interior plastics + rubber mats. More frequent in summer', products: [{ name: '303 Aerospace Protectant 473ml', ml: 10 }] },
         { name: 'Tyre pressure check',   action: 'More critical for tyre life than any cleaning product', products: [] },
-        { name: 'Sealant reapply',       action: 'Use Flash Prep first. When water beading flattens, time to reapply', products: [{ name: 'Flash Prep 500ml', ml: 50 }, { name: 'Bead Machine 500ml', ml: 50 }] },
+        { name: 'Sealant reapply',       action: 'Use Flash Prep first. When water beading flattens, time to reapply', products: [{ name: 'Flash Prep', ml: 50 }, { name: 'Bead Machine', ml: 50 }] },
         { name: 'Carpet protection',     action: "Driver's mat especially — gets the most wear", products: [{ name: 'Fabratection', ml: 15 }] },
         { name: 'Ultrasuede protect',    action: 'Reapply after bead test fails', products: [{ name: 'Fabratection', ml: 15 }] },
-        { name: 'Leather protection',    action: 'Focus on bolsters and seat base — highest contact wear areas', products: [{ name: 'Leather Guard 500ml', ml: 10 }] },
+        { name: 'Leather protection',    action: 'Focus on bolsters and seat base — highest contact wear areas', products: [{ name: 'Leather Guard', ml: 10 }] },
         { name: 'Replace mitts',         action: 'If matted, stiff, or discoloured', products: [] },
       ],
       alerts: [],
@@ -376,6 +376,32 @@ Output only the CSV starting with the header row.`;
     'orange-agent-500ml': 'orange-agent',
     'bolp-leather-care-pack': 'leather-care',
   };
+
+  const FAMILY_NAMES = {
+    'nanolicious':     'Nanolicious Wash',
+    'wet-dreams':      'Wet Dreams',
+    'boss-gloss':      'Boss Gloss',
+    'naked-glass':     'Naked Glass',
+    'snow-job':        'Snow Job',
+    'wheely-clean':    'Wheely Clean',
+    'happy-ending':    'Happy Ending',
+    'leather-love':    'Leather Love',
+    'leather-guard':   'Leather Guard',
+    'fabra-cadabra':   'Fabra Cadabra',
+    'flash-prep':      'Flash Prep',
+    'bead-machine':    'Bead Machine',
+    'microfibre-wash': 'Microfibre Wash',
+    'orange-agent':    'Orange Agent',
+    'leather-care':    'Leather Care',
+  };
+
+  // Canonical name → representative non-equipment slug (for action auto-fill + depletion lookup)
+  const CANONICAL_SLUG_MAP = Object.fromEntries(
+    Object.entries(FAMILY_NAMES).flatMap(([family, name]) => {
+      const rep = CATALOG.find(c => SLUG_FAMILIES[c.slug] === family && !EQUIPMENT_SLUGS.has(c.slug));
+      return rep ? [[name, rep.slug]] : [];
+    })
+  );
 
   // Maps bundle slugs → ordered component definitions.
   // Components with a slug are looked up in INVENTORY_DEFAULTS for volume/usage defaults.
@@ -1592,9 +1618,6 @@ Output only the CSV starting with the header row.`;
   // Resolves a catalog slug to the inventoryState key that actually has remainingMl set,
   // accounting for bundle expansion and size-variant fallback via SLUG_FAMILIES.
   function resolveInventoryKey(slug) {
-    const candidates = [slug];
-
-    // Expand bundle to its first consumable component key
     const bundleKey = (s) => {
       const comps = BUNDLE_COMPONENTS[s];
       if (!comps) return s;
@@ -1603,19 +1626,24 @@ Output only the CSV starting with the header row.`;
       return first.slug ?? `${s}:${first.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
     };
 
-    // Add sibling slugs from the same family as additional candidates
     const family = SLUG_FAMILIES[slug];
-    if (family) {
-      for (const [sib, fam] of Object.entries(SLUG_FAMILIES)) {
-        if (fam === family && sib !== slug) candidates.push(sib);
-      }
-    }
+    const familySlugs = family
+      ? Object.entries(SLUG_FAMILIES).filter(([s, f]) => f === family).map(([s]) => s)
+      : [slug];
 
-    for (const candidate of candidates) {
-      const key = bundleKey(candidate);
-      if (key && inventoryState[key]?.remainingMl != null) return key;
-    }
-    return null;
+    const candidateKeys = familySlugs.map(bundleKey).filter(Boolean);
+    const owned = candidateKeys.filter(key => inventoryState[key]?.remainingMl != null);
+
+    if (!owned.length) return null;
+
+    // Sort oldest purchaseDate first; items with no date sort last
+    owned.sort((a, b) => {
+      const tA = inventoryState[a]?.purchaseDate ? new Date(inventoryState[a].purchaseDate).getTime() : Infinity;
+      const tB = inventoryState[b]?.purchaseDate ? new Date(inventoryState[b].purchaseDate).getTime() : Infinity;
+      return tA - tB;
+    });
+
+    return owned.find(key => inventoryState[key].remainingMl > 0) ?? owned[0];
   }
 
   function decrementInventoryForSession(entry) {
@@ -1628,7 +1656,7 @@ Output only the CSV starting with the header row.`;
       if (!step?.products?.length) continue;
       for (const { name, ml } of step.products) {
         if (ml == null) continue;
-        const slug = catalogByName.get(name);
+        const slug = catalogByName.get(name) ?? CANONICAL_SLUG_MAP[name];
         if (!slug || EQUIPMENT_SLUGS.has(slug)) continue;
 
         const stateKey = resolveInventoryKey(slug);
@@ -2580,7 +2608,7 @@ Output only the CSV starting with the header row.`;
         routineMap[rid].alerts.push({ severity: get(row, 'severity') || 'tip', label: get(row, 'label'), text: get(row, 'text') });
       }
     });
-    return order.map(rid => routineMap[rid]);
+    return normaliseRoutineProductNames(order.map(rid => routineMap[rid]));
   }
 
   function parseCSVRow(line) {
@@ -2636,6 +2664,27 @@ Output only the CSV starting with the header row.`;
     URL.revokeObjectURL(url);
   }
 
+  function normaliseRoutineProductNames(routinesList) {
+    const nameToCanonical = new Map();
+    for (const [family, canonicalName] of Object.entries(FAMILY_NAMES)) {
+      for (const [slug, fam] of Object.entries(SLUG_FAMILIES)) {
+        if (fam !== family) continue;
+        const cat = CATALOG.find(c => c.slug === slug);
+        if (cat) nameToCanonical.set(cat.name, canonicalName);
+      }
+    }
+    // Legacy DEFAULT_ROUTINES names that don't match exact CATALOG display names
+    nameToCanonical.set('Wet Dreams Sealant 770ml', 'Wet Dreams');
+    nameToCanonical.set('Happy Ending Cannon Bottle', 'Happy Ending');
+    return routinesList.map(r => ({
+      ...r,
+      steps: (r.steps || []).map(s => ({
+        ...s,
+        products: (s.products || []).map(p => ({ ...p, name: nameToCanonical.get(p.name) ?? p.name })),
+      })),
+    }));
+  }
+
   async function loadRoutines() {
     const saved = await storageGet(ROUTINES_KEY);
     if (saved && Array.isArray(saved) && saved.length) routines = saved;
@@ -2670,7 +2719,19 @@ Output only the CSV starting with the header row.`;
   function buildCatalogDatalist() {
     const dl = document.getElementById('catalog-datalist');
     if (!dl) return;
-    dl.innerHTML = CATALOG.map(p => `<option value="${p.name}">`).join('');
+    const seenFamilies = new Set();
+    const options = [];
+    for (const p of CATALOG) {
+      const family = SLUG_FAMILIES[p.slug];
+      if (family) {
+        if (seenFamilies.has(family)) continue;
+        seenFamilies.add(family);
+        options.push(`<option value="${FAMILY_NAMES[family] ?? p.name}">`);
+      } else {
+        options.push(`<option value="${p.name}">`);
+      }
+    }
+    dl.innerHTML = options.join('');
   }
 
   function renderRoutinesView() {
@@ -2762,18 +2823,22 @@ Output only the CSV starting with the header row.`;
     ).join('');
 
     const stepsHtml = routine.steps.map((step, sIdx) => {
-      const productsHtml = (step.products || []).map((p, pIdx) => `
-        <div class="step-product-row">
+      const productsHtml = (step.products || []).map((p, pIdx) => {
+        const catEntry = CATALOG.find(c => c.name === p.name);
+        const isEquipment = catEntry && EQUIPMENT_SLUGS.has(catEntry.slug);
+        return `
+        <div class="step-product-row${isEquipment ? ' step-product-row--equipment' : ''}">
           <input list="catalog-datalist" value="${escAttr(p.name)}"
             onchange="updateStepProduct(${rIdx},${sIdx},${pIdx},'name',this.value)"
             oninput="updateStepProduct(${rIdx},${sIdx},${pIdx},'name',this.value)"
             placeholder="Product name…" class="step-product-input">
-          <input type="number" value="${p.ml ?? ''}" min="0" step="5"
+          ${isEquipment ? '' : `<input type="number" value="${p.ml ?? ''}" min="0" step="5"
             onchange="updateStepProduct(${rIdx},${sIdx},${pIdx},'ml',this.value)"
-            placeholder="ml" class="step-ml-input">
+            placeholder="ml" class="step-ml-input">`}
           <button class="step-remove-btn" onclick="removeStepProduct(${rIdx},${sIdx},${pIdx})" title="Remove product">✕</button>
         </div>
-      `).join('');
+      `;
+      }).join('');
       const totalSteps = routine.steps.length;
       return `
         <div class="step-editor-block">
@@ -2915,12 +2980,12 @@ Output only the CSV starting with the header row.`;
   function updateStepProduct(rIdx, sIdx, pIdx, field, val) {
     routines[rIdx].steps[sIdx].products[pIdx][field] = field === 'ml' ? (val === '' ? null : Number(val)) : val;
     if (field === 'name') {
-      const match = CATALOG.find(p => p.name === val);
-      if (match && PRODUCT_ACTIONS[match.slug]) {
+      const matchSlug = CATALOG.find(c => c.name === val)?.slug ?? CANONICAL_SLUG_MAP[val];
+      if (matchSlug && PRODUCT_ACTIONS[matchSlug]) {
         const actionEl = document.getElementById(`step-action-${rIdx}-${sIdx}`);
         if (actionEl && !actionEl.value.trim()) {
-          actionEl.value = PRODUCT_ACTIONS[match.slug];
-          routines[rIdx].steps[sIdx].action = PRODUCT_ACTIONS[match.slug];
+          actionEl.value = PRODUCT_ACTIONS[matchSlug];
+          routines[rIdx].steps[sIdx].action = PRODUCT_ACTIONS[matchSlug];
         }
       }
     }

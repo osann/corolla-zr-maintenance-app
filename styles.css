@@ -1605,6 +1605,7 @@
   .step-products-section { margin-top: 2px; padding-top: 10px; border-top: 1px solid var(--rule); }
   .step-products-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   .step-product-row { display: grid; grid-template-columns: 1fr 64px auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .step-product-row--equipment { grid-template-columns: 1fr auto; }
   .step-product-input { font-family: 'Inter', sans-serif; font-size: 13px; padding: 6px 10px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; }
   .step-product-input:focus { outline: none; border-color: var(--accent); }
   .step-ml-input { font-family: 'Inter', sans-serif; font-size: 13px; padding: 6px 8px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; text-align: center; }
