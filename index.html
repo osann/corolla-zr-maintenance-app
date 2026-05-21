@@ -26,7 +26,6 @@
       <button class="tab active" data-tab="routine">Wash Routines</button>
       <button class="tab" data-tab="maintenance">Maintenance</button>
       <button class="tab" data-tab="inventory" style="display:none">Inventory</button>
-      <button class="tab" data-tab="prices">Current Prices</button>
       <button class="tab" data-tab="guide">Technique Guide</button>
       <button class="tab" data-tab="settings">Settings</button>
       <button id="nav-auth-btn" class="nav-auth-btn" onclick="navAuthClick()">Sign in</button>
@@ -965,6 +964,7 @@
       <button class="inv-sub-tab active" data-inv-tab="stock">Inventory</button>
       <button class="inv-sub-tab" data-inv-tab="checklist">Checklist</button>
       <button class="inv-sub-tab" data-inv-tab="summary">Summary</button>
+      <button class="inv-sub-tab" data-inv-tab="prices">Prices</button>
     </div>
 
     <!-- ── Inventory sub-panel ── -->
@@ -1017,12 +1017,12 @@
 
     </div><!-- /inv-sub-summary -->
 
-  </div>
+    <!-- ── Prices sub-panel ── -->
+    <div class="inv-sub-panel" id="inv-sub-prices">
+      <div id="prices-alerts-summary" style="display:none;"></div>
+      <div id="prices-list"></div>
+    </div>
 
-  <!-- ═══ CURRENT PRICES PANEL ════════════════════════ -->
-  <div class="panel" id="prices">
-    <div id="prices-alerts-summary" style="display:none;"></div>
-    <div id="prices-list"></div>
   </div>
 
   <!-- ═══ SETTINGS PANEL ══════════════════════════════ -->
