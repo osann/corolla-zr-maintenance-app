@@ -1676,6 +1676,8 @@
   .prices-product-name { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; color: var(--ink); padding-bottom: 5px; }
   .prices-retailer-row { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; }
   .prices-retailer-row + .prices-retailer-row { border-top: 1px solid var(--rule); padding-top: 12px; }
+  .prices-retailer-row--cheapest .price-row-amount { color: var(--accent); font-weight: 600; }
+  .prices-retailer-row--cheapest .prices-retailer-name { color: var(--accent); }
   .prices-retailer-name { font-size: 11.5px; font-weight: 500; color: var(--ink-mid); }
   .prices-retailer-row .price-row-right { align-items: center; text-align: center; }
   .prices-retailer-row .price-row-link-none { display: none; }

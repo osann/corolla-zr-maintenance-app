@@ -888,6 +888,8 @@ Output only the CSV starting with the header row.`;
           });
         if (retailers.length === 0) continue;
         const history = priceHistories[product.id] ?? [];
+        const minPrice = Math.min(...retailers.map(([, d]) => d.priceCents));
+        const allSame  = retailers.every(([, d]) => d.priceCents === minPrice);
         let retailerRows = '';
         let urlForms = '';
         for (const [retailer, data] of retailers) {
@@ -910,8 +912,9 @@ Output only the CSV starting with the header row.`;
           const sparkline = (settings.prefs.showSparklines ?? true)
             ? (sparklineSvg || '<span class="prices-no-data">No data yet.</span>')
             : (sparklineSvg ? '' : '<span class="prices-no-data">No data yet.</span>');
+          const cheapestClass = (!allSame && data.priceCents === minPrice) ? ' prices-retailer-row--cheapest' : '';
           retailerRows += `
-            <div class="prices-retailer-row">
+            <div class="prices-retailer-row${cheapestClass}">
               <span class="prices-retailer-name">${retailerName}</span>
               <div class="price-row-right">
                 <div class="price-row-amount">${price}${saleTag}</div>
