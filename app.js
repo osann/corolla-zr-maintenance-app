@@ -1597,8 +1597,8 @@ Output only the CSV starting with the header row.`;
     renderInventory();
   }
 
-  function toggleInvAdjustForm(slug) {
-    const form = document.getElementById(`inv-adjust-form-${slug}`);
+  function toggleInvAdjustForm(uid) {
+    const form = document.getElementById(`inv-adjust-form-${uid}`);
     if (!form) return;
     const isHidden = form.hidden;
     // Close any other open forms first
@@ -1619,25 +1619,25 @@ Output only the CSV starting with the header row.`;
     return null;
   }
 
-  function saveInvAdjust(slug) {
-    const volumeEl  = document.getElementById(`inv-vol-${slug}`);
-    const remainEl  = document.getElementById(`inv-remain-${slug}`);
-    const defaults  = INVENTORY_DEFAULTS[slug] ?? {};
-    const volumeMl  = volumeEl && volumeEl.value !== '' ? +volumeEl.value : (inventoryState[slug]?.volumeMl ?? defaults.volumeMl ?? null);
+  function saveInvAdjust(key, uid) {
+    const volumeEl  = document.getElementById(`inv-vol-${uid}`);
+    const remainEl  = document.getElementById(`inv-remain-${uid}`);
+    const defaults  = INVENTORY_DEFAULTS[key] ?? {};
+    const volumeMl  = volumeEl && volumeEl.value !== '' ? +volumeEl.value : (inventoryState[key]?.volumeMl ?? defaults.volumeMl ?? null);
     const remainingMl = remainEl && remainEl.value !== '' ? +remainEl.value : null;
 
-    inventoryState[slug] = {
-      ...(inventoryState[slug] ?? {}),
+    inventoryState[key] = {
+      ...(inventoryState[key] ?? {}),
       volumeMl,
-      remainingMl: remainingMl !== null ? Math.max(0, Math.min(volumeMl ?? Infinity, remainingMl)) : inventoryState[slug]?.remainingMl ?? null,
+      remainingMl: remainingMl !== null ? Math.max(0, Math.min(volumeMl ?? Infinity, remainingMl)) : inventoryState[key]?.remainingMl ?? null,
       manualOverride: remainingMl !== null,
     };
     renderInventory();   // immediate visual update
     saveInventory();     // async persist
   }
 
-  function saveInvEquipDate(key) {
-    const dateEl = document.getElementById(`inv-date-${key}`);
+  function saveInvEquipDate(key, uid) {
+    const dateEl = document.getElementById(`inv-date-${uid}`);
     if (!dateEl) return;
     inventoryState[key] = { ...(inventoryState[key] ?? {}), purchaseDate: dateEl.value || null };
     renderInventory();
@@ -1783,6 +1783,10 @@ Output only the CSV starting with the header row.`;
     const container = document.getElementById('inventory-list');
     if (!container) return;
 
+    // Per-render counter so duplicate slugs get unique form IDs
+    let _uid = 0;
+    const nextUid = () => `i${_uid++}`;
+
     // Build the set of owned slugs from checklist state
     const ownedSlugs = new Set(
       Object.entries(checklistState.checked ?? {})
@@ -1803,6 +1807,7 @@ Output only the CSV starting with the header row.`;
     function renderInvCard(slug) {
       const catalogItem = CATALOG.find(p => p.slug === slug);
       if (!catalogItem) return '';
+      const uid = nextUid();
       const meta = inventoryState[slug] ?? {};
       const defaults = INVENTORY_DEFAULTS[slug] ?? {};
       const isEquip = EQUIPMENT_SLUGS.has(slug);
@@ -1821,16 +1826,16 @@ Output only the CSV starting with the header row.`;
           <div class="inv-card inv-card--equip">
             <div class="inv-card-row">
               <div class="inv-card-name">${name}</div>
-              <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${safeSlug}')" title="Adjust">Adjust</button>
+              <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${uid}')" title="Adjust">Adjust</button>
             </div>
             ${meta2 ? `<div class="inv-equip-meta">${meta2}</div>` : ''}
-            <div class="inv-adjust-form" id="inv-adjust-form-${safeSlug}" hidden>
+            <div class="inv-adjust-form" id="inv-adjust-form-${uid}" hidden>
               <div class="inv-adjust-grid inv-adjust-grid--single">
                 <label class="inv-adjust-label">Acquired</label>
-                <input class="inv-adjust-input" type="date" id="inv-date-${safeSlug}" value="${dateVal}">
+                <input class="inv-adjust-input" type="date" id="inv-date-${uid}" value="${dateVal}">
               </div>
               <div class="inv-adjust-actions">
-                <button class="settings-save-btn" onclick="saveInvEquipDate('${safeSlug}')">Update</button>
+                <button class="settings-save-btn" onclick="saveInvEquipDate('${safeSlug}', '${uid}')">Update</button>
               </div>
             </div>
           </div>`;
@@ -1846,7 +1851,7 @@ Output only the CSV starting with the header row.`;
 
       let stockHtml = '';
       if (notConfigured) {
-        stockHtml = `<div class="inv-not-set">Stock not set — <button class="inv-link-btn" onclick="toggleInvAdjustForm('${safeSlug}')">configure</button></div>`;
+        stockHtml = `<div class="inv-not-set">Stock not set — <button class="inv-link-btn" onclick="toggleInvAdjustForm('${uid}')">configure</button></div>`;
       } else {
         const fillColor = pct > 50 ? 'var(--accent)' : pct > 20 ? 'var(--warn)' : 'var(--danger)';
         const label = volumeMl
@@ -1874,19 +1879,19 @@ Output only the CSV starting with the header row.`;
         <div class="inv-card inv-card--consumable${isLow ? ' inv-card--low' : ''}">
           <div class="inv-card-row">
             <div class="inv-card-name">${name}</div>
-            <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${safeSlug}')" title="Adjust stock">Adjust</button>
+            <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${uid}')" title="Adjust stock">Adjust</button>
           </div>
           ${stockHtml}
           ${sessionsHtml}
-          <div class="inv-adjust-form" id="inv-adjust-form-${safeSlug}" hidden>
+          <div class="inv-adjust-form" id="inv-adjust-form-${uid}" hidden>
             <div class="inv-adjust-grid">
               <label class="inv-adjust-label">Volume (ml)</label>
               <label class="inv-adjust-label">Remaining (ml)</label>
-              <input class="inv-adjust-input" type="number" id="inv-vol-${safeSlug}" value="${volVal}" min="1" placeholder="e.g. 500">
-              <input class="inv-adjust-input" type="number" id="inv-remain-${safeSlug}" value="${remVal}" min="0" placeholder="e.g. 375">
+              <input class="inv-adjust-input" type="number" id="inv-vol-${uid}" value="${volVal}" min="1" placeholder="e.g. 500">
+              <input class="inv-adjust-input" type="number" id="inv-remain-${uid}" value="${remVal}" min="0" placeholder="e.g. 375">
             </div>
             <div class="inv-adjust-actions">
-              <button class="settings-save-btn" onclick="saveInvAdjust('${safeSlug}')">Update</button>
+              <button class="settings-save-btn" onclick="saveInvAdjust('${safeSlug}', '${uid}')">Update</button>
               <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="markItemEmpty('${safeSlug}')">Mark empty</button>
             </div>
           </div>
@@ -1899,6 +1904,7 @@ Output only the CSV starting with the header row.`;
       const compKey = stateKey
         ?? comp.slug
         ?? `${bundleSlug}:${comp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      const uid = nextUid();
       const safeKey = escAttr(compKey);
       const name = escHtml(comp.name);
       const isEquip = comp.equipment ?? EQUIPMENT_SLUGS.has(comp.slug ?? '');
@@ -1923,16 +1929,16 @@ Output only the CSV starting with the header row.`;
           <div class="inv-card inv-card--equip">
             <div class="inv-card-row">
               <div class="inv-card-name">${name}</div>
-              <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${safeKey}')" title="Adjust">Adjust</button>
+              <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${uid}')" title="Adjust">Adjust</button>
             </div>
             ${metaStr ? `<div class="inv-equip-meta">${metaStr}</div>` : ''}
-            <div class="inv-adjust-form" id="inv-adjust-form-${safeKey}" hidden>
+            <div class="inv-adjust-form" id="inv-adjust-form-${uid}" hidden>
               <div class="inv-adjust-grid inv-adjust-grid--single">
                 <label class="inv-adjust-label">Acquired</label>
-                <input class="inv-adjust-input" type="date" id="inv-date-${safeKey}" value="${dateVal}">
+                <input class="inv-adjust-input" type="date" id="inv-date-${uid}" value="${dateVal}">
               </div>
               <div class="inv-adjust-actions">
-                <button class="settings-save-btn" onclick="saveInvEquipDate('${safeKey}')">Update</button>
+                <button class="settings-save-btn" onclick="saveInvEquipDate('${safeKey}', '${uid}')">Update</button>
               </div>
             </div>
           </div>`;
@@ -1947,7 +1953,7 @@ Output only the CSV starting with the header row.`;
 
       let stockHtml = '';
       if (notConfigured) {
-        stockHtml = `<div class="inv-not-set">Stock not set — <button class="inv-link-btn" onclick="toggleInvAdjustForm('${safeKey}')">configure</button></div>`;
+        stockHtml = `<div class="inv-not-set">Stock not set — <button class="inv-link-btn" onclick="toggleInvAdjustForm('${uid}')">configure</button></div>`;
       } else {
         const fillColor = pct > 50 ? 'var(--accent)' : pct > 20 ? 'var(--warn)' : 'var(--danger)';
         const label = volumeMl ? `${remainingMl}ml remaining (${pct}%)` : `${remainingMl}ml remaining`;
@@ -1972,19 +1978,19 @@ Output only the CSV starting with the header row.`;
         <div class="inv-card inv-card--consumable${isLow ? ' inv-card--low' : ''}">
           <div class="inv-card-row">
             <div class="inv-card-name">${name}</div>
-            <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${safeKey}')" title="Adjust stock">Adjust</button>
+            <button class="inv-adjust-btn" onclick="toggleInvAdjustForm('${uid}')" title="Adjust stock">Adjust</button>
           </div>
           ${stockHtml}
           ${sessionsHtml}
-          <div class="inv-adjust-form" id="inv-adjust-form-${safeKey}" hidden>
+          <div class="inv-adjust-form" id="inv-adjust-form-${uid}" hidden>
             <div class="inv-adjust-grid">
               <label class="inv-adjust-label">Volume (ml)</label>
               <label class="inv-adjust-label">Remaining (ml)</label>
-              <input class="inv-adjust-input" type="number" id="inv-vol-${safeKey}" value="${volVal}" min="1" placeholder="e.g. 500">
-              <input class="inv-adjust-input" type="number" id="inv-remain-${safeKey}" value="${remVal}" min="0" placeholder="e.g. 375">
+              <input class="inv-adjust-input" type="number" id="inv-vol-${uid}" value="${volVal}" min="1" placeholder="e.g. 500">
+              <input class="inv-adjust-input" type="number" id="inv-remain-${uid}" value="${remVal}" min="0" placeholder="e.g. 375">
             </div>
             <div class="inv-adjust-actions">
-              <button class="settings-save-btn" onclick="saveInvAdjust('${safeKey}')">Update</button>
+              <button class="settings-save-btn" onclick="saveInvAdjust('${safeKey}', '${uid}')">Update</button>
               <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="markItemEmpty('${safeKey}')">Mark empty</button>
             </div>
           </div>
