@@ -2438,6 +2438,8 @@ Output only the CSV starting with the header row.`;
   };
 
   const DEFAULT_NOTIFICATIONS = {
+    saleAlerts: true,
+    thresholdAlerts: true,
     ticktickAlerts: true,
     ticktickProjectId: null,
     ticktickTags: [],
@@ -3703,7 +3705,9 @@ Output only the CSV starting with the header row.`;
   }
 
   async function loadNotificationsUI() {
-    document.getElementById('pref-ticktick-alerts').checked       = settings.notifications.ticktickAlerts;
+    document.getElementById('pref-sale-alerts').checked            = settings.notifications.saleAlerts ?? true;
+    document.getElementById('pref-threshold-alerts').checked       = settings.notifications.thresholdAlerts ?? true;
+    document.getElementById('pref-ticktick-alerts').checked        = settings.notifications.ticktickAlerts;
     document.getElementById('ticktick-tags').value                = (settings.notifications.ticktickTags ?? []).join(', ');
     document.getElementById('ticktick-priority').value            = String(settings.notifications.ticktickPriority ?? 0);
     document.getElementById('pref-email-alerts').checked          = settings.notifications.emailAlerts;
@@ -3879,7 +3883,9 @@ Output only the CSV starting with the header row.`;
       settings.car.postcode = document.getElementById('car-postcode').value.trim();
       settings.car.currentOdometer = +document.getElementById('car-odometer').value || null;
     } else if (section === 'notifications') {
-      settings.notifications.ticktickAlerts     = document.getElementById('pref-ticktick-alerts')?.checked ?? true;
+      settings.notifications.saleAlerts         = document.getElementById('pref-sale-alerts')?.checked ?? true;
+      settings.notifications.thresholdAlerts   = document.getElementById('pref-threshold-alerts')?.checked ?? true;
+      settings.notifications.ticktickAlerts    = document.getElementById('pref-ticktick-alerts')?.checked ?? true;
       settings.notifications.ticktickProjectId  = document.getElementById('ticktick-project-id')?.value || null;
       settings.notifications.ticktickTags       = (document.getElementById('ticktick-tags')?.value ?? '')
         .split(',').map(t => t.trim()).filter(Boolean);

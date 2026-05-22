@@ -8,6 +8,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export interface NotificationSettings {
   ticktickConnected:  boolean;
+  saleAlerts:         boolean;
+  thresholdAlerts:    boolean;
   ticktickAlerts:     boolean;
   ticktickProjectId:  string | null;
   ticktickTags:       string[];
@@ -20,6 +22,8 @@ export interface NotificationSettings {
 
 const NOTIF_DEFAULTS: NotificationSettings = {
   ticktickConnected:  false,
+  saleAlerts:         true,
+  thresholdAlerts:    true,
   ticktickAlerts:     true,
   ticktickProjectId:  null,
   ticktickTags:       [],
@@ -85,14 +89,16 @@ export async function getOwnerNotificationSettings(
 
     return {
       ticktickConnected:  connected,
-      ticktickAlerts:     typeof n.ticktickAlerts     === 'boolean' ? n.ticktickAlerts     : true,
-      ticktickProjectId:  typeof n.ticktickProjectId  === 'string'  ? n.ticktickProjectId  : null,
-      ticktickTags:       Array.isArray(n.ticktickTags)             ? n.ticktickTags        : [],
-      ticktickPriority:   [0,1,3,5].includes(n.ticktickPriority)   ? n.ticktickPriority    : 0,
-      emailAlerts:        typeof n.emailAlerts         === 'boolean' ? n.emailAlerts         : false,
-      washReminders:      typeof n.washReminders       === 'boolean' ? n.washReminders       : true,
-      emailWashReminders: typeof n.emailWashReminders  === 'boolean' ? n.emailWashReminders  : false,
-      emailDigest:        typeof n.emailDigest         === 'boolean' ? n.emailDigest         : false,
+      saleAlerts:         typeof n.saleAlerts          === 'boolean' ? n.saleAlerts          : true,
+      thresholdAlerts:    typeof n.thresholdAlerts     === 'boolean' ? n.thresholdAlerts     : true,
+      ticktickAlerts:     typeof n.ticktickAlerts      === 'boolean' ? n.ticktickAlerts      : true,
+      ticktickProjectId:  typeof n.ticktickProjectId   === 'string'  ? n.ticktickProjectId   : null,
+      ticktickTags:       Array.isArray(n.ticktickTags)              ? n.ticktickTags         : [],
+      ticktickPriority:   [0,1,3,5].includes(n.ticktickPriority)    ? n.ticktickPriority     : 0,
+      emailAlerts:        typeof n.emailAlerts          === 'boolean' ? n.emailAlerts          : false,
+      washReminders:      typeof n.washReminders        === 'boolean' ? n.washReminders        : true,
+      emailWashReminders: typeof n.emailWashReminders   === 'boolean' ? n.emailWashReminders   : false,
+      emailDigest:        typeof n.emailDigest          === 'boolean' ? n.emailDigest          : false,
     };
   } catch {
     return { ...NOTIF_DEFAULTS };

@@ -95,7 +95,10 @@ router.post('/prices', async (c) => {
     const threshold = alertThresholds[slug];
     const thresholdBreached = threshold?.thresholdCents != null && priceCents <= threshold.thresholdCents;
 
-    if ((onSale || thresholdBreached) && (notifSettings.ticktickAlerts || notifSettings.emailAlerts)) {
+    const anySaleChannel      = notifSettings.saleAlerts      && (notifSettings.ticktickAlerts || notifSettings.emailAlerts);
+    const anyThresholdChannel = notifSettings.thresholdAlerts && (notifSettings.ticktickAlerts || notifSettings.emailAlerts);
+
+    if ((onSale && anySaleChannel) || (thresholdBreached && anyThresholdChannel)) {
       const recent = await db
         .select({ onSale: priceHistory.onSale, priceCents: priceHistory.priceCents })
         .from(priceHistory)
@@ -111,7 +114,7 @@ router.post('/prices', async (c) => {
       const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
 
       // On-sale alert (transition only)
-      if (onSale) {
+      if (onSale && anySaleChannel) {
         const previouslyOnSale = recent[1]?.onSale ?? false;
         if (!previouslyOnSale) {
           const prevCents = recent[1]?.priceCents;
@@ -123,7 +126,7 @@ router.post('/prices', async (c) => {
       }
 
       // Threshold alert (transition only — prev price was above threshold)
-      if (thresholdBreached) {
+      if (thresholdBreached && anyThresholdChannel) {
         const prevPriceCents = recent[1]?.priceCents;
         const prevWasAbove   = prevPriceCents == null || prevPriceCents > threshold.thresholdCents;
         if (prevWasAbove) {
