@@ -640,6 +640,9 @@ Output only the CSV starting with the header row.`;
         } else {
           priceText = '—';
         }
+        const hasAlert = !!priceAlerts[slug];
+        const alertBtnTitle = hasAlert ? 'Alert set — click to edit' : 'Set price alert';
+        const buyUrl = live?.url || null;
         const label = document.createElement('label');
         label.className = 'item';
         label.dataset.price = String(entry.price);
@@ -650,7 +653,11 @@ Output only the CSV starting with the header row.`;
             <div class="item-name">${escHtml(entry.name)}</div>
             ${entry.desc ? `<div class="item-desc">${escHtml(entry.desc)}</div>` : ''}
           </div>
-          <div class="item-price">${priceText}</div>
+          <div class="item-actions">
+            <div class="item-price">${priceText}</div>
+            <a class="item-buy-btn"${buyUrl ? ` href="${buyUrl}" target="_blank" rel="noopener noreferrer"` : ''} title="Buy at best price"${buyUrl ? '' : ' hidden'}>→</a>
+            ${syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="cl-alert-btn-${slug}" data-alert-slug="${slug}" onclick="toggleChecklistAlert('${escAttr(slug)}')" title="${alertBtnTitle}">🔔</button>` : ''}
+          </div>
           <button class="item-remove" type="button" title="Remove from phase">×</button>
         `;
         const input = label.querySelector('input');
@@ -661,6 +668,31 @@ Output only the CSV starting with the header row.`;
           removeFromPhase(phase.id, slug);
         });
         itemsContainer.appendChild(label);
+
+        if (syncEnabled) {
+          const alertForm = document.createElement('div');
+          alertForm.className = 'alert-inline-form';
+          alertForm.id = `cl-alert-form-${slug}`;
+          alertForm.style.display = 'none';
+          alertForm.innerHTML = `
+            <div class="alert-form-row">
+              <div class="alert-form-inputs">
+                <span class="alert-form-label">Alert when below</span>
+                <div class="alert-threshold-wrap"><span class="alert-dollar">$</span><input type="number" class="alert-threshold-input" id="cl-alert-threshold-${slug}" min="0.01" step="0.01" placeholder="0.00"></div>
+                <select class="alert-channel-select" id="cl-alert-channel-${slug}">
+                  <option value="global">Global setting</option>
+                  <option value="ticktick">TickTick</option>
+                  <option value="email">Email</option>
+                </select>
+              </div>
+              <div class="alert-form-actions">
+                <button class="alert-set-btn" onclick="saveChecklistAlert('${escAttr(slug)}')">Set</button>
+                <button class="alert-clear-btn" onclick="clearChecklistAlert('${escAttr(slug)}')">Clear</button>
+              </div>
+            </div>
+          `;
+          itemsContainer.appendChild(alertForm);
+        }
         itemData.push({
           slug, el: label, input,
           price: live ? Math.round(live.priceCents / 100) : entry.price,
@@ -800,7 +832,6 @@ Output only the CSV starting with the header row.`;
       if (done === count) { el.textContent = 'Complete'; el.classList.add('done'); }
       else { el.textContent = `${done} of ${count}`; el.classList.remove('done'); }
     });
-    renderSpendPanel(spent, total);
   }
 
   function resetAll() {
@@ -821,7 +852,8 @@ Output only the CSV starting with the header row.`;
     const b = await storageGet(BUDGET_KEY);
     if (b && b.target) {
       budgetTarget = b.target;
-      document.getElementById('budget-target').value = budgetTarget;
+      const el = document.getElementById('budget-target');
+      if (el) el.value = budgetTarget;
     }
   }
 
@@ -834,83 +866,6 @@ Output only the CSV starting with the header row.`;
     recompute();
     document.getElementById('budget-status').textContent = 'Saved ✓';
     setTimeout(() => { document.getElementById('budget-status').textContent = ''; }, 2000);
-  }
-
-  function renderSpendPanel(spent, total) {
-    // Summary
-    document.getElementById('sp-spent').textContent = spent;
-    document.getElementById('sp-remain').textContent = total - spent;
-    document.getElementById('sp-total').textContent = total;
-
-    // Budget bar
-    if (budgetTarget > 0) {
-      const pct = Math.min(100, Math.round((spent / budgetTarget) * 100));
-      document.getElementById('budget-bar').style.width = pct + '%';
-      document.getElementById('budget-bar').style.background = pct >= 100 ? 'var(--danger)' : 'var(--accent)';
-      document.getElementById('budget-bar-label').textContent =
-        pct >= 100
-          ? `$${spent - budgetTarget} over budget`
-          : `$${spent} of $${budgetTarget} budget used (${pct}%)`;
-    } else {
-      document.getElementById('budget-bar').style.width = Math.round((spent / total) * 100) + '%';
-      document.getElementById('budget-bar-label').textContent = `$${spent} of $${total} total kit cost`;
-    }
-
-    renderPriceList();
-  }
-
-  function renderPriceList() {
-    const container = document.getElementById('price-list');
-    if (!container) return;
-
-    const byPhase = {};
-    itemData.forEach(item => {
-      if (!byPhase[item.phase]) byPhase[item.phase] = [];
-      byPhase[item.phase].push(item);
-    });
-
-    const hasLive = Object.keys(slugToBest).length > 0;
-    container.innerHTML = '';
-
-    Object.keys(byPhase).sort().forEach(p => {
-      const card = document.createElement('div');
-      card.className = 'phase-spend-card';
-
-      const rows = byPhase[p].map(item => {
-        const live = item.slug ? slugToBest[item.slug] : null;
-        const price = live ? `$${(live.priceCents / 100).toFixed(2)}` : `$${item.price}`;
-        const retailerName = live ? (RETAILER_NAMES[live.retailer] || live.retailer) : '';
-        const url = live?.url || null;
-        const onSale = live?.onSale || false;
-        const bought = item.input.checked;
-        const saleTag = onSale ? '<span class="price-on-sale">Sale</span>' : '';
-        const linkEl = url
-          ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
-          : '<span class="price-row-link-none"></span>';
-        const history = live?.id !== undefined ? (priceHistories[live.id] ?? []) : [];
-        const sparkline = history.length ? buildSparklineSVG(history, live.retailer) : '';
-
-        return `
-          <div class="price-row${bought ? ' bought' : ''}">
-            <span class="price-row-name">${item.name}</span>
-            <div class="price-row-right">
-              <div class="price-row-amount">${price}${saleTag}</div>
-              <div class="price-row-meta">${retailerName}</div>
-              ${sparkline}
-            </div>
-            ${linkEl}
-          </div>`;
-      }).join('');
-
-      card.innerHTML = `
-        <div class="phase-spend-head">
-          <div class="phase-spend-name">${getPhaseName(p)}</div>
-          ${!hasLive ? '<div class="price-list-stale">Prices unavailable</div>' : ''}
-        </div>
-        ${rows}
-      `;
-      container.appendChild(card);
-    });
   }
 
   function renderPricesTab() {
@@ -998,7 +953,7 @@ Output only the CSV starting with the header row.`;
           <div class="prices-product">
             <div class="prices-product-name">
               ${product.name}
-              ${syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="alert-btn-${slug}" onclick="toggleAlertForm('${slug}')" title="${alertTitle}">🔔</button>` : ''}
+              ${syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="alert-btn-${slug}" data-alert-slug="${slug}" onclick="toggleAlertForm('${slug}')" title="${alertTitle}">🔔</button>` : ''}
             </div>
             <div class="alert-inline-form" id="alert-form-${slug}" style="display:none;">
               <div class="alert-form-row">
@@ -1173,8 +1128,9 @@ Output only the CSV starting with the header row.`;
     priceAlerts[slug] = { thresholdCents: Math.round(val * 100), channel: sel?.value || 'global' };
     await storageSet(ALERTS_KEY, priceAlerts);
     syncPush(ALERTS_KEY, priceAlerts);
-    const btn = document.getElementById(`alert-btn-${slug}`);
-    if (btn) btn.title = 'Alert set — click to edit';
+    document.querySelectorAll(`[data-alert-slug="${slug}"]`).forEach(btn => {
+      btn.classList.add('active'); btn.title = 'Alert set — click to edit';
+    });
     renderAlertsPanel();
   }
 
@@ -3781,6 +3737,7 @@ Output only the CSV starting with the header row.`;
   async function loadAlerts() {
     const saved = await storageGet(ALERTS_KEY);
     if (saved && typeof saved === 'object') priceAlerts = saved;
+    renderChecklist();
   }
 
   function applyCarInfo() {
@@ -4005,8 +3962,9 @@ Output only the CSV starting with the header row.`;
     priceAlerts[slug] = { thresholdCents: Math.round(val * 100), channel: sel?.value || 'global' };
     await storageSet(ALERTS_KEY, priceAlerts);
     syncPush(ALERTS_KEY, priceAlerts);
-    const btn = document.getElementById(`alert-btn-${slug}`);
-    if (btn) { btn.classList.add('active'); btn.title = 'Alert set — click to edit'; }
+    document.querySelectorAll(`[data-alert-slug="${slug}"]`).forEach(btn => {
+      btn.classList.add('active'); btn.title = 'Alert set — click to edit';
+    });
     const form = document.getElementById(`alert-form-${slug}`);
     if (form) form.style.display = 'none';
     renderAlertsPanel();
@@ -4016,8 +3974,55 @@ Output only the CSV starting with the header row.`;
     delete priceAlerts[slug];
     await storageSet(ALERTS_KEY, priceAlerts);
     syncPush(ALERTS_KEY, priceAlerts);
-    const btn = document.getElementById(`alert-btn-${slug}`);
-    if (btn) { btn.classList.remove('active'); btn.title = 'Set price alert'; }
+    document.querySelectorAll(`[data-alert-slug="${slug}"]`).forEach(btn => {
+      btn.classList.remove('active'); btn.title = 'Set price alert';
+    });
+    const form = document.getElementById(`alert-form-${slug}`);
+    if (form) form.style.display = 'none';
+    const clForm = document.getElementById(`cl-alert-form-${slug}`);
+    if (clForm) clForm.style.display = 'none';
+    renderAlertsPanel();
+  }
+
+  function toggleChecklistAlert(slug) {
+    const form = document.getElementById(`cl-alert-form-${slug}`);
+    if (!form) return;
+    const opening = form.style.display === 'none' || form.style.display === '';
+    form.style.display = opening ? 'block' : 'none';
+    if (opening) {
+      const alert = priceAlerts[slug];
+      const inp = document.getElementById(`cl-alert-threshold-${slug}`);
+      const sel = document.getElementById(`cl-alert-channel-${slug}`);
+      if (inp) inp.value = alert ? (alert.thresholdCents / 100).toFixed(2) : '';
+      if (sel) sel.value = alert?.channel || 'global';
+    }
+  }
+
+  async function saveChecklistAlert(slug) {
+    const inp = document.getElementById(`cl-alert-threshold-${slug}`);
+    const sel = document.getElementById(`cl-alert-channel-${slug}`);
+    const val = parseFloat(inp?.value ?? '');
+    if (!val || val <= 0) { inp?.focus(); return; }
+    priceAlerts[slug] = { thresholdCents: Math.round(val * 100), channel: sel?.value || 'global' };
+    await storageSet(ALERTS_KEY, priceAlerts);
+    syncPush(ALERTS_KEY, priceAlerts);
+    document.querySelectorAll(`[data-alert-slug="${slug}"]`).forEach(btn => {
+      btn.classList.add('active'); btn.title = 'Alert set — click to edit';
+    });
+    const clForm = document.getElementById(`cl-alert-form-${slug}`);
+    if (clForm) clForm.style.display = 'none';
+    renderAlertsPanel();
+  }
+
+  async function clearChecklistAlert(slug) {
+    delete priceAlerts[slug];
+    await storageSet(ALERTS_KEY, priceAlerts);
+    syncPush(ALERTS_KEY, priceAlerts);
+    document.querySelectorAll(`[data-alert-slug="${slug}"]`).forEach(btn => {
+      btn.classList.remove('active'); btn.title = 'Set price alert';
+    });
+    const clForm = document.getElementById(`cl-alert-form-${slug}`);
+    if (clForm) clForm.style.display = 'none';
     const form = document.getElementById(`alert-form-${slug}`);
     if (form) form.style.display = 'none';
     renderAlertsPanel();
@@ -4281,7 +4286,7 @@ Output only the CSV starting with the header row.`;
       };
     }
 
-    // Update checklist item prices for spend totals
+    // Update checklist item prices and buy button URLs
     itemData.forEach(item => {
       const live = item.slug ? slugToBest[item.slug] : null;
       if (!live) return;
@@ -4298,6 +4303,15 @@ Output only the CSV starting with the header row.`;
           priceEl.appendChild(flame);
         }
       }
+      const buyBtn = item.el.querySelector('.item-buy-btn');
+      if (buyBtn) {
+        if (live.url) {
+          buyBtn.href = live.url;
+          buyBtn.removeAttribute('hidden');
+        } else {
+          buyBtn.setAttribute('hidden', '');
+        }
+      }
       item.price = Math.round(live.priceCents / 100);
     });
 
@@ -4312,7 +4326,6 @@ Output only the CSV starting with the header row.`;
       const bulk = await res.json();
       Object.assign(priceHistories, bulk);
     } catch {}
-    renderPriceList();
     renderPricesTab();
   }
 

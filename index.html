@@ -963,7 +963,6 @@
     <div class="inv-sub-tabs">
       <button class="inv-sub-tab active" data-inv-tab="stock">Inventory</button>
       <button class="inv-sub-tab" data-inv-tab="checklist">Checklist</button>
-      <button class="inv-sub-tab" data-inv-tab="summary">Summary</button>
       <button class="inv-sub-tab" data-inv-tab="prices">Prices</button>
     </div>
 
@@ -977,45 +976,6 @@
       <div id="phases-container"></div>
       <button id="add-phase-btn" type="button" class="add-phase-btn">+ Add phase</button>
     </div>
-
-    <!-- ── Summary sub-panel ── -->
-    <div class="inv-sub-panel" id="inv-sub-summary">
-
-      <div class="spend-summary">
-        <div class="spend-card accent">
-          <div class="stat-label">Spent so far</div>
-          <div class="stat-value">$<span id="sp-spent">0</span></div>
-        </div>
-        <div class="spend-card">
-          <div class="stat-label">Still to buy</div>
-          <div class="stat-value">$<span id="sp-remain">0</span></div>
-        </div>
-        <div class="spend-card">
-          <div class="stat-label">Full kit cost</div>
-          <div class="stat-value">$<span id="sp-total">0</span></div>
-        </div>
-      </div>
-
-      <div class="phase-spend-card" style="margin-bottom:24px;">
-        <div class="phase-spend-name" style="margin-bottom:6px;">Budget target</div>
-        <div style="font-size:13.5px;color:var(--ink-mid);margin-bottom:10px;">Set a target to track how you're tracking across phases.</div>
-        <div class="budget-row">
-          <div class="budget-input-wrap">
-            <span class="budget-prefix">$</span>
-            <input class="budget-field" type="number" id="budget-target" placeholder="500" min="0" max="9999">
-          </div>
-          <button class="budget-save" onclick="saveBudget()">Set budget</button>
-          <span class="budget-label" id="budget-status"></span>
-        </div>
-        <div style="margin-top:14px;">
-          <div class="phase-spend-bar"><div class="phase-spend-fill" id="budget-bar" style="width:0%"></div></div>
-          <div style="font-size:12px;color:var(--ink-low);margin-top:4px;" id="budget-bar-label"></div>
-        </div>
-      </div>
-
-      <div id="price-list"></div>
-
-    </div><!-- /inv-sub-summary -->
 
     <!-- ── Prices sub-panel ── -->
     <div class="inv-sub-panel" id="inv-sub-prices">
