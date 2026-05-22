@@ -906,8 +906,10 @@ Output only the CSV starting with the header row.`;
           } else {
             linkEl = '<span class="price-row-link-none"></span>';
           }
-          const sparkline = buildSparklineSVG(history, retailer)
-            || '<span class="prices-no-data">No data yet.</span>';
+          const sparklineSvg = buildSparklineSVG(history, retailer);
+          const sparkline = (settings.prefs.showSparklines ?? true)
+            ? (sparklineSvg || '<span class="prices-no-data">No data yet.</span>')
+            : (sparklineSvg ? '' : '<span class="prices-no-data">No data yet.</span>');
           retailerRows += `
             <div class="prices-retailer-row">
               <span class="prices-retailer-name">${retailerName}</span>
@@ -2390,6 +2392,8 @@ Output only the CSV starting with the header row.`;
     showPrices: true,
     showBadges: true,
     showDesc: true,
+    showBuyButtons: true,
+    showSparklines: true,
     confirmDelete: true
   };
 
@@ -3633,6 +3637,8 @@ Output only the CSV starting with the header row.`;
     document.getElementById('pref-show-prices').checked = settings.prefs.showPrices;
     document.getElementById('pref-show-badges').checked = settings.prefs.showBadges;
     document.getElementById('pref-show-desc').checked = settings.prefs.showDesc;
+    document.getElementById('pref-show-buy-buttons').checked = settings.prefs.showBuyButtons ?? true;
+    document.getElementById('pref-show-sparklines').checked = settings.prefs.showSparklines ?? true;
   }
 
   function applyPrefs() {
@@ -3647,6 +3653,11 @@ Output only the CSV starting with the header row.`;
     // Item descriptions
     document.querySelectorAll('.item-desc').forEach(el => {
       el.style.display = settings.prefs.showDesc ? '' : 'none';
+    });
+    // Buy buttons — override display; individual hidden attr still controls per-item visibility
+    const showBuy = settings.prefs.showBuyButtons ?? true;
+    document.querySelectorAll('.item-buy-btn').forEach(el => {
+      el.style.display = showBuy ? '' : 'none';
     });
   }
 
@@ -3832,6 +3843,8 @@ Output only the CSV starting with the header row.`;
       settings.prefs.showPrices = document.getElementById('pref-show-prices').checked;
       settings.prefs.showBadges = document.getElementById('pref-show-badges').checked;
       settings.prefs.showDesc = document.getElementById('pref-show-desc').checked;
+      settings.prefs.showBuyButtons = document.getElementById('pref-show-buy-buttons').checked;
+      settings.prefs.showSparklines = document.getElementById('pref-show-sparklines').checked;
     } else if (section === 'car') {
       settings.car.model = document.getElementById('car-model').value.trim();
       settings.car.year = document.getElementById('car-year').value.trim();
@@ -3858,6 +3871,7 @@ Output only the CSV starting with the header row.`;
     syncPush(SETTINGS_KEY, settings);
     renderWashReminderCards();
     applyPrefs();
+    if (section === 'prefs') renderPricesTab();
     applyCarInfo();
     applyLogStepChips();
     applySchedule();
@@ -3927,6 +3941,7 @@ Output only the CSV starting with the header row.`;
     settings.prefs = { ...DEFAULT_PREFS };
     loadPrefsUI();
     applyPrefs();
+    renderPricesTab();
     await storageSet(SETTINGS_KEY, settings);
     syncPush(SETTINGS_KEY, settings);
     showSaved('prefs-saved');
@@ -4316,6 +4331,7 @@ Output only the CSV starting with the header row.`;
     });
 
     recompute();
+    applyPrefs();
   }
 
   async function loadPriceHistories() {
