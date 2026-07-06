@@ -1674,6 +1674,8 @@
   .prices-product { padding: 8px 0; border-top: 1px solid var(--rule); }
   .section-head + .prices-product { border-top: none; padding-top: 0; }
   .prices-product-name { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; color: var(--ink); padding-bottom: 5px; }
+  .prices-product-pending { font-size: 12px; font-style: italic; color: var(--ink-low); padding-bottom: 6px; }
+  .prices-category-select { margin-left: auto; padding: 3px 5px; border: 1px solid var(--rule); border-radius: 6px; background: var(--bg); color: var(--ink-low); font-size: 11px; flex-shrink: 0; }
   .prices-retailer-row { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; }
   .prices-retailer-row + .prices-retailer-row { border-top: 1px solid var(--rule); padding-top: 12px; }
   .prices-retailer-row--cheapest .price-row-amount { color: var(--accent); font-weight: 600; }

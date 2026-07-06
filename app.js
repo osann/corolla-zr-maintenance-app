@@ -314,6 +314,11 @@ Output only the CSV starting with the header row.`;
   // ─── Inventory ────────────────────────────────────
   const INVENTORY_KEY = 'corolla-inventory-v1';
 
+  // Per-slug category/section reassignment, overriding INV_CATEGORIES defaults.
+  // Shape: { [slug]: { category, section } | null }. null = explicitly uncategorised.
+  const CATEGORY_OVERRIDES_KEY = 'corolla-category-overrides-v1';
+  let categoryOverrides = {};
+
   const EQUIPMENT_SLUGS = new Set([
     '2-bucket-wash-kit', 'karcher-k2', 'snow-blow-cannon',
     'the-little-stiffy', 'the-flat-head', 'pumpy-pump',
@@ -873,8 +878,23 @@ Output only the CSV starting with the header row.`;
     if (!container) return;
 
     const productBySlug = Object.fromEntries(liveProducts.map(p => [p.slug, p]));
+    const { categories: effectiveCategories, assignment: categoryAssignment } = getEffectiveCategories();
 
-    function renderProducts(slugs) {
+    function categorySelectHtml(slug) {
+      if (!syncEnabled) return '';
+      const current = categoryAssignment[slug];
+      const currentValue = current ? `${current.category}::${current.section}` : '';
+      let options = `<option value=""${currentValue ? '' : ' selected'}>Uncategorised (Other)</option>`;
+      for (const cat of INV_CATEGORIES) {
+        for (const sec of cat.sections) {
+          const val = `${cat.label}::${sec.label}`;
+          options += `<option value="${escAttr(val)}"${val === currentValue ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
+        }
+      }
+      return `<select class="prices-category-select" onchange="changeProductCategory('${slug}', this.value)" title="Change category">${options}</select>`;
+    }
+
+    function renderProducts(slugs, allowPending) {
       let html = '';
       for (const slug of slugs) {
         const product = productBySlug[slug];
@@ -886,7 +906,28 @@ Output only the CSV starting with the header row.`;
             const ai = RETAILER_ORDER.indexOf(a), bi = RETAILER_ORDER.indexOf(b);
             return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
           });
-        if (retailers.length === 0) continue;
+        if (retailers.length === 0 && !allowPending) continue;
+        if (retailers.length === 0 && allowPending) {
+          const options = SCRAPED_RETAILERS
+            .map(r => `<option value="${r}">${escHtml(RETAILER_NAMES[r] || r)}</option>`)
+            .join('');
+          html += `
+            <div class="prices-product">
+              <div class="prices-product-name">${product.name}${categorySelectHtml(slug)}</div>
+              <div class="prices-product-pending">No price data yet — checked on the next scrape.</div>
+              ${syncEnabled ? `
+                <div class="url-add-section" id="url-add-section-${product.id}" style="display:none">
+                  <div class="url-form-row">
+                    <select class="url-retailer-select" id="url-add-retailer-${product.id}">${options}</select>
+                    <input type="url" class="url-input" id="url-add-url-${product.id}" placeholder="https://...">
+                    <button class="alert-set-btn" onclick="saveAddRetailerUrl(${product.id})">Add</button>
+                  </div>
+                </div>
+                <button class="url-add-retailer-btn" onclick="toggleAddRetailerForm(${product.id})">+ Retailer</button>
+              ` : ''}
+            </div>`;
+          continue;
+        }
         const history = priceHistories[product.id] ?? [];
         const minPrice = Math.min(...retailers.map(([, d]) => d.priceCents));
         const allSame  = retailers.every(([, d]) => d.priceCents === minPrice);
@@ -959,6 +1000,7 @@ Output only the CSV starting with the header row.`;
             <div class="prices-product-name">
               ${product.name}
               ${syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="alert-btn-${slug}" data-alert-slug="${slug}" onclick="toggleAlertForm('${slug}')" title="${alertTitle}">🔔</button>` : ''}
+              ${categorySelectHtml(slug)}
             </div>
             <div class="alert-inline-form" id="alert-form-${slug}" style="display:none;">
               <div class="alert-form-row">
@@ -1011,13 +1053,14 @@ Output only the CSV starting with the header row.`;
       anyCard = true;
     }
 
-    // Uncategorised products (added via UI, not in INV_CATEGORIES)
+    // Uncategorised products (added via UI, not in INV_CATEGORIES) — shown even before
+    // they have a scraped price so adding a product gives immediate visible feedback.
     const categorisedSlugs = new Set(INV_CATEGORIES.flatMap(c => c.sections.flatMap(s => s.slugs)));
     const uncategorisedSlugs = liveProducts
-      .filter(p => !categorisedSlugs.has(p.slug) && Object.keys(p.latestPrice ?? {}).length > 0)
+      .filter(p => !categorisedSlugs.has(p.slug))
       .map(p => p.slug);
     if (uncategorisedSlugs.length > 0) {
-      const body = renderProducts(uncategorisedSlugs);
+      const body = renderProducts(uncategorisedSlugs, true);
       if (body) {
         const card = document.createElement('div');
         card.className = 'phase-spend-card';
@@ -1578,6 +1621,61 @@ Output only the CSV starting with the header row.`;
     renderInventory();
   }
 
+  async function loadCategoryOverrides() {
+    const saved = await storageGet(CATEGORY_OVERRIDES_KEY);
+    categoryOverrides = saved ?? {};
+  }
+
+  async function saveCategoryOverrides() {
+    await storageSet(CATEGORY_OVERRIDES_KEY, categoryOverrides);
+    syncPush(CATEGORY_OVERRIDES_KEY, categoryOverrides);
+    renderInventory();
+    renderPricesTab();
+  }
+
+  // Applies categoryOverrides on top of INV_CATEGORIES, returning an equivalent
+  // { label, sections: [{ label, slugs }] } structure plus the resolved per-slug
+  // assignment (used to pre-select the category dropdown on the Prices tab).
+  function getEffectiveCategories() {
+    const defaultAssignment = {};
+    for (const cat of INV_CATEGORIES) {
+      for (const sec of cat.sections) {
+        for (const slug of sec.slugs) defaultAssignment[slug] = { category: cat.label, section: sec.label };
+      }
+    }
+
+    const categories = INV_CATEGORIES.map(cat => ({
+      label: cat.label,
+      sections: cat.sections.map(sec => ({ label: sec.label, slugs: [] })),
+    }));
+    const findSection = (catLabel, secLabel) => {
+      const cat = categories.find(c => c.label === catLabel);
+      return cat ? cat.sections.find(s => s.label === secLabel) ?? null : null;
+    };
+
+    const allSlugs = new Set([...Object.keys(defaultAssignment), ...Object.keys(categoryOverrides)]);
+    const assignment = {};
+    for (const slug of allSlugs) {
+      assignment[slug] = Object.prototype.hasOwnProperty.call(categoryOverrides, slug)
+        ? categoryOverrides[slug]
+        : (defaultAssignment[slug] ?? null);
+    }
+    for (const [slug, place] of Object.entries(assignment)) {
+      const sec = place ? findSection(place.category, place.section) : null;
+      if (sec) sec.slugs.push(slug);
+    }
+
+    return { categories, assignment };
+  }
+
+  async function changeProductCategory(slug, value) {
+    categoryOverrides[slug] = value ? (() => {
+      const [category, section] = value.split('::');
+      return { category, section };
+    })() : null;
+    await saveCategoryOverrides();
+  }
+
   function updateInventoryItem(slug, updates) {
     inventoryState[slug] = { ...(inventoryState[slug] ?? {}), ...updates };
     saveInventory();
@@ -2071,8 +2169,9 @@ Output only the CSV starting with the header row.`;
     // ── Render ──────────────────────────────────────────────────────────────────
     let html = '';
     let anyRendered = false;
+    const { categories: effectiveCategories } = getEffectiveCategories();
     const orderedCategories = getInvCategoryOrder()
-      .map(label => INV_CATEGORIES.find(c => c.label === label))
+      .map(label => effectiveCategories.find(c => c.label === label))
       .filter(Boolean);
 
     for (const [catIdx, category] of orderedCategories.entries()) {
@@ -4247,6 +4346,7 @@ Output only the CSV starting with the header row.`;
         syncPush(MAINTENANCE_KEY, []),
         syncPush(MAINTENANCE_LOG_KEY, []),
         syncPush(INVENTORY_KEY, {}),
+        syncPush(CATEGORY_OVERRIDES_KEY, {}),
       ]);
       syncEnabled = false;
     }
@@ -4259,6 +4359,7 @@ Output only the CSV starting with the header row.`;
     await storageSet(MAINTENANCE_KEY, null);
     await storageSet(MAINTENANCE_LOG_KEY, null);
     await storageSet(INVENTORY_KEY, {});
+    await storageSet(CATEGORY_OVERRIDES_KEY, {});
     location.reload();
   }
 
@@ -4516,6 +4617,7 @@ Output only the CSV starting with the header row.`;
       storageSet(ROUTINES_KEY, null),
       storageSet(MAINTENANCE_KEY, null),
       storageSet(INVENTORY_KEY, {}),
+      storageSet(CATEGORY_OVERRIDES_KEY, {}),
       storageSet(AUTH_CACHE_KEY, null),
     ]);
     location.reload();
@@ -4566,7 +4668,7 @@ Output only the CSV starting with the header row.`;
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY, INVENTORY_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY, INVENTORY_KEY, CATEGORY_OVERRIDES_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
@@ -4577,6 +4679,7 @@ Output only the CSV starting with the header row.`;
       await loadRoutines();
       await loadMaintenance();
       await loadChecklist();
+      await loadCategoryOverrides();
       await loadInventory();
       await loadLog();
       await loadBudget();
@@ -4920,6 +5023,7 @@ Output only the CSV starting with the header row.`;
       else if (e.key === 'ArrowRight') lightboxNav(1);
     });
     await loadChecklist();
+    await loadCategoryOverrides();
     await loadInventory();
     await loadLog();
     await loadBudget();

@@ -26,6 +26,7 @@ const ALLOWED_KEYS = [
   'corolla-maintenance-v1',
   'corolla-maintenance-log-v1',
   'corolla-inventory-v1',
+  'corolla-category-overrides-v1',
 ];
 
 // In-memory 60s per-email cooldown (resets on Render restart — acceptable)
