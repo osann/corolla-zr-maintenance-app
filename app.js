@@ -319,6 +319,11 @@ Output only the CSV starting with the header row.`;
   const CATEGORY_OVERRIDES_KEY = 'corolla-category-overrides-v1';
   let categoryOverrides = {};
 
+  // User-added categories, alongside the built-in INV_CATEGORIES (which can't be
+  // renamed or removed). Shape: [{ label, sections: [{ label }] }].
+  const CUSTOM_CATEGORIES_KEY = 'corolla-custom-categories-v1';
+  let customCategories = [];
+
   const EQUIPMENT_SLUGS = new Set([
     '2-bucket-wash-kit', 'karcher-k2', 'snow-blow-cannon',
     'the-little-stiffy', 'the-flat-head', 'pumpy-pump',
@@ -633,7 +638,7 @@ Output only the CSV starting with the header row.`;
       const itemsContainer = phaseEl.querySelector('.phase-items');
 
       phase.items.forEach(slug => {
-        const entry = CATALOG.find(c => c.slug === slug);
+        const entry = resolveCatalogEntry(slug);
         if (!entry) return;
         const checked = checklistState.checked[slug] || false;
         const live = slugToBest[slug];
@@ -710,20 +715,77 @@ Output only the CSV starting with the header row.`;
     applyPrefs();
   }
 
+  // All product slugs selectable in Routines/Checklist dropdowns: the static CATALOG
+  // plus any backend-only products (added via the Prices tab "+ Add product" form).
+  function getAllProductSlugs() {
+    return [...new Set([...CATALOG.map(c => c.slug), ...liveProducts.map(p => p.slug)])];
+  }
+
+  function resolveProductName(slug) {
+    return CATALOG.find(c => c.slug === slug)?.name ?? liveProducts.find(p => p.slug === slug)?.name ?? slug;
+  }
+
+  // Checklist items need a full entry shape (desc/price); backend-only products get
+  // a minimal stand-in so they can still be added to a phase before being catalogued.
+  function resolveCatalogEntry(slug) {
+    const catalogEntry = CATALOG.find(c => c.slug === slug);
+    if (catalogEntry) return catalogEntry;
+    const liveProduct = liveProducts.find(p => p.slug === slug);
+    if (liveProduct) return { slug: liveProduct.slug, name: liveProduct.name, desc: '', price: 0 };
+    return null;
+  }
+
+  // Groups a list of slugs the same way the Prices tab does: built-in + custom
+  // categories/sections (via getEffectiveCategories), with an "Other" bucket for
+  // anything uncategorised. Returns [{ label, entries: [{ slug, name }] }].
+  function groupSlugsByCategory(slugs, nameForSlug) {
+    const { assignment } = getEffectiveCategories();
+    const groupsByLabel = new Map();
+    for (const cat of allCategoryDefs()) {
+      for (const sec of cat.sections) groupsByLabel.set(`${cat.label} — ${sec.label}`, []);
+    }
+    const other = [];
+    for (const slug of slugs) {
+      const place = assignment[slug];
+      const key = place ? `${place.category} — ${place.section}` : null;
+      const entry = { slug, name: nameForSlug(slug) };
+      (key && groupsByLabel.has(key) ? groupsByLabel.get(key) : other).push(entry);
+    }
+    const groups = [];
+    for (const [label, entries] of groupsByLabel) {
+      if (!entries.length) continue;
+      entries.sort((a, b) => a.name.localeCompare(b.name));
+      groups.push({ label, entries });
+    }
+    if (other.length) {
+      other.sort((a, b) => a.name.localeCompare(b.name));
+      groups.push({ label: 'Other', entries: other });
+    }
+    return groups;
+  }
+
   function updatePhaseEditDropdown(phaseId) {
     const select = document.getElementById(`phase-edit-select-${phaseId}`);
     if (!select) return;
     const phase = checklistState.phases.find(p => p.id === phaseId);
     const inPhase = new Set(phase ? phase.items : []);
     const prev = select.value;
+
+    const slugs = getAllProductSlugs().filter(slug => !inPhase.has(slug));
+    const groups = groupSlugsByCategory(slugs, resolveProductName);
+
     select.innerHTML = '<option value="">— add a product —</option>';
-    CATALOG.forEach(entry => {
-      if (inPhase.has(entry.slug)) return;
-      const opt = document.createElement('option');
-      opt.value = entry.slug;
-      opt.textContent = entry.name;
-      select.appendChild(opt);
-    });
+    for (const group of groups) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group.label;
+      group.entries.forEach(({ slug, name }) => {
+        const opt = document.createElement('option');
+        opt.value = slug;
+        opt.textContent = name;
+        optgroup.appendChild(opt);
+      });
+      select.appendChild(optgroup);
+    }
     if (prev && !inPhase.has(prev)) select.value = prev;
   }
 
@@ -885,7 +947,7 @@ Output only the CSV starting with the header row.`;
       const current = categoryAssignment[slug];
       const currentValue = current ? `${current.category}::${current.section}` : '';
       let options = `<option value=""${currentValue ? '' : ' selected'}>Uncategorised (Other)</option>`;
-      for (const cat of INV_CATEGORIES) {
+      for (const cat of allCategoryDefs()) {
         for (const sec of cat.sections) {
           const val = `${cat.label}::${sec.label}`;
           options += `<option value="${escAttr(val)}"${val === currentValue ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
@@ -906,8 +968,11 @@ Output only the CSV starting with the header row.`;
             const ai = RETAILER_ORDER.indexOf(a), bi = RETAILER_ORDER.indexOf(b);
             return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
           });
-        if (retailers.length === 0 && !allowPending) continue;
-        if (retailers.length === 0 && allowPending) {
+        // A manually (re)categorised product must stay visible in its new home even
+        // without a price yet, or moving it via the dropdown makes it disappear.
+        const showPending = allowPending || Object.prototype.hasOwnProperty.call(categoryOverrides, slug);
+        if (retailers.length === 0 && !showPending) continue;
+        if (retailers.length === 0 && showPending) {
           const options = SCRAPED_RETAILERS
             .map(r => `<option value="${r}">${escHtml(RETAILER_NAMES[r] || r)}</option>`)
             .join('');
@@ -1633,9 +1698,15 @@ Output only the CSV starting with the header row.`;
     renderPricesTab();
   }
 
-  // Applies categoryOverrides on top of INV_CATEGORIES, returning an equivalent
-  // { label, sections: [{ label, slugs }] } structure plus the resolved per-slug
-  // assignment (used to pre-select the category dropdown on the Prices tab).
+  // Built-in categories plus any user-added ones, for anywhere that needs the
+  // full set of { label, sections: [{ label }] } definitions (dropdowns, etc).
+  function allCategoryDefs() {
+    return [...INV_CATEGORIES, ...customCategories];
+  }
+
+  // Applies categoryOverrides on top of INV_CATEGORIES + customCategories, returning
+  // an equivalent { label, sections: [{ label, slugs }] } structure plus the resolved
+  // per-slug assignment (used to pre-select the category dropdown on the Prices tab).
   function getEffectiveCategories() {
     const defaultAssignment = {};
     for (const cat of INV_CATEGORIES) {
@@ -1644,7 +1715,7 @@ Output only the CSV starting with the header row.`;
       }
     }
 
-    const categories = INV_CATEGORIES.map(cat => ({
+    const categories = allCategoryDefs().map(cat => ({
       label: cat.label,
       sections: cat.sections.map(sec => ({ label: sec.label, slugs: [] })),
     }));
@@ -1674,6 +1745,134 @@ Output only the CSV starting with the header row.`;
       return { category, section };
     })() : null;
     await saveCategoryOverrides();
+  }
+
+  // ─── Custom categories (Settings) ────────────────
+  async function loadCustomCategories() {
+    const saved = await storageGet(CUSTOM_CATEGORIES_KEY);
+    customCategories = Array.isArray(saved) ? saved : [];
+    renderCustomCategoryCards();
+  }
+
+  function renderCustomCategoryCards() {
+    const container = document.getElementById('custom-category-cards');
+    if (!container) return;
+    container.innerHTML = customCategories.map((cat, idx) => buildCustomCategoryCardHTML(cat, idx)).join('');
+  }
+
+  function buildCustomCategoryCardHTML(cat, idx) {
+    const sectionsHtml = (cat.sections || []).map((sec, sIdx) => `
+      <div class="url-form-row" style="margin-bottom:8px;">
+        <input value="${escAttr(sec.label)}" oninput="updateCustomCategorySection(${idx},${sIdx},this.value)" placeholder="Section name…" class="log-input" style="flex:1;">
+        <button class="step-remove-btn" onclick="removeCustomCategorySection(${idx},${sIdx})" title="Remove section">✕</button>
+      </div>
+    `).join('');
+    return `
+      <div class="routine-config-card">
+        <div class="routine-config-card-title">${escHtml(cat.label || 'Untitled category')}</div>
+        <div class="routine-config-field">
+          <span class="routine-config-label">Category name</span>
+          <input value="${escAttr(cat.label)}" oninput="updateCustomCategoryLabel(${idx},this.value)" style="width:100%;" class="log-input">
+        </div>
+        <div class="routine-config-label" style="margin-bottom:8px;">Sections</div>
+        ${sectionsHtml || '<p class="step-no-products">No sections yet…</p>'}
+        <button class="add-step-btn" onclick="addCustomCategorySection(${idx})" style="margin:8px 0 16px;">+ Add section</button>
+        <div class="settings-save-bar" style="padding-top:12px;">
+          <button class="settings-save-btn" onclick="saveCustomCategories()">Save</button>
+          <button class="settings-reset-btn" style="color:var(--danger);" onclick="showCustomCategoryDeleteConfirm(${idx})">Delete category</button>
+        </div>
+        <div class="log-confirm-row" id="custom-cat-confirm-${idx}" hidden>
+          <span>Delete this category? Products assigned to it will show as Uncategorised.</span>
+          <button class="log-confirm-cancel" onclick="cancelCustomCategoryDelete(${idx})">Cancel</button>
+          <button class="log-confirm-delete" onclick="deleteCustomCategory(${idx})">Delete</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateCustomCategoryLabel(idx, val) {
+    customCategories[idx].label = val;
+    const card = document.querySelectorAll('#custom-category-cards .routine-config-card')[idx];
+    const title = card?.querySelector('.routine-config-card-title');
+    if (title) title.textContent = val || 'Untitled category';
+  }
+
+  function updateCustomCategorySection(idx, sIdx, val) {
+    customCategories[idx].sections[sIdx].label = val;
+  }
+
+  function addCustomCategorySection(idx) {
+    customCategories[idx].sections.push({ label: '' });
+    renderCustomCategoryCards();
+  }
+
+  function removeCustomCategorySection(idx, sIdx) {
+    customCategories[idx].sections.splice(sIdx, 1);
+    renderCustomCategoryCards();
+  }
+
+  function addCustomCategory() {
+    customCategories.push({ label: '', sections: [{ label: '' }] });
+    renderCustomCategoryCards();
+  }
+
+  function showCustomCategoryDeleteConfirm(idx) {
+    document.getElementById(`custom-cat-confirm-${idx}`)?.removeAttribute('hidden');
+  }
+
+  function cancelCustomCategoryDelete(idx) {
+    document.getElementById(`custom-cat-confirm-${idx}`)?.setAttribute('hidden', '');
+  }
+
+  async function deleteCustomCategory(idx) {
+    customCategories.splice(idx, 1);
+    await storageSet(CUSTOM_CATEGORIES_KEY, customCategories);
+    syncPush(CUSTOM_CATEGORIES_KEY, customCategories);
+    renderCustomCategoryCards();
+    renderPricesTab();
+    renderInventory();
+  }
+
+  async function saveCustomCategories() {
+    const errorEl = document.getElementById('custom-categories-error');
+    if (errorEl) errorEl.style.display = 'none';
+
+    const seenLabels = new Set(INV_CATEGORIES.map(c => c.label.toLowerCase()));
+    for (const cat of customCategories) {
+      const label = (cat.label || '').trim();
+      if (!label) {
+        if (errorEl) { errorEl.textContent = 'Every category needs a name.'; errorEl.style.display = 'block'; }
+        return;
+      }
+      if (seenLabels.has(label.toLowerCase())) {
+        if (errorEl) { errorEl.textContent = `Category name "${label}" is already used.`; errorEl.style.display = 'block'; }
+        return;
+      }
+      seenLabels.add(label.toLowerCase());
+
+      const sections = (cat.sections || []).map(s => ({ label: (s.label || '').trim() })).filter(s => s.label);
+      if (sections.length === 0) {
+        if (errorEl) { errorEl.textContent = `"${label}" needs at least one section.`; errorEl.style.display = 'block'; }
+        return;
+      }
+      const seenSections = new Set();
+      for (const sec of sections) {
+        if (seenSections.has(sec.label.toLowerCase())) {
+          if (errorEl) { errorEl.textContent = `"${label}" has a duplicate section "${sec.label}".`; errorEl.style.display = 'block'; }
+          return;
+        }
+        seenSections.add(sec.label.toLowerCase());
+      }
+      cat.label = label;
+      cat.sections = sections;
+    }
+
+    await storageSet(CUSTOM_CATEGORIES_KEY, customCategories);
+    syncPush(CUSTOM_CATEGORIES_KEY, customCategories);
+    renderCustomCategoryCards();
+    renderPricesTab();
+    renderInventory();
+    showSaved('custom-categories-saved');
   }
 
   function updateInventoryItem(slug, updates) {
@@ -1873,7 +2072,7 @@ Output only the CSV starting with the header row.`;
   ];
 
   function getInvCategoryOrder() {
-    const defaults = INV_CATEGORIES.map(c => c.label);
+    const defaults = allCategoryDefs().map(c => c.label);
     const saved = Array.isArray(inventoryState._order) ? inventoryState._order : [];
     const merged = saved.filter(l => defaults.includes(l));
     for (const l of defaults) { if (!merged.includes(l)) merged.push(l); }
@@ -2877,40 +3076,32 @@ Output only the CSV starting with the header row.`;
   function _buildCatalogGroups() {
     const slugToName = (slug) => {
       const family = SLUG_FAMILIES[slug];
-      if (!family) return CATALOG.find(c => c.slug === slug)?.name ?? slug;
+      if (!family) return resolveProductName(slug);
       // Equipment slugs that share a family with consumables keep their full CATALOG name,
       // so the canonical family name is reserved for the consumable (e.g. cannon bottle
       // stays "Happy Ending Cannon Bottle"; the foam liquid gets "Happy Ending").
       if (EQUIPMENT_SLUGS.has(slug)) {
         const hasConsumable = CATALOG.some(c => SLUG_FAMILIES[c.slug] === family && !EQUIPMENT_SLUGS.has(c.slug));
-        if (hasConsumable) return CATALOG.find(c => c.slug === slug)?.name ?? slug;
+        if (hasConsumable) return resolveProductName(slug);
       }
-      return FAMILY_NAMES[family] ?? (CATALOG.find(c => c.slug === slug)?.name ?? slug);
+      return FAMILY_NAMES[family] ?? resolveProductName(slug);
     };
+
+    // Grouped the same way as the Prices tab (built-in + custom categories/sections,
+    // "Other" for anything uncategorised), then collapsed to canonical family names —
+    // routine steps reference products by name, not slug, so size/SKU variants collapse.
+    const rawGroups = groupSlugsByCategory(getAllProductSlugs(), slugToName);
     const seen = new Set();
     const groups = [];
-    for (const cat of INV_CATEGORIES) {
+    for (const g of rawGroups) {
       const names = [];
-      for (const section of cat.sections) {
-        for (const slug of section.slugs) {
-          const name = slugToName(slug);
-          if (seen.has(name)) continue;
-          seen.add(name);
-          names.push(name);
-        }
+      for (const { name } of g.entries) {
+        if (seen.has(name)) continue;
+        seen.add(name);
+        names.push(name);
       }
-      names.sort();
-      if (names.length) groups.push({ label: cat.label, names });
+      if (names.length) groups.push({ label: g.label, names });
     }
-    const remaining = [];
-    for (const p of CATALOG) {
-      const name = slugToName(p.slug);
-      if (seen.has(name)) continue;
-      seen.add(name);
-      remaining.push(name);
-    }
-    remaining.sort();
-    if (remaining.length) groups.push({ label: 'Other', names: remaining });
     return groups;
   }
 
@@ -4347,6 +4538,7 @@ Output only the CSV starting with the header row.`;
         syncPush(MAINTENANCE_LOG_KEY, []),
         syncPush(INVENTORY_KEY, {}),
         syncPush(CATEGORY_OVERRIDES_KEY, {}),
+        syncPush(CUSTOM_CATEGORIES_KEY, []),
       ]);
       syncEnabled = false;
     }
@@ -4360,6 +4552,7 @@ Output only the CSV starting with the header row.`;
     await storageSet(MAINTENANCE_LOG_KEY, null);
     await storageSet(INVENTORY_KEY, {});
     await storageSet(CATEGORY_OVERRIDES_KEY, {});
+    await storageSet(CUSTOM_CATEGORIES_KEY, []);
     location.reload();
   }
 
@@ -4493,6 +4686,7 @@ Output only the CSV starting with the header row.`;
     const notifSec       = document.getElementById('settings-notifications');
     const prefsSec       = document.getElementById('settings-prefs');
     const dataSec        = document.getElementById('settings-data');
+    const categoriesSec  = document.getElementById('settings-categories');
     if (syncEnabled) {
       loginForm.style.display  = 'none';
       logoutSec.style.display  = '';
@@ -4511,6 +4705,7 @@ Output only the CSV starting with the header row.`;
       if (notifSec)       notifSec.style.display       = '';
       if (prefsSec)       prefsSec.style.display       = '';
       if (dataSec)        dataSec.style.display        = '';
+      if (categoriesSec)  categoriesSec.style.display  = '';
       document.querySelectorAll('.alert-btn').forEach(b => b.style.display = '');
       const photoField = document.getElementById('log-photo-field');
       if (photoField) photoField.style.display = '';
@@ -4536,6 +4731,7 @@ Output only the CSV starting with the header row.`;
       if (notifSec)       notifSec.style.display       = 'none';
       if (prefsSec)       prefsSec.style.display       = 'none';
       if (dataSec)        dataSec.style.display        = 'none';
+      if (categoriesSec)  categoriesSec.style.display  = 'none';
       document.querySelectorAll('.alert-btn').forEach(b => b.style.display = 'none');
       const photoFieldOff = document.getElementById('log-photo-field');
       if (photoFieldOff) photoFieldOff.style.display = 'none';
@@ -4618,6 +4814,7 @@ Output only the CSV starting with the header row.`;
       storageSet(MAINTENANCE_KEY, null),
       storageSet(INVENTORY_KEY, {}),
       storageSet(CATEGORY_OVERRIDES_KEY, {}),
+      storageSet(CUSTOM_CATEGORIES_KEY, []),
       storageSet(AUTH_CACHE_KEY, null),
     ]);
     location.reload();
@@ -4668,7 +4865,7 @@ Output only the CSV starting with the header row.`;
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY, INVENTORY_KEY, CATEGORY_OVERRIDES_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY, INVENTORY_KEY, CATEGORY_OVERRIDES_KEY, CUSTOM_CATEGORIES_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
@@ -4680,6 +4877,7 @@ Output only the CSV starting with the header row.`;
       await loadMaintenance();
       await loadChecklist();
       await loadCategoryOverrides();
+      await loadCustomCategories();
       await loadInventory();
       await loadLog();
       await loadBudget();
@@ -5024,6 +5222,7 @@ Output only the CSV starting with the header row.`;
     });
     await loadChecklist();
     await loadCategoryOverrides();
+    await loadCustomCategories();
     await loadInventory();
     await loadLog();
     await loadBudget();
