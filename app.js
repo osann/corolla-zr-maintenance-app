@@ -314,15 +314,17 @@ Output only the CSV starting with the header row.`;
   // ─── Inventory ────────────────────────────────────
   const INVENTORY_KEY = 'corolla-inventory-v1';
 
-  // Per-slug category/section reassignment, overriding INV_CATEGORIES defaults.
-  // Shape: { [slug]: { category, section } | null }. null = explicitly uncategorised.
-  const CATEGORY_OVERRIDES_KEY = 'corolla-category-overrides-v1';
-  let categoryOverrides = {};
+  // All categories — built-in defaults (seeded once from INV_CATEGORIES below) plus
+  // any the user has added — fully editable from Settings. Shape:
+  // [{ label, sections: [{ label, slugs: string[] }] }]. A product's category is
+  // simply whichever section's slugs array it's listed in.
+  const CATEGORIES_KEY = 'corolla-categories-v1';
+  let allCategories = [];
 
-  // User-added categories, alongside the built-in INV_CATEGORIES (which can't be
-  // renamed or removed). Shape: [{ label, sections: [{ label }] }].
+  // Legacy keys, read once during migration into CATEGORIES_KEY then no longer
+  // written to. Kept only so existing synced data isn't stranded on old devices.
+  const CATEGORY_OVERRIDES_KEY = 'corolla-category-overrides-v1';
   const CUSTOM_CATEGORIES_KEY = 'corolla-custom-categories-v1';
-  let customCategories = [];
 
   const EQUIPMENT_SLUGS = new Set([
     '2-bucket-wash-kit', 'karcher-k2', 'snow-blow-cannon',
@@ -418,8 +420,11 @@ Output only the CSV starting with the header row.`;
   // Components without a slug (inline) use the values defined here; their state is stored
   // under a composite key `bundleSlug:component-name-normalised`.
   // sectionPath: [categoryLabel, sectionLabel] — tells the renderer where to place inline
-  // components (those without a catalog slug). Slug-referenced components are placed wherever
-  // their slug appears in INV_CATEGORIES. Equipment inline items default to Equipment/Other.
+  // components (those without a catalog slug), matched by label against allCategories.
+  // Slug-referenced components are placed wherever their slug currently sits in
+  // allCategories. Equipment inline items default to Equipment/Other. Renaming the
+  // "Equipment"/"Exterior Wash" etc. categories/sections in Settings will orphan any
+  // sectionPath referencing the old label — a narrow, cosmetic edge case.
   const BUNDLE_COMPONENTS = {
     'nanolicious-wash-pack-ultimate': [
       { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
@@ -735,13 +740,12 @@ Output only the CSV starting with the header row.`;
     return null;
   }
 
-  // Groups a list of slugs the same way the Prices tab does: built-in + custom
-  // categories/sections (via getEffectiveCategories), with an "Other" bucket for
-  // anything uncategorised. Returns [{ label, entries: [{ slug, name }] }].
+  // Groups a list of slugs the same way the Prices tab does (allCategories), with
+  // an "Other" bucket for anything uncategorised. Returns [{ label, entries: [{ slug, name }] }].
   function groupSlugsByCategory(slugs, nameForSlug) {
-    const { assignment } = getEffectiveCategories();
+    const assignment = getCategoryAssignment();
     const groupsByLabel = new Map();
-    for (const cat of allCategoryDefs()) {
+    for (const cat of allCategories) {
       for (const sec of cat.sections) groupsByLabel.set(`${cat.label} — ${sec.label}`, []);
     }
     const other = [];
@@ -940,14 +944,14 @@ Output only the CSV starting with the header row.`;
     if (!container) return;
 
     const productBySlug = Object.fromEntries(liveProducts.map(p => [p.slug, p]));
-    const { categories: effectiveCategories, assignment: categoryAssignment } = getEffectiveCategories();
+    const categoryAssignment = getCategoryAssignment();
 
     function categorySelectHtml(slug) {
       if (!syncEnabled) return '';
       const current = categoryAssignment[slug];
       const currentValue = current ? `${current.category}::${current.section}` : '';
       let options = `<option value=""${currentValue ? '' : ' selected'}>Uncategorised (Other)</option>`;
-      for (const cat of allCategoryDefs()) {
+      for (const cat of allCategories) {
         for (const sec of cat.sections) {
           const val = `${cat.label}::${sec.label}`;
           options += `<option value="${escAttr(val)}"${val === currentValue ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
@@ -968,11 +972,8 @@ Output only the CSV starting with the header row.`;
             const ai = RETAILER_ORDER.indexOf(a), bi = RETAILER_ORDER.indexOf(b);
             return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
           });
-        // A manually (re)categorised product must stay visible in its new home even
-        // without a price yet, or moving it via the dropdown makes it disappear.
-        const showPending = allowPending || Object.prototype.hasOwnProperty.call(categoryOverrides, slug);
-        if (retailers.length === 0 && !showPending) continue;
-        if (retailers.length === 0 && showPending) {
+        if (retailers.length === 0 && !allowPending) continue;
+        if (retailers.length === 0 && allowPending) {
           const options = SCRAPED_RETAILERS
             .map(r => `<option value="${r}">${escHtml(RETAILER_NAMES[r] || r)}</option>`)
             .join('');
@@ -1095,11 +1096,11 @@ Output only the CSV starting with the header row.`;
     container.innerHTML = '';
     let anyCard = false;
 
-    for (const category of effectiveCategories) {
+    for (const category of allCategories) {
       let body = '';
       let firstSec = true;
       for (const sec of category.sections) {
-        const secHtml = renderProducts(sec.slugs);
+        const secHtml = renderProducts(sec.slugs, true);
         if (!secHtml) continue;
         const headClass = firstSec ? 'section-head' : 'section-head section-head--gap';
         body += `<div class="${headClass}">${sec.label}</div>${secHtml}`;
@@ -1121,7 +1122,7 @@ Output only the CSV starting with the header row.`;
     // Uncategorised products (added via UI, or explicitly moved out via the category
     // selector) — shown even before they have a scraped price so adding a product
     // gives immediate visible feedback.
-    const categorisedSlugs = new Set(effectiveCategories.flatMap(c => c.sections.flatMap(s => s.slugs)));
+    const categorisedSlugs = new Set(allCategories.flatMap(c => c.sections.flatMap(s => s.slugs)));
     const uncategorisedSlugs = liveProducts
       .filter(p => !categorisedSlugs.has(p.slug))
       .map(p => p.slug);
@@ -1687,78 +1688,92 @@ Output only the CSV starting with the header row.`;
     renderInventory();
   }
 
-  async function loadCategoryOverrides() {
-    const saved = await storageGet(CATEGORY_OVERRIDES_KEY);
-    categoryOverrides = saved ?? {};
+  // Loads the unified category list, migrating once from the legacy split
+  // (hardcoded INV_CATEGORIES defaults + synced overrides + synced custom
+  // categories) if this account/browser hasn't been migrated yet.
+  async function loadCategories() {
+    const saved = await storageGet(CATEGORIES_KEY);
+    if (Array.isArray(saved) && saved.length) {
+      allCategories = saved;
+    } else {
+      allCategories = INV_CATEGORIES.map(cat => ({
+        label: cat.label,
+        sections: cat.sections.map(sec => ({ label: sec.label, slugs: [...sec.slugs] })),
+      }));
+
+      const legacyCustom = await storageGet(CUSTOM_CATEGORIES_KEY);
+      if (Array.isArray(legacyCustom)) {
+        for (const cat of legacyCustom) {
+          allCategories.push({
+            label: cat.label,
+            sections: (cat.sections || []).map(sec => ({ label: sec.label, slugs: [] })),
+          });
+        }
+      }
+
+      const legacyOverrides = await storageGet(CATEGORY_OVERRIDES_KEY);
+      if (legacyOverrides && typeof legacyOverrides === 'object') {
+        for (const [slug, place] of Object.entries(legacyOverrides)) {
+          // Remove from wherever the freshly-seeded defaults placed it, then
+          // re-place it per the override (or leave it out if explicitly uncategorised).
+          for (const cat of allCategories) {
+            for (const sec of cat.sections) {
+              const i = sec.slugs.indexOf(slug);
+              if (i !== -1) sec.slugs.splice(i, 1);
+            }
+          }
+          if (place) {
+            const cat = allCategories.find(c => c.label === place.category);
+            const sec = cat?.sections.find(s => s.label === place.section);
+            if (sec) sec.slugs.push(slug);
+          }
+        }
+      }
+
+      await storageSet(CATEGORIES_KEY, allCategories);
+      syncPush(CATEGORIES_KEY, allCategories);
+    }
+    renderCustomCategoryCards();
   }
 
-  async function saveCategoryOverrides() {
-    await storageSet(CATEGORY_OVERRIDES_KEY, categoryOverrides);
-    syncPush(CATEGORY_OVERRIDES_KEY, categoryOverrides);
+  async function saveCategories() {
+    await storageSet(CATEGORIES_KEY, allCategories);
+    syncPush(CATEGORIES_KEY, allCategories);
     renderInventory();
     renderPricesTab();
   }
 
-  // Built-in categories plus any user-added ones, for anywhere that needs the
-  // full set of { label, sections: [{ label }] } definitions (dropdowns, etc).
-  function allCategoryDefs() {
-    return [...INV_CATEGORIES, ...customCategories];
-  }
-
-  // Applies categoryOverrides on top of INV_CATEGORIES + customCategories, returning
-  // an equivalent { label, sections: [{ label, slugs }] } structure plus the resolved
-  // per-slug assignment (used to pre-select the category dropdown on the Prices tab).
-  function getEffectiveCategories() {
-    const defaultAssignment = {};
-    for (const cat of INV_CATEGORIES) {
+  function getCategoryAssignment() {
+    const assignment = {};
+    for (const cat of allCategories) {
       for (const sec of cat.sections) {
-        for (const slug of sec.slugs) defaultAssignment[slug] = { category: cat.label, section: sec.label };
+        for (const slug of sec.slugs) assignment[slug] = { category: cat.label, section: sec.label };
       }
     }
-
-    const categories = allCategoryDefs().map(cat => ({
-      label: cat.label,
-      sections: cat.sections.map(sec => ({ label: sec.label, slugs: [] })),
-    }));
-    const findSection = (catLabel, secLabel) => {
-      const cat = categories.find(c => c.label === catLabel);
-      return cat ? cat.sections.find(s => s.label === secLabel) ?? null : null;
-    };
-
-    const allSlugs = new Set([...Object.keys(defaultAssignment), ...Object.keys(categoryOverrides)]);
-    const assignment = {};
-    for (const slug of allSlugs) {
-      assignment[slug] = Object.prototype.hasOwnProperty.call(categoryOverrides, slug)
-        ? categoryOverrides[slug]
-        : (defaultAssignment[slug] ?? null);
-    }
-    for (const [slug, place] of Object.entries(assignment)) {
-      const sec = place ? findSection(place.category, place.section) : null;
-      if (sec) sec.slugs.push(slug);
-    }
-
-    return { categories, assignment };
+    return assignment;
   }
 
   async function changeProductCategory(slug, value) {
-    categoryOverrides[slug] = value ? (() => {
-      const [category, section] = value.split('::');
-      return { category, section };
-    })() : null;
-    await saveCategoryOverrides();
+    for (const cat of allCategories) {
+      for (const sec of cat.sections) {
+        const i = sec.slugs.indexOf(slug);
+        if (i !== -1) sec.slugs.splice(i, 1);
+      }
+    }
+    if (value) {
+      const [catLabel, secLabel] = value.split('::');
+      const cat = allCategories.find(c => c.label === catLabel);
+      const sec = cat?.sections.find(s => s.label === secLabel);
+      if (sec) sec.slugs.push(slug);
+    }
+    await saveCategories();
   }
 
-  // ─── Custom categories (Settings) ────────────────
-  async function loadCustomCategories() {
-    const saved = await storageGet(CUSTOM_CATEGORIES_KEY);
-    customCategories = Array.isArray(saved) ? saved : [];
-    renderCustomCategoryCards();
-  }
-
+  // ─── Categories (Settings) ────────────────────────
   function renderCustomCategoryCards() {
     const container = document.getElementById('custom-category-cards');
     if (!container) return;
-    container.innerHTML = customCategories.map((cat, idx) => buildCustomCategoryCardHTML(cat, idx)).join('');
+    container.innerHTML = allCategories.map((cat, idx) => buildCustomCategoryCardHTML(cat, idx)).join('');
   }
 
   function buildCustomCategoryCardHTML(cat, idx) {
@@ -1768,6 +1783,7 @@ Output only the CSV starting with the header row.`;
         <button class="step-remove-btn" onclick="removeCustomCategorySection(${idx},${sIdx})" title="Remove section">✕</button>
       </div>
     `).join('');
+    const totalSlugs = (cat.sections || []).reduce((sum, s) => sum + (s.slugs?.length || 0), 0);
     return `
       <div class="routine-config-card">
         <div class="routine-config-card-title">${escHtml(cat.label || 'Untitled category')}</div>
@@ -1783,7 +1799,7 @@ Output only the CSV starting with the header row.`;
           <button class="settings-reset-btn" style="color:var(--danger);" onclick="showCustomCategoryDeleteConfirm(${idx})">Delete category</button>
         </div>
         <div class="log-confirm-row" id="custom-cat-confirm-${idx}" hidden>
-          <span>Delete this category? Products assigned to it will show as Uncategorised.</span>
+          <span>Delete this category?${totalSlugs > 0 ? ` ${totalSlugs} product${totalSlugs === 1 ? '' : 's'} will show as Uncategorised.` : ''}</span>
           <button class="log-confirm-cancel" onclick="cancelCustomCategoryDelete(${idx})">Cancel</button>
           <button class="log-confirm-delete" onclick="deleteCustomCategory(${idx})">Delete</button>
         </div>
@@ -1792,28 +1808,31 @@ Output only the CSV starting with the header row.`;
   }
 
   function updateCustomCategoryLabel(idx, val) {
-    customCategories[idx].label = val;
+    allCategories[idx].label = val;
     const card = document.querySelectorAll('#custom-category-cards .routine-config-card')[idx];
     const title = card?.querySelector('.routine-config-card-title');
     if (title) title.textContent = val || 'Untitled category';
   }
 
   function updateCustomCategorySection(idx, sIdx, val) {
-    customCategories[idx].sections[sIdx].label = val;
+    allCategories[idx].sections[sIdx].label = val;
   }
 
   function addCustomCategorySection(idx) {
-    customCategories[idx].sections.push({ label: '' });
+    allCategories[idx].sections.push({ label: '', slugs: [] });
     renderCustomCategoryCards();
   }
 
   function removeCustomCategorySection(idx, sIdx) {
-    customCategories[idx].sections.splice(sIdx, 1);
+    const sec = allCategories[idx].sections[sIdx];
+    const count = sec.slugs?.length || 0;
+    if (count > 0 && !confirm(`This section has ${count} product${count === 1 ? '' : 's'} assigned. Remove it anyway? They'll show as Uncategorised.`)) return;
+    allCategories[idx].sections.splice(sIdx, 1);
     renderCustomCategoryCards();
   }
 
   function addCustomCategory() {
-    customCategories.push({ label: '', sections: [{ label: '' }] });
+    allCategories.push({ label: '', sections: [{ label: '', slugs: [] }] });
     renderCustomCategoryCards();
   }
 
@@ -1826,20 +1845,17 @@ Output only the CSV starting with the header row.`;
   }
 
   async function deleteCustomCategory(idx) {
-    customCategories.splice(idx, 1);
-    await storageSet(CUSTOM_CATEGORIES_KEY, customCategories);
-    syncPush(CUSTOM_CATEGORIES_KEY, customCategories);
+    allCategories.splice(idx, 1);
+    await saveCategories();
     renderCustomCategoryCards();
-    renderPricesTab();
-    renderInventory();
   }
 
   async function saveCustomCategories() {
     const errorEl = document.getElementById('custom-categories-error');
     if (errorEl) errorEl.style.display = 'none';
 
-    const seenLabels = new Set(INV_CATEGORIES.map(c => c.label.toLowerCase()));
-    for (const cat of customCategories) {
+    const seenLabels = new Set();
+    for (const cat of allCategories) {
       const label = (cat.label || '').trim();
       if (!label) {
         if (errorEl) { errorEl.textContent = 'Every category needs a name.'; errorEl.style.display = 'block'; }
@@ -1851,7 +1867,7 @@ Output only the CSV starting with the header row.`;
       }
       seenLabels.add(label.toLowerCase());
 
-      const sections = (cat.sections || []).map(s => ({ label: (s.label || '').trim() })).filter(s => s.label);
+      const sections = (cat.sections || []).map(s => ({ label: (s.label || '').trim(), slugs: s.slugs || [] })).filter(s => s.label);
       if (sections.length === 0) {
         if (errorEl) { errorEl.textContent = `"${label}" needs at least one section.`; errorEl.style.display = 'block'; }
         return;
@@ -1868,11 +1884,8 @@ Output only the CSV starting with the header row.`;
       cat.sections = sections;
     }
 
-    await storageSet(CUSTOM_CATEGORIES_KEY, customCategories);
-    syncPush(CUSTOM_CATEGORIES_KEY, customCategories);
+    await saveCategories();
     renderCustomCategoryCards();
-    renderPricesTab();
-    renderInventory();
     showSaved('custom-categories-saved');
   }
 
@@ -2073,7 +2086,7 @@ Output only the CSV starting with the header row.`;
   ];
 
   function getInvCategoryOrder() {
-    const defaults = allCategoryDefs().map(c => c.label);
+    const defaults = allCategories.map(c => c.label);
     const saved = Array.isArray(inventoryState._order) ? inventoryState._order : [];
     const merged = saved.filter(l => defaults.includes(l));
     for (const l of defaults) { if (!merged.includes(l)) merged.push(l); }
@@ -2369,9 +2382,8 @@ Output only the CSV starting with the header row.`;
     // ── Render ──────────────────────────────────────────────────────────────────
     let html = '';
     let anyRendered = false;
-    const { categories: effectiveCategories } = getEffectiveCategories();
     const orderedCategories = getInvCategoryOrder()
-      .map(label => effectiveCategories.find(c => c.label === label))
+      .map(label => allCategories.find(c => c.label === label))
       .filter(Boolean);
 
     for (const [catIdx, category] of orderedCategories.entries()) {
@@ -4540,6 +4552,7 @@ Output only the CSV starting with the header row.`;
         syncPush(INVENTORY_KEY, {}),
         syncPush(CATEGORY_OVERRIDES_KEY, {}),
         syncPush(CUSTOM_CATEGORIES_KEY, []),
+        syncPush(CATEGORIES_KEY, []),
       ]);
       syncEnabled = false;
     }
@@ -4554,6 +4567,7 @@ Output only the CSV starting with the header row.`;
     await storageSet(INVENTORY_KEY, {});
     await storageSet(CATEGORY_OVERRIDES_KEY, {});
     await storageSet(CUSTOM_CATEGORIES_KEY, []);
+    await storageSet(CATEGORIES_KEY, []);
     location.reload();
   }
 
@@ -4816,6 +4830,7 @@ Output only the CSV starting with the header row.`;
       storageSet(INVENTORY_KEY, {}),
       storageSet(CATEGORY_OVERRIDES_KEY, {}),
       storageSet(CUSTOM_CATEGORIES_KEY, []),
+      storageSet(CATEGORIES_KEY, []),
       storageSet(AUTH_CACHE_KEY, null),
     ]);
     location.reload();
@@ -4866,7 +4881,7 @@ Output only the CSV starting with the header row.`;
       if (!syncRes.ok) return;
       const remote = await syncRes.json();
 
-      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY, INVENTORY_KEY, CATEGORY_OVERRIDES_KEY, CUSTOM_CATEGORIES_KEY];
+      const keys = [CHECKLIST_V3_KEY, LOG_KEY, BUDGET_KEY, SETTINGS_KEY, ALERTS_KEY, ROUTINES_KEY, MAINTENANCE_KEY, MAINTENANCE_LOG_KEY, INVENTORY_KEY, CATEGORY_OVERRIDES_KEY, CUSTOM_CATEGORIES_KEY, CATEGORIES_KEY];
       for (const key of keys) {
         if (remote[key] !== undefined) await storageSet(key, remote[key]);
       }
@@ -4877,8 +4892,7 @@ Output only the CSV starting with the header row.`;
       await loadRoutines();
       await loadMaintenance();
       await loadChecklist();
-      await loadCategoryOverrides();
-      await loadCustomCategories();
+      await loadCategories();
       await loadInventory();
       await loadLog();
       await loadBudget();
@@ -5222,8 +5236,7 @@ Output only the CSV starting with the header row.`;
       else if (e.key === 'ArrowRight') lightboxNav(1);
     });
     await loadChecklist();
-    await loadCategoryOverrides();
-    await loadCustomCategories();
+    await loadCategories();
     await loadInventory();
     await loadLog();
     await loadBudget();

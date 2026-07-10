@@ -28,6 +28,7 @@ const ALLOWED_KEYS = [
   'corolla-inventory-v1',
   'corolla-category-overrides-v1',
   'corolla-custom-categories-v1',
+  'corolla-categories-v1',
 ];
 
 // In-memory 60s per-email cooldown (resets on Render restart — acceptable)
