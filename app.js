@@ -1095,7 +1095,7 @@ Output only the CSV starting with the header row.`;
     container.innerHTML = '';
     let anyCard = false;
 
-    for (const category of INV_CATEGORIES) {
+    for (const category of effectiveCategories) {
       let body = '';
       let firstSec = true;
       for (const sec of category.sections) {
@@ -1118,9 +1118,10 @@ Output only the CSV starting with the header row.`;
       anyCard = true;
     }
 
-    // Uncategorised products (added via UI, not in INV_CATEGORIES) — shown even before
-    // they have a scraped price so adding a product gives immediate visible feedback.
-    const categorisedSlugs = new Set(INV_CATEGORIES.flatMap(c => c.sections.flatMap(s => s.slugs)));
+    // Uncategorised products (added via UI, or explicitly moved out via the category
+    // selector) — shown even before they have a scraped price so adding a product
+    // gives immediate visible feedback.
+    const categorisedSlugs = new Set(effectiveCategories.flatMap(c => c.sections.flatMap(s => s.slugs)));
     const uncategorisedSlugs = liveProducts
       .filter(p => !categorisedSlugs.has(p.slug))
       .map(p => p.slug);
