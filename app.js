@@ -2498,6 +2498,36 @@ Output only the CSV starting with the header row.`;
       anyRendered = true;
     }
 
+    // Owned items (or bundle components) that aren't assigned to any category/section —
+    // e.g. moved to "Uncategorised" via the Prices tab, or their category was deleted.
+    // Without this fallback they'd be fully tracked (stock, purchase date) but never shown.
+    const categorisedSlugs = new Set(allCategories.flatMap(c => c.sections.flatMap(s => s.slugs)));
+    let otherHtml = '';
+    for (const slug of new Set([...ownedSlugs, ...bundleExpansion.keys()])) {
+      if (categorisedSlugs.has(slug)) continue;
+      if (BUNDLE_COMPONENTS[slug] && ownedSlugs.has(slug)) continue;
+
+      const expansions = bundleExpansion.get(slug);
+      if (expansions) {
+        for (const { comp, bundleSlug, stateKey, displayName } of expansions) {
+          const compMeta = inventoryState[stateKey] ?? {};
+          const isEquip = comp.equipment ?? EQUIPMENT_SLUGS.has(comp.slug ?? '');
+          if (!isEquip && compMeta.remainingMl === 0) continue;
+          const displayComp = displayName !== comp.name ? { ...comp, name: displayName } : comp;
+          otherHtml += renderComponentCard(displayComp, bundleSlug, stateKey);
+        }
+      }
+      if (ownedSlugs.has(slug) && !BUNDLE_COMPONENTS[slug]) {
+        const inv = inventoryState[slug] ?? {};
+        if (!EQUIPMENT_SLUGS.has(slug) && inv.remainingMl === 0) continue;
+        otherHtml += renderInvCard(slug);
+      }
+    }
+    if (otherHtml) {
+      html += `<div class="inv-category"><div class="inv-category-header"><span class="inv-category-label">Other</span></div><div class="inv-grid">${otherHtml}</div></div>`;
+      anyRendered = true;
+    }
+
     if (!anyRendered) {
       html = `<div class="inv-empty-state"><p>No items with stock data yet. Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.inv-sub-tab[data-inv-tab=\\'checklist\\']')?.click()">Kit Checklist</button> to populate your inventory.</p></div>`;
     }
