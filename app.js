@@ -2095,12 +2095,12 @@ Output only the CSV starting with the header row.`;
 
   // "+ Add product" control for the Inventory sub-tab — lets a product be marked
   // owned (and its stock initialised) directly, without going via the Checklist tab.
-  // Only CATALOG products can have a stock card at all, so the picker is scoped to those.
+  // Includes both CATALOG products and backend-only ones added via the Prices tab.
   function invAddProductFormHtml() {
     const ownedSlugs = new Set(
       Object.entries(checklistState.checked ?? {}).filter(([, v]) => v).map(([k]) => k)
     );
-    const availableSlugs = CATALOG.map(c => c.slug).filter(slug => !ownedSlugs.has(slug));
+    const availableSlugs = getAllProductSlugs().filter(slug => !ownedSlugs.has(slug));
     if (availableSlugs.length === 0) return '';
 
     const groups = groupSlugsByCategory(availableSlugs, resolveProductName);
@@ -2179,7 +2179,7 @@ Output only the CSV starting with the header row.`;
 
 
     function renderInvCard(slug) {
-      const catalogItem = CATALOG.find(p => p.slug === slug);
+      const catalogItem = resolveCatalogEntry(slug);
       if (!catalogItem) return '';
       const uid = nextUid();
       const meta = inventoryState[slug] ?? {};
