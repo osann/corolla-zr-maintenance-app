@@ -2093,6 +2093,65 @@ Output only the CSV starting with the header row.`;
     return merged;
   }
 
+  // "+ Add product" control for the Inventory sub-tab — lets a product be marked
+  // owned (and its stock initialised) directly, without going via the Checklist tab.
+  // Only CATALOG products can have a stock card at all, so the picker is scoped to those.
+  function invAddProductFormHtml() {
+    const ownedSlugs = new Set(
+      Object.entries(checklistState.checked ?? {}).filter(([, v]) => v).map(([k]) => k)
+    );
+    const availableSlugs = CATALOG.map(c => c.slug).filter(slug => !ownedSlugs.has(slug));
+    if (availableSlugs.length === 0) return '';
+
+    const groups = groupSlugsByCategory(availableSlugs, resolveProductName);
+    let options = '<option value="">— add a product —</option>';
+    for (const group of groups) {
+      options += `<optgroup label="${escAttr(group.label)}">`;
+      for (const { slug, name } of group.entries) {
+        options += `<option value="${escAttr(slug)}">${escHtml(name)}</option>`;
+      }
+      options += '</optgroup>';
+    }
+    return `
+      <div class="prices-add-product-wrap">
+        <button class="url-add-retailer-btn" onclick="toggleInvAddProductForm()">+ Add product</button>
+        <div class="url-add-section" id="inv-add-product-form" style="display:none">
+          <div class="url-form-row">
+            <select class="phase-edit-select" id="inv-add-product-select">${options}</select>
+            <button class="alert-set-btn" onclick="addProductToInventory()">Add</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function toggleInvAddProductForm() {
+    const form = document.getElementById('inv-add-product-form');
+    if (!form) return;
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  }
+
+  // Marks a product owned and initialises its stock, independent of any checklist
+  // phase or the checkbox DOM — safe to call regardless of what's currently rendered
+  // in the Checklist sub-tab.
+  async function addProductToInventory() {
+    const select = document.getElementById('inv-add-product-select');
+    const slug = select?.value;
+    if (!slug) { select?.focus(); return; }
+
+    const today = new Date().toISOString().split('T')[0];
+    checklistState.checked[slug] = true;
+    initInventoryStock(slug, today);
+
+    await storageSet(CHECKLIST_V3_KEY, checklistState);
+    syncPush(CHECKLIST_V3_KEY, checklistState);
+    await storageSet(INVENTORY_KEY, inventoryState);
+    syncPush(INVENTORY_KEY, inventoryState);
+
+    renderChecklist();
+    recompute();
+    renderInventory();
+  }
+
   function renderInventory() {
     const container = document.getElementById('inventory-list');
     if (!container) return;
@@ -2112,8 +2171,9 @@ Output only the CSV starting with the header row.`;
       container.innerHTML = `
         <div class="inv-empty-state">
           <p>No items in inventory yet.</p>
-          <p>Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.inv-sub-tab[data-inv-tab=\\'checklist\\']')?.click()">Kit Checklist</button> to add them here.</p>
-        </div>`;
+          <p>Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.inv-sub-tab[data-inv-tab=\\'checklist\\']')?.click()">Kit Checklist</button>, or add one directly below.</p>
+        </div>
+        ${invAddProductFormHtml()}`;
       return;
     }
 
@@ -2441,6 +2501,7 @@ Output only the CSV starting with the header row.`;
     if (!anyRendered) {
       html = `<div class="inv-empty-state"><p>No items with stock data yet. Check off items in the <button class="inv-link-btn" onclick="document.querySelector('.inv-sub-tab[data-inv-tab=\\'checklist\\']')?.click()">Kit Checklist</button> to populate your inventory.</p></div>`;
     }
+    html += invAddProductFormHtml();
 
     container.innerHTML = html;
 
