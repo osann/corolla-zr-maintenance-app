@@ -37,27 +37,45 @@ const REQUEST_TIMEOUT_MS = 60_000;
 
 // Uses Node's https module to avoid undici's internal body timeout (UND_ERR_BODY_TIMEOUT).
 // Follows redirects manually — short /p/{SKU} URLs redirect to the full product path.
-function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5): Promise<GetResult> {
+//
+// `deadline` is a wall-clock cutoff (Date.now() + REQUEST_TIMEOUT_MS) computed once on the
+// outermost call and threaded through every recursive redirect hop. Without this, each hop got
+// its own fresh REQUEST_TIMEOUT_MS timer — a product that redirects once before hanging could
+// cost up to 2x the configured timeout (observed in production: ~120s misses instead of ~60s).
+// Uses AbortController (wall-clock) rather than the socket `timeout` option (idle-based) so a
+// connection that trickles occasional bytes without ever completing can't dodge the deadline.
+function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5, deadline?: number): Promise<GetResult> {
+  const effectiveDeadline = deadline ?? Date.now() + REQUEST_TIMEOUT_MS;
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...BASE_HEADERS };
     if (opts.cookies) headers['Cookie'] = opts.cookies;
     if (opts.referer) headers['Referer'] = opts.referer;
 
-    const req = https.get(url, { headers, timeout: REQUEST_TIMEOUT_MS }, (res) => {
+    const remainingMs = effectiveDeadline - Date.now();
+    if (remainingMs <= 0) { reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`)); return; }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), remainingMs);
+
+    const req = https.get(url, { headers, signal: controller.signal }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
+        clearTimeout(timer);
         if (maxRedirects === 0) { reject(new Error('Too many redirects')); return; }
-        resolve(httpsGet(res.headers.location, opts, maxRedirects - 1));
+        resolve(httpsGet(res.headers.location, opts, maxRedirects - 1, effectiveDeadline));
         return;
       }
       const setCookies = (res.headers['set-cookie'] ?? []).map(c => c.split(';')[0]);
       const chunks: Buffer[] = [];
       res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString(), setCookies }));
-      res.on('error', reject);
+      res.on('end', () => { clearTimeout(timer); resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString(), setCookies }); });
+      res.on('error', (err) => { clearTimeout(timer); reject(err); });
     });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`)); });
+    req.on('error', (err) => {
+      clearTimeout(timer);
+      if (controller.signal.aborted) reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`));
+      else reject(err);
+    });
   });
 }
 
@@ -257,8 +275,12 @@ export function createFetchScraper(config: FetchScraperConfig) {
     return results;
   }
 
-  // Returns observations without writing to DB — used by GitHub Actions run-and-push.ts
-  async function scrapeToArray(): Promise<PriceObservation[]> {
+  // Returns observations without writing to DB — used by GitHub Actions run-and-push.ts.
+  // `onProduct`, if given, fires after each successful fetch so a long-running caller (e.g. the
+  // self-hosted Auto Barn runner) can push results incrementally instead of holding everything
+  // in memory until the run fully completes — a mid-run crash then only loses the in-flight
+  // product, not the whole day's data.
+  async function scrapeToArray(onProduct?: (obs: PriceObservation) => void | Promise<void>): Promise<PriceObservation[]> {
     if (!checkWindow()) return [];
 
     const rows = await getRows();
@@ -276,7 +298,9 @@ export function createFetchScraper(config: FetchScraperConfig) {
       const result = await fetchBest(row.url, shortUrlAlternative(row.url), opts);
       if (result) {
         cookies = mergeCookies(cookies, result.setCookies);
-        results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
+        const obs = { slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents };
+        results.push(obs);
+        if (onProduct) await onProduct(obs);
         console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
       } else {
         console.warn(`  [miss] ${row.name}`);
@@ -287,7 +311,10 @@ export function createFetchScraper(config: FetchScraperConfig) {
 
     if (failed.length > 0) {
       const playwrightResults = await playwrightScrape(failed);
-      results.push(...playwrightResults);
+      for (const obs of playwrightResults) {
+        results.push(obs);
+        if (onProduct) await onProduct(obs);
+      }
     }
 
     return results;

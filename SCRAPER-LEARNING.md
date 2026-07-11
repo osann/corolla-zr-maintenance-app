@@ -163,6 +163,44 @@ Autopro (`autopro.com.au`) shares the same SKU codes and platform but does NOT b
 
 ---
 
+## `httpsGet`'s redirect handling must share one deadline across hops, not reset per hop
+
+**Problem:** `httpsGet()` in `fetch-scraper.ts` follows redirects via a recursive call: `resolve(httpsGet(res.headers.location, opts, maxRedirects - 1))`. Each recursive call used to get its own fresh `REQUEST_TIMEOUT_MS` (60s) timer. A product whose URL redirects once before hanging therefore cost up to 2× the configured timeout — observed in production as Auto Barn misses taking ~120–130s instead of ~60s (`fetchBest`'s `Promise.any` race only saves time if *both* legs individually respect the 60s cap; one redirecting leg silently doubled it). Over a ~51-product run with roughly half missing, this materially lengthened the job and widened the window for the self-hosted runner to get killed mid-run (e.g. by a host-side SIGHUP).
+
+**Fix:** Compute the deadline once (`Date.now() + REQUEST_TIMEOUT_MS`) on the outermost call and thread it through every recursive redirect call as a `deadline` param; each hop uses `deadline - Date.now()` as its remaining budget and bails immediately if that's `<= 0`. Also switched from the socket-idle `timeout` option to an `AbortController` tied to a real `setTimeout`, since idle-based timeouts can be reset by a connection that trickles occasional bytes without ever completing — a wall-clock abort can't be dodged that way.
+
+```ts
+// ❌ Each redirect hop gets its own full timeout budget
+function httpsGet(url, opts, maxRedirects = 5) {
+  const req = https.get(url, { headers, timeout: REQUEST_TIMEOUT_MS }, (res) => {
+    if (isRedirect(res)) return resolve(httpsGet(res.headers.location, opts, maxRedirects - 1));
+    ...
+  });
+}
+
+// ✅ Deadline is computed once and shared across every hop
+function httpsGet(url, opts, maxRedirects = 5, deadline = Date.now() + REQUEST_TIMEOUT_MS) {
+  const remainingMs = deadline - Date.now();
+  if (remainingMs <= 0) return reject(new Error('timed out'));
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), remainingMs);
+  const req = https.get(url, { headers, signal: controller.signal }, (res) => {
+    if (isRedirect(res)) return resolve(httpsGet(res.headers.location, opts, maxRedirects - 1, deadline));
+    ...
+  });
+}
+```
+
+---
+
+## A long-running self-hosted scrape must push results incrementally, not once at the end
+
+**Problem:** `run-autobarn.ts` used to accumulate all ~51 observations in memory across the entire run and do a single `POST /api/prices` at the very end. The self-hosted runner lives on a home machine (`debian-server`) whose uptime and network are less reliable than a GitHub-hosted runner — it has been observed to die mid-run (SIGHUP, exit 129) after only a handful of products. Because the push only happened at the end, a mid-run death discarded every product scraped that day, including ones that had already succeeded.
+
+**Fix:** `scrapeToArray()` in `fetch-scraper.ts` now accepts an optional `onProduct` callback invoked after each successful fetch. `run-autobarn.ts` uses it to buffer results and push a batch of 10 to `/api/prices` as it goes, flushing the remainder at the end. A failed batch push is left in the buffer (not cleared) so it merges with the next batch and gets retried, rather than being silently dropped. This bounds data loss from a mid-run crash to at most one partial batch instead of the whole run.
+
+---
+
 ## Bowden's Own cannot be scraped from any cloud environment
 
 Bowden's Own blocks all datacenter IPs at two levels:

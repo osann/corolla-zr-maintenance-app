@@ -138,7 +138,7 @@ Three execution paths — read `SCRAPER-LEARNING.md` before modifying any scrape
 
 2. **Render cron** (`scrapers/autopro.ts`): calls `scrapeAutopro()` which writes directly to the production DB via Turso. Fires at 05:00 UTC within the robots.txt crawl window (04:00–08:45 UTC). The 12-hour cache check (`wasRecentlyScraped()`) is effective here.
 
-3. **Self-hosted runner** (`run-autobarn.ts`): calls `scrapeToArray()` then POSTs to Render, same flow as path 1. Runs on `debian-server` (home machine, residential IP) to bypass Auto Barn's cloud IP block. Fires daily at 05:00 UTC via `scrape-autobarn.yml`. Uses `playwrightFallback: true` — products that timeout on plain HTTP (~half) are retried in a Playwright browser session after the HTTP loop completes.
+3. **Self-hosted runner** (`run-autobarn.ts`): calls `scrapeToArray(onProduct)` then pushes to Render in batches of 10 as they're scraped (not one bulk POST at the end — a mid-run crash on the self-hosted runner only loses the current partial batch, not the whole day's data). Runs on `debian-server` (home machine, residential IP) to bypass Auto Barn's cloud IP block. Fires daily at 05:00 UTC via `scrape-autobarn.yml`. `playwrightFallback` is disabled on `autobarn.ts` — it was tried and confirmed not to help (see `SCRAPER-LEARNING.md`); do not re-enable it.
 
 Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is slower and more prone to rate-limiting).
 
