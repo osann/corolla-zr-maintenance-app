@@ -19,6 +19,8 @@ Know when products drop in price at Australian retailers.
 - ✅ Spend tab UI: sparkline per item, flame icon for on-sale items, sale badge in price list
 - ✅ Per-item alert thresholds (e.g. "notify me when Nanolicious 5L drops below $55")
 - ✅ Email digest notifications — at most once per day
+- ✅ Full product lifecycle from the Prices tab: add a product (backend-only, no `CATALOG` entry needed), rename it, add/remove individual retailers, delete it entirely — `PATCH/DELETE /api/products/:id`, `DELETE /api/products/:id/url/:retailer`
+- ✅ Per-product category reassignment from the Prices tab, on top of a fully user-editable category system (rename/restructure/delete any category or section, built-in or custom) managed from Settings → Categories
 
 **Notes:**
 - Bowden's Own cannot be scraped from any cloud environment — Cloudflare JS challenge on GitHub Actions, hard 403 on Render. All Bowden's products have Repco/Supercheap fallback URLs.
@@ -112,7 +114,10 @@ Know when you're running low on a product before you run out.
 - ✅ Sessions remaining estimate derived from `getRoutineUsageMl()` (sums ml per wash across all enabled routine steps)
 - ✅ Responsive grid layout (`auto-fill, minmax(190px, 1fr)`) with standalone bordered cards
 - ✅ Drag-to-reorder inventory categories; order persisted in `inventoryState._order` (synced automatically as part of `corolla-inventory-v1`)
-- ✅ Inventory, Checklist, Summary, Prices consolidated as sub-tabs within a single Inventory tab (standalone Spend and Prices tabs removed)
+- ✅ Inventory, Checklist, Prices consolidated as sub-tabs within a single Inventory tab (standalone Spend, Summary, and Prices tabs removed)
+- ✅ "+ Add product" directly on the Inventory sub-tab — marks a product owned and initialises stock without visiting the Checklist sub-tab first; picker includes backend-only products added via the Prices tab
+- ✅ Category system unified: built-in categories (previously hardcoded, override-only) are now just as editable as user-added ones — rename, restructure, or delete any of them from Settings → Categories, synced as `corolla-categories-v1`
+- ✅ "Other" fallback card for any owned item not currently in any category/section, so products can't end up fully tracked but invisible
 
 ---
 
