@@ -4681,6 +4681,9 @@ Output only the CSV starting with the header row.`;
       if (!res.ok) return;
       liveProducts = await res.json();
       applyLivePrices();
+      // Inventory's add-product picker and "Other" card depend on liveProducts,
+      // which loads after the tab's initial render — re-render now that it's ready.
+      renderInventory();
       loadPriceHistories();
     } catch {
       // backend unavailable or cold-starting — app works without prices
