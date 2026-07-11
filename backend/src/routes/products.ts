@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory, retailerUrls } from '../db/schema.js';
 import { sessionMiddleware, type AppEnv } from '../lib/auth.js';
@@ -166,6 +166,71 @@ router.put('/products/:id/url', sessionMiddleware, async (c) => {
       target: [retailerUrls.productId, retailerUrls.retailer],
       set: { url },
     });
+
+  return c.json({ ok: true });
+});
+
+// PATCH /products/:id — rename a product (session-protected)
+router.patch('/products/:id', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
+  const id = parseInt(c.req.param('id') ?? '', 10);
+  if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
+
+  const body = await c.req.json<{ name?: string }>();
+  const name = body.name?.trim();
+  if (!name) return c.json({ error: 'Name required' }, 400);
+
+  const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
+  if (!prod.length) return c.json({ error: 'Product not found' }, 404);
+
+  const existing = await db.select({ id: products.id }).from(products).where(eq(products.name, name)).limit(1);
+  if (existing.length && existing[0].id !== id) return c.json({ error: 'A product with that name already exists' }, 409);
+
+  await db.update(products).set({ name }).where(eq(products.id, id));
+  return c.json({ ok: true, name });
+});
+
+// DELETE /products/:id/url/:retailer — stop tracking one retailer for a product,
+// removing its URL and price history so it no longer appears at all (session-protected)
+router.delete('/products/:id/url/:retailer', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
+  const id = parseInt(c.req.param('id') ?? '', 10);
+  if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
+
+  const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'] as const;
+  const retailer = c.req.param('retailer');
+  if (!SCRAPED_RETAILERS.includes(retailer as typeof SCRAPED_RETAILERS[number])) {
+    return c.json({ error: 'Invalid retailer' }, 400);
+  }
+  const typedRetailer = retailer as typeof SCRAPED_RETAILERS[number];
+
+  await db.delete(priceHistory).where(and(eq(priceHistory.productId, id), eq(priceHistory.retailer, typedRetailer)));
+  await db.delete(retailerUrls).where(and(eq(retailerUrls.productId, id), eq(retailerUrls.retailer, typedRetailer)));
+
+  return c.json({ ok: true });
+});
+
+// DELETE /products/:id — remove a product entirely, including all retailer URLs
+// and price history (session-protected). Does not touch the frontend's static
+// CATALOG, checklist phases, routines, or category assignments — those are
+// keyed by slug and independent of backend price tracking.
+router.delete('/products/:id', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
+  const id = parseInt(c.req.param('id') ?? '', 10);
+  if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
+
+  const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
+  if (!prod.length) return c.json({ error: 'Product not found' }, 404);
+
+  await db.delete(priceHistory).where(eq(priceHistory.productId, id));
+  await db.delete(retailerUrls).where(eq(retailerUrls.productId, id));
+  await db.delete(products).where(eq(products.id, id));
 
   return c.json({ ok: true });
 });

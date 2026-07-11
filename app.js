@@ -960,6 +960,36 @@ Output only the CSV starting with the header row.`;
       return `<select class="prices-category-select" onchange="changeProductCategory('${slug}', this.value)" title="Change category">${options}</select>`;
     }
 
+    function productNameEditBtnHtml(product) {
+      if (!syncEnabled) return '';
+      return `<button class="url-edit-btn" onclick="toggleProductNameForm(${product.id})" title="Rename product">✎</button>`;
+    }
+
+    function productNameFormHtml(product) {
+      if (!syncEnabled) return '';
+      return `
+        <div class="url-inline-form" id="product-name-form-${product.id}" style="display:none">
+          <div class="url-form-row">
+            <input type="text" class="url-input" id="product-name-input-${product.id}" value="${escAttr(product.name)}" placeholder="Product name">
+            <button class="alert-set-btn" onclick="saveProductName(${product.id})">Save</button>
+          </div>
+          <div id="product-name-error-${product.id}" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
+        </div>`;
+    }
+
+    function deleteProductHtml(product) {
+      if (!syncEnabled) return '';
+      return `
+        <div class="prices-product-footer">
+          <button class="prices-delete-link" onclick="showDeleteProductConfirm(${product.id})">Delete product</button>
+        </div>
+        <div class="log-confirm-row" id="delete-product-confirm-${product.id}" hidden>
+          <span>Delete "${escHtml(product.name)}"? This removes all price history and retailer links. Cannot be undone.</span>
+          <button class="log-confirm-cancel" onclick="cancelDeleteProductConfirm(${product.id})">Cancel</button>
+          <button class="log-confirm-delete" onclick="deleteProduct(${product.id})">Delete</button>
+        </div>`;
+    }
+
     function renderProducts(slugs, allowPending) {
       let html = '';
       for (const slug of slugs) {
@@ -979,7 +1009,8 @@ Output only the CSV starting with the header row.`;
             .join('');
           html += `
             <div class="prices-product">
-              <div class="prices-product-name">${product.name}${categorySelectHtml(slug)}</div>
+              <div class="prices-product-name">${product.name}${productNameEditBtnHtml(product)}${categorySelectHtml(slug)}</div>
+              ${productNameFormHtml(product)}
               <div class="prices-product-pending">No price data yet — checked on the next scrape.</div>
               ${syncEnabled ? `
                 <div class="url-add-section" id="url-add-section-${product.id}" style="display:none">
@@ -991,6 +1022,7 @@ Output only the CSV starting with the header row.`;
                 </div>
                 <button class="url-add-retailer-btn" onclick="toggleAddRetailerForm(${product.id})">+ Retailer</button>
               ` : ''}
+              ${deleteProductHtml(product)}
             </div>`;
           continue;
         }
@@ -999,6 +1031,7 @@ Output only the CSV starting with the header row.`;
         const allSame  = retailers.every(([, d]) => d.priceCents === minPrice);
         let retailerRows = '';
         let urlForms = '';
+        let retailerConfirms = '';
         for (const [retailer, data] of retailers) {
           const price = `$${(data.priceCents / 100).toFixed(2)}`;
           const saleTag = data.onSale ? '<span class="price-on-sale">🔥 Sale</span>' : '';
@@ -1007,9 +1040,17 @@ Output only the CSV starting with the header row.`;
           let linkEl;
           if (url) {
             const editBtn = syncEnabled
-              ? `<button class="url-edit-btn" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')" title="Edit URL">✎</button>`
+              ? `<button class="url-edit-btn" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')" title="Edit URL">✎</button><button class="url-edit-btn url-edit-btn--danger" onclick="showRemoveRetailerConfirm(${product.id},'${retailer}')" title="Remove retailer">✕</button>`
               : '';
             linkEl = `<a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>${editBtn}`;
+            if (syncEnabled) {
+              retailerConfirms += `
+                <div class="log-confirm-row" id="remove-retailer-confirm-${product.id}-${retailer}" hidden>
+                  <span>Stop tracking ${escHtml(retailerName)} for this product? Its price history will be deleted.</span>
+                  <button class="log-confirm-cancel" onclick="cancelRemoveRetailerConfirm(${product.id},'${retailer}')">Cancel</button>
+                  <button class="log-confirm-delete" onclick="removeRetailer(${product.id},'${retailer}')">Remove</button>
+                </div>`;
+            }
           } else if (syncEnabled) {
             linkEl = `<button class="url-edit-btn url-edit-btn--add" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')">+ URL</button>`;
           } else {
@@ -1066,8 +1107,10 @@ Output only the CSV starting with the header row.`;
             <div class="prices-product-name">
               ${product.name}
               ${syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="alert-btn-${slug}" data-alert-slug="${slug}" onclick="toggleAlertForm('${slug}')" title="${alertTitle}">🔔</button>` : ''}
+              ${productNameEditBtnHtml(product)}
               ${categorySelectHtml(slug)}
             </div>
+            ${productNameFormHtml(product)}
             <div class="alert-inline-form" id="alert-form-${slug}" style="display:none;">
               <div class="alert-form-row">
                 <div class="alert-form-inputs">
@@ -1087,7 +1130,9 @@ Output only the CSV starting with the header row.`;
             </div>
             ${retailerRows}
             ${urlForms}
+            ${retailerConfirms}
             ${addRetailerHtml}
+            ${deleteProductHtml(product)}
           </div>`;
       }
       return html;
@@ -4508,6 +4553,32 @@ Output only the CSV starting with the header row.`;
     }
   }
 
+  function showRemoveRetailerConfirm(productId, retailer) {
+    document.getElementById(`remove-retailer-confirm-${productId}-${retailer}`)?.removeAttribute('hidden');
+  }
+
+  function cancelRemoveRetailerConfirm(productId, retailer) {
+    document.getElementById(`remove-retailer-confirm-${productId}-${retailer}`)?.setAttribute('hidden', '');
+  }
+
+  async function removeRetailer(productId, retailer) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}/url/${retailer}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const prod = liveProducts.find(p => p.id === productId);
+      if (prod) {
+        delete prod.urls?.[retailer];
+        delete prod.latestPrice?.[retailer];
+      }
+      renderPricesTab();
+    } catch (e) {
+      console.error('removeRetailer:', e);
+    }
+  }
+
   function toggleAddProductForm() {
     const form = document.getElementById('prices-add-product-form');
     if (!form) return;
@@ -4565,6 +4636,85 @@ Output only the CSV starting with the header row.`;
     } catch (e) {
       console.error('saveNewProduct:', e);
       if (errorEl) { errorEl.textContent = 'Network error — try again.'; errorEl.style.display = 'block'; }
+    }
+  }
+
+  function toggleProductNameForm(productId) {
+    const form = document.getElementById(`product-name-form-${productId}`);
+    if (!form) return;
+    const opening = form.style.display === 'none';
+    form.style.display = opening ? 'block' : 'none';
+    if (opening) document.getElementById(`product-name-input-${productId}`)?.focus();
+  }
+
+  async function saveProductName(productId) {
+    const input = document.getElementById(`product-name-input-${productId}`);
+    const errorEl = document.getElementById(`product-name-error-${productId}`);
+    if (errorEl) errorEl.style.display = 'none';
+
+    const name = input?.value.trim() ?? '';
+    if (!name) {
+      if (errorEl) { errorEl.textContent = 'Name is required.'; errorEl.style.display = 'block'; }
+      input?.focus();
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to rename product.' }));
+        if (errorEl) { errorEl.textContent = err.error || 'Failed to rename product.'; errorEl.style.display = 'block'; }
+        return;
+      }
+      const prod = liveProducts.find(p => p.id === productId);
+      const oldName = prod?.name;
+      if (prod) prod.name = name;
+
+      // Routine steps store the product name, not its id/slug — keep them in sync
+      // so a rename doesn't silently break inventory depletion or auto-fill matching.
+      if (oldName && oldName !== name) {
+        let changed = false;
+        for (const routine of routines) {
+          for (const step of routine.steps || []) {
+            for (const p of step.products || []) {
+              if (p.name === oldName) { p.name = name; changed = true; }
+            }
+          }
+        }
+        if (changed) await saveRoutines();
+      }
+      renderPricesTab();
+    } catch (e) {
+      console.error('saveProductName:', e);
+      if (errorEl) { errorEl.textContent = 'Network error — try again.'; errorEl.style.display = 'block'; }
+    }
+  }
+
+  function showDeleteProductConfirm(productId) {
+    document.getElementById(`delete-product-confirm-${productId}`)?.removeAttribute('hidden');
+  }
+
+  function cancelDeleteProductConfirm(productId) {
+    document.getElementById(`delete-product-confirm-${productId}`)?.setAttribute('hidden', '');
+  }
+
+  async function deleteProduct(productId) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(await res.text());
+      liveProducts = liveProducts.filter(p => p.id !== productId);
+      delete priceHistories[productId];
+      renderPricesTab();
+    } catch (e) {
+      console.error('deleteProduct:', e);
     }
   }
 

@@ -1712,7 +1712,12 @@
   .url-edit-btn { background: none; border: none; cursor: pointer; font-size: 13px; color: var(--ink-mid); padding: 0 3px; opacity: 0.5; transition: opacity 0.15s; flex-shrink: 0; }
   .url-edit-btn:hover { opacity: 1; color: var(--accent); }
   .url-edit-btn--add { font-size: 11px; opacity: 0.7; }
+  .url-edit-btn--danger { color: var(--danger); }
+  .url-edit-btn--danger:hover { color: var(--danger); opacity: 1; }
   .url-inline-form, .url-add-section { margin: 2px 0 6px; padding: 8px 12px; background: var(--bg-elev); border: 1px solid var(--rule); border-radius: var(--radius); width: 100%; box-sizing: border-box; }
+  .prices-product-footer { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--rule); }
+  .prices-delete-link { background: none; border: none; padding: 0; color: var(--danger); font-size: 12px; font-family: inherit; cursor: pointer; opacity: 0.7; text-decoration: underline; text-underline-offset: 2px; }
+  .prices-delete-link:hover { opacity: 1; }
   .url-form-row { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
   .url-form-label { font-size: 12px; color: var(--ink-mid); white-space: nowrap; flex-shrink: 0; }
   .url-input { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--bg); color: var(--ink); font-size: 13px; }
