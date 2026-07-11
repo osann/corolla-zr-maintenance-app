@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from './connection.js';
-import { products, retailerUrls } from './schema.js';
+import { products, retailerUrls, packComponents } from './schema.js';
 
 // autobarnSku:    SKU code on autobarn.com.au — used to derive Autopro URLs (/ap/p/{sku})
 // autobarnUrl:    Full canonical Auto Barn URL — used in preference to the short /ab/p/{sku} form.
@@ -294,7 +294,101 @@ export async function seed() {
   console.log(`Retailer URLs: ${autobarnCount} Auto Barn, ${autoproCount} Autopro, ${repcoCount} Repco, ${supercheapCount} Supercheap`);
 }
 
+// One-time migration of the app's formerly-hardcoded BUNDLE_COMPONENTS constant (app.js) into
+// the pack_components table, so existing users see identical Inventory behavior for these 8
+// bundles on ship day of the user-configurable packs feature — nothing needs manual recreation.
+// Idempotent: skipped per-pack if that pack already has component rows.
+type PackComponentSeed = { slug?: string; name: string; volumeMl?: number; equipment?: boolean; sectionPath?: [string, string] };
+
+const PACKS: Record<string, PackComponentSeed[]> = {
+  'nanolicious-wash-pack-ultimate': [
+    { name: 'Nanolicious Wash (500ml)', volumeMl: 500, sectionPath: ['Exterior Wash', 'Contact Wash'] },
+    { slug: 'shagtastic-wash-pad', name: 'Shagtastic Wash Pad', equipment: true },
+    { slug: 'the-big-green-sucker', name: 'The Big Green Sucker', equipment: true },
+    { name: 'Boss Gloss (125ml)', volumeMl: 125, sectionPath: ['Exterior Protection', 'Quick Detailer'] },
+  ],
+  'nanolicious-shag-pack': [
+    { name: 'Nanolicious Wash (500ml)', volumeMl: 500, sectionPath: ['Exterior Wash', 'Contact Wash'] },
+    { slug: 'shagtastic-wash-pad', name: 'Shagtastic Wash Pad', equipment: true },
+  ],
+  'wet-dreams-pack': [
+    { slug: 'wet-dreams-770ml', name: 'Wet Dreams Sealant (770ml)' },
+    { name: 'Big Softie', equipment: true, sectionPath: ['Equipment', 'Microfibre'] },
+  ],
+  'naked-inta-mitt-pack': [
+    { slug: 'naked-glass-500ml', name: 'Naked Glass (500ml)' },
+    { slug: 'inta-mitt', name: 'Inta-Mitt', equipment: true },
+  ],
+  'boss-gloss-pack': [
+    { slug: 'boss-gloss-770ml', name: 'Boss Gloss (770ml)' },
+  ],
+  'bolp-leather-care-pack': [
+    { slug: 'leather-love-v2-500ml', name: 'Leather Love V2 (500ml)' },
+    { slug: 'leather-guard-500ml', name: 'Leather Guard (500ml)' },
+    { slug: 'plush-daddy', name: 'Plush Daddy', equipment: true },
+    { slug: 'the-square-bear', name: 'The Square Bear', equipment: true },
+  ],
+  '2-bucket-wash-kit': [
+    { name: 'Wash Bucket', equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+    { name: 'Rinse Bucket', equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+    { name: 'Great Barrier Thingy', equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+    { name: 'Great Barrier Thingy', equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+  ],
+  'the-essentials-starters-kit': [
+    { name: 'Wash Bucket', equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+    { name: 'Rinse Bucket', equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+    { name: 'Great Barrier Thingy', equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+    { name: 'Great Barrier Thingy', equipment: true, sectionPath: ['Equipment', 'Buckets'] },
+    { slug: 'microfibre-bucket-lid', name: 'Microfibre Bucket With Lid', equipment: true },
+    { name: 'Nanolicious Wash (500ml)', volumeMl: 500, sectionPath: ['Exterior Wash', 'Contact Wash'] },
+    { slug: 'shagtastic-wash-pad', name: 'Shagtastic Wash Pad', equipment: true },
+    { slug: 'wet-dreams-770ml', name: 'Wet Dreams Sealant (770ml)' },
+    { slug: 'boss-gloss-770ml', name: 'Boss Gloss (770ml)' },
+    { slug: 'twisted-pro-sucker', name: 'Twisted Pro Sucker', equipment: true },
+    { slug: 'microfibre-wash-1l', name: 'Microfibre Wash (1L)' },
+  ],
+};
+
+export async function seedPacks() {
+  console.log('Seeding packs...');
+  let seeded = 0;
+  let skipped = 0;
+
+  for (const [packSlug, components] of Object.entries(PACKS)) {
+    const [packRow] = await db.select({ id: products.id }).from(products).where(eq(products.slug, packSlug)).limit(1);
+    if (!packRow) { console.warn(`  Pack slug not seeded as a product yet, skipping: ${packSlug}`); continue; }
+
+    const existing = await db.select({ id: packComponents.id }).from(packComponents).where(eq(packComponents.packProductId, packRow.id)).limit(1);
+    if (existing.length) { skipped++; continue; }
+
+    let sortOrder = 0;
+    for (const comp of components) {
+      let componentProductId: number | null = null;
+      if (comp.slug) {
+        const [compRow] = await db.select({ id: products.id }).from(products).where(eq(products.slug, comp.slug)).limit(1);
+        componentProductId = compRow?.id ?? null;
+      }
+      await db.insert(packComponents).values({
+        packProductId: packRow.id,
+        componentProductId,
+        name: comp.name,
+        volumeMl: comp.volumeMl ?? null,
+        isEquipment: comp.equipment ?? false,
+        sectionCategory: comp.sectionPath?.[0] ?? null,
+        sectionLabel: comp.sectionPath?.[1] ?? null,
+        sortOrder: sortOrder++,
+      });
+    }
+    await db.update(products).set({ isPack: true }).where(eq(products.id, packRow.id));
+    seeded++;
+  }
+
+  console.log(`Done. ${seeded} packs seeded, ${skipped} already existed.`);
+}
+
 // Allow running directly: npm run seed
 if (process.argv[1]?.endsWith('seed.ts') || process.argv[1]?.endsWith('seed.js')) {
-  seed().catch((err) => { console.error(err); process.exit(1); });
+  seed()
+    .then(() => seedPacks())
+    .catch((err) => { console.error(err); process.exit(1); });
 }

@@ -6,6 +6,7 @@ export const products = sqliteTable('products', {
   name:      text('name').notNull().unique(),
   slug:      text('slug').notNull().unique(),
   phase:     integer('phase').notNull(),
+  isPack:    integer('is_pack', { mode: 'boolean' }).notNull().default(false),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -30,9 +31,29 @@ export const priceHistory = sqliteTable('price_history', {
   index('idx_price_retailer_time').on(t.retailer, t.observedAt),
 ]);
 
-export type Product     = typeof products.$inferSelect;
-export type RetailerUrl = typeof retailerUrls.$inferSelect;
-export type PriceRecord = typeof priceHistory.$inferSelect;
+// componentProductId null = inline/free-text component with no product identity of its own.
+// sectionCategory/sectionLabel place inline components in the Inventory category grid (mirrors
+// the old BUNDLE_COMPONENTS `sectionPath` field) — slug-referenced components are placed
+// wherever that product's own category assignment already puts them, so those two columns are
+// only ever set for inline components.
+export const packComponents = sqliteTable('pack_components', {
+  id:                 integer('id').primaryKey({ autoIncrement: true }),
+  packProductId:      integer('pack_product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  componentProductId: integer('component_product_id').references(() => products.id, { onDelete: 'cascade' }),
+  name:               text('name').notNull(),
+  volumeMl:           integer('volume_ml'),
+  isEquipment:        integer('is_equipment', { mode: 'boolean' }).notNull().default(false),
+  sectionCategory:    text('section_category'),
+  sectionLabel:       text('section_label'),
+  sortOrder:          integer('sort_order').notNull().default(0),
+}, (t) => [
+  index('idx_pack_components_pack').on(t.packProductId),
+]);
+
+export type Product       = typeof products.$inferSelect;
+export type RetailerUrl   = typeof retailerUrls.$inferSelect;
+export type PriceRecord   = typeof priceHistory.$inferSelect;
+export type PackComponent = typeof packComponents.$inferSelect;
 
 export const users = sqliteTable('users', {
   id:        integer('id').primaryKey({ autoIncrement: true }),

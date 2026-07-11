@@ -12,7 +12,7 @@ import ticktickRouter from './routes/ticktick.js';
 import { scrapeAutopro } from './scrapers/autopro.js';
 import { createTickTickTask } from './lib/ticktick.js';
 import { initDb } from './db/init.js';
-import { seed } from './db/seed.js';
+import { seed, seedPacks } from './db/seed.js';
 import { db } from './db/connection.js';
 import { users, userData, products, priceHistory } from './db/schema.js';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -28,6 +28,7 @@ import {
 try {
   await initDb();
   await seed();
+  await seedPacks();
 } catch (e) {
   console.error('Startup init/seed failed (continuing):', e);
 }

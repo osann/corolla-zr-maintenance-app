@@ -6,6 +6,7 @@ const DDL_STATEMENTS = [
     name       TEXT    NOT NULL UNIQUE,
     slug       TEXT    NOT NULL UNIQUE,
     phase      INTEGER NOT NULL,
+    is_pack    INTEGER NOT NULL DEFAULT 0,
     created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS retailer_urls (
@@ -67,6 +68,18 @@ const DDL_STATEMENTS = [
     created_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE INDEX IF NOT EXISTS idx_photos_user_entry ON photos(user_id, log_entry_id)`,
+  `CREATE TABLE IF NOT EXISTS pack_components (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    pack_product_id       INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    component_product_id  INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    name                  TEXT    NOT NULL,
+    volume_ml             INTEGER,
+    is_equipment          INTEGER NOT NULL DEFAULT 0,
+    section_category      TEXT,
+    section_label         TEXT,
+    sort_order            INTEGER NOT NULL DEFAULT 0
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_pack_components_pack ON pack_components(pack_product_id)`,
 ];
 
 export async function initDb() {
@@ -77,6 +90,17 @@ export async function initDb() {
   for (const sql of DDL_STATEMENTS) {
     await client.execute(sql);
   }
+
+  // `CREATE TABLE IF NOT EXISTS` is a no-op against an already-existing table, so it won't
+  // retrofit the is_pack column onto a pre-existing products table (e.g. the live Render/Turso
+  // DB). SQLite's ALTER TABLE ADD COLUMN has no IF NOT EXISTS clause and errors if run twice,
+  // so check first.
+  const cols = await client.execute(`PRAGMA table_info(products)`);
+  const hasIsPack = cols.rows.some((r) => r.name === 'is_pack');
+  if (!hasIsPack) {
+    await client.execute(`ALTER TABLE products ADD COLUMN is_pack INTEGER NOT NULL DEFAULT 0`);
+  }
+
   await client.close();
 }
 

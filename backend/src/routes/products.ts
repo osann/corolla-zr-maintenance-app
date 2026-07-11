@@ -1,10 +1,14 @@
 import { Hono } from 'hono';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
-import { products, priceHistory, retailerUrls } from '../db/schema.js';
+import { products, priceHistory, retailerUrls, packComponents } from '../db/schema.js';
 import { sessionMiddleware, type AppEnv } from '../lib/auth.js';
 
 const router = new Hono<AppEnv>();
+
+// Shape returned to the frontend for each pack component — matches the client's existing
+// BUNDLE_COMPONENTS contract so the frontend can treat it as a drop-in replacement.
+type ComponentOut = { slug?: string; name: string; volumeMl?: number; equipment?: boolean; sectionPath?: [string, string] };
 
 // GET /products — all products with their latest price per retailer
 router.get('/products', async (c) => {
@@ -48,8 +52,28 @@ router.get('/products', async (c) => {
     urlsByProduct.get(row.productId)![row.retailer] = row.url;
   }
 
+  // Single query: all pack components, ordered so componentsByProduct arrays come out in
+  // the order they should render/deplete in (sortOrder mirrors the original array order).
+  const slugById = new Map(allProducts.map((p) => [p.id, p.slug]));
+  const allComponentRows = await db.select().from(packComponents).orderBy(packComponents.sortOrder);
+  const componentsByProduct = new Map<number, ComponentOut[]>();
+  for (const row of allComponentRows) {
+    if (!componentsByProduct.has(row.packProductId)) componentsByProduct.set(row.packProductId, []);
+    const component: ComponentOut = { name: row.name };
+    if (row.componentProductId != null) {
+      const slug = slugById.get(row.componentProductId);
+      if (slug) component.slug = slug;
+    }
+    if (row.volumeMl != null) component.volumeMl = row.volumeMl;
+    if (row.isEquipment) component.equipment = true;
+    if (row.sectionCategory && row.sectionLabel) component.sectionPath = [row.sectionCategory, row.sectionLabel];
+    componentsByProduct.get(row.packProductId)!.push(component);
+  }
+
   const result = allProducts.map((p) => ({
     ...p,
+    isPack: Boolean(p.isPack),
+    components: p.isPack ? (componentsByProduct.get(p.id) ?? []) : [],
     latestPrice: pricesByProduct.get(p.id) ?? {},
     urls: urlsByProduct.get(p.id) ?? {},
   }));
@@ -170,7 +194,7 @@ router.put('/products/:id/url', sessionMiddleware, async (c) => {
   return c.json({ ok: true });
 });
 
-// PATCH /products/:id — rename a product (session-protected)
+// PATCH /products/:id — rename a product's name and/or slug (session-protected)
 router.patch('/products/:id', sessionMiddleware, async (c) => {
   const userId = c.var.userId;
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
@@ -178,18 +202,102 @@ router.patch('/products/:id', sessionMiddleware, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
-  const body = await c.req.json<{ name?: string }>();
+  const body = await c.req.json<{ name?: string; slug?: string }>();
   const name = body.name?.trim();
-  if (!name) return c.json({ error: 'Name required' }, 400);
+  const slug = body.slug?.trim();
+  if (!name && !slug) return c.json({ error: 'Name or slug required' }, 400);
 
   const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
 
-  const existing = await db.select({ id: products.id }).from(products).where(eq(products.name, name)).limit(1);
-  if (existing.length && existing[0].id !== id) return c.json({ error: 'A product with that name already exists' }, 409);
+  const update: { name?: string; slug?: string } = {};
 
-  await db.update(products).set({ name }).where(eq(products.id, id));
-  return c.json({ ok: true, name });
+  if (name) {
+    const existingName = await db.select({ id: products.id }).from(products).where(eq(products.name, name)).limit(1);
+    if (existingName.length && existingName[0].id !== id) return c.json({ error: 'A product with that name already exists' }, 409);
+    update.name = name;
+  }
+
+  if (slug) {
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      return c.json({ error: 'Slug must contain only lowercase letters, numbers and hyphens' }, 400);
+    }
+    const existingSlug = await db.select({ id: products.id }).from(products).where(eq(products.slug, slug)).limit(1);
+    if (existingSlug.length && existingSlug[0].id !== id) return c.json({ error: 'A product with that slug already exists' }, 409);
+    update.slug = slug;
+  }
+
+  await db.update(products).set(update).where(eq(products.id, id));
+  const [updated] = await db.select({ id: products.id, name: products.name, slug: products.slug }).from(products).where(eq(products.id, id)).limit(1);
+  return c.json({ ok: true, ...updated });
+});
+
+// PUT /products/:id/pack — replace a product's whole pack-component list atomically and mark
+// it as a pack (session-protected). Deletes the existing component rows and re-inserts the
+// given list in order, rather than diffing — packs are small (a handful of rows) and the
+// frontend always sends the full current list, so this is simpler and can't drift out of sync.
+router.put('/products/:id/pack', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
+  const id = parseInt(c.req.param('id') ?? '', 10);
+  if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
+
+  const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
+  if (!prod.length) return c.json({ error: 'Product not found' }, 404);
+
+  const body = await c.req.json<{
+    components?: Array<{ componentProductId?: number; name?: string; volumeMl?: number; equipment?: boolean; sectionCategory?: string; sectionLabel?: string }>;
+  }>();
+  const components = body.components;
+  if (!Array.isArray(components) || components.length === 0) {
+    return c.json({ error: 'A pack needs at least one component' }, 400);
+  }
+
+  for (const comp of components) {
+    if (!comp.name || typeof comp.name !== 'string' || !comp.name.trim()) {
+      return c.json({ error: 'Every component needs a name' }, 400);
+    }
+    if (comp.componentProductId != null) {
+      if (comp.componentProductId === id) return c.json({ error: 'A pack cannot reference itself as a component' }, 400);
+      const compProd = await db.select({ id: products.id, isPack: products.isPack }).from(products).where(eq(products.id, comp.componentProductId)).limit(1);
+      if (!compProd.length) return c.json({ error: 'Component product not found' }, 400);
+      if (compProd[0].isPack) return c.json({ error: 'A pack cannot be used as a component of another pack' }, 400);
+    }
+  }
+
+  await db.delete(packComponents).where(eq(packComponents.packProductId, id));
+  let sortOrder = 0;
+  for (const comp of components) {
+    await db.insert(packComponents).values({
+      packProductId: id,
+      componentProductId: comp.componentProductId ?? null,
+      name: comp.name!.trim(),
+      volumeMl: comp.volumeMl ?? null,
+      isEquipment: comp.equipment ?? false,
+      sectionCategory: comp.sectionCategory ?? null,
+      sectionLabel: comp.sectionLabel ?? null,
+      sortOrder: sortOrder++,
+    });
+  }
+  await db.update(products).set({ isPack: true }).where(eq(products.id, id));
+
+  return c.json({ ok: true, isPack: true, components });
+});
+
+// DELETE /products/:id/pack — unmark a product as a pack and discard its component list
+// (session-protected)
+router.delete('/products/:id/pack', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
+  const id = parseInt(c.req.param('id') ?? '', 10);
+  if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
+
+  await db.delete(packComponents).where(eq(packComponents.packProductId, id));
+  await db.update(products).set({ isPack: false }).where(eq(products.id, id));
+
+  return c.json({ ok: true });
 });
 
 // DELETE /products/:id/url/:retailer — stop tracking one retailer for a product,
@@ -214,10 +322,11 @@ router.delete('/products/:id/url/:retailer', sessionMiddleware, async (c) => {
   return c.json({ ok: true });
 });
 
-// DELETE /products/:id — remove a product entirely, including all retailer URLs
-// and price history (session-protected). Does not touch the frontend's static
-// CATALOG, checklist phases, routines, or category assignments — those are
-// keyed by slug and independent of backend price tracking.
+// DELETE /products/:id — remove a product entirely, including all retailer URLs, price
+// history, its own pack-component definition (if it is a pack), and its entry in any other
+// pack's component list (session-protected). Does not touch the frontend's static CATALOG,
+// checklist phases, routines, or category assignments — those are keyed by slug and
+// independent of backend price tracking.
 router.delete('/products/:id', sessionMiddleware, async (c) => {
   const userId = c.var.userId;
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
@@ -228,6 +337,8 @@ router.delete('/products/:id', sessionMiddleware, async (c) => {
   const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
 
+  await db.delete(packComponents).where(eq(packComponents.packProductId, id));
+  await db.delete(packComponents).where(eq(packComponents.componentProductId, id));
   await db.delete(priceHistory).where(eq(priceHistory.productId, id));
   await db.delete(retailerUrls).where(eq(retailerUrls.productId, id));
   await db.delete(products).where(eq(products.id, id));

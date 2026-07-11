@@ -415,7 +415,10 @@ Output only the CSV starting with the header row.`;
     })
   );
 
-  // Maps bundle slugs → ordered component definitions.
+  // Maps bundle/pack slugs → ordered component definitions. Sourced from the backend
+  // (products[].isPack / products[].components via GET /api/products) and rebuilt by
+  // loadPriceData() whenever liveProducts refreshes — see rebuildBundleComponents() below.
+  // Formerly a hardcoded constant; packs are now configured from the Inventory → Products tab.
   // Components with a slug are looked up in INVENTORY_DEFAULTS for volume/usage defaults.
   // Components without a slug (inline) use the values defined here; their state is stored
   // under a composite key `bundleSlug:component-name-normalised`.
@@ -425,54 +428,19 @@ Output only the CSV starting with the header row.`;
   // allCategories. Equipment inline items default to Equipment/Other. Renaming the
   // "Equipment"/"Exterior Wash" etc. categories/sections in Settings will orphan any
   // sectionPath referencing the old label — a narrow, cosmetic edge case.
-  const BUNDLE_COMPONENTS = {
-    'nanolicious-wash-pack-ultimate': [
-      { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
-      { slug: 'shagtastic-wash-pad',      name: 'Shagtastic Wash Pad',         equipment: true },
-      { slug: 'the-big-green-sucker',     name: 'The Big Green Sucker',        equipment: true },
-      { name: 'Boss Gloss (125ml)',        volumeMl: 125,  sectionPath: ['Exterior Protection', 'Quick Detailer'] },
-    ],
-    'nanolicious-shag-pack': [
-      { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
-      { slug: 'shagtastic-wash-pad',      name: 'Shagtastic Wash Pad',         equipment: true },
-    ],
-    'wet-dreams-pack': [
-      { slug: 'wet-dreams-770ml',         name: 'Wet Dreams Sealant (770ml)' },
-      { name: 'Big Softie',               equipment: true, sectionPath: ['Equipment', 'Microfibre'] },
-    ],
-    'naked-inta-mitt-pack': [
-      { slug: 'naked-glass-500ml',        name: 'Naked Glass (500ml)' },
-      { slug: 'inta-mitt',                name: 'Inta-Mitt',                   equipment: true },
-    ],
-    'boss-gloss-pack': [
-      { slug: 'boss-gloss-770ml',         name: 'Boss Gloss (770ml)' },
-    ],
-    'bolp-leather-care-pack': [
-      { slug: 'leather-love-v2-500ml',    name: 'Leather Love V2 (500ml)' },
-      { slug: 'leather-guard-500ml',      name: 'Leather Guard (500ml)' },
-      { slug: 'plush-daddy',              name: 'Plush Daddy',                 equipment: true },
-      { slug: 'the-square-bear',          name: 'The Square Bear',             equipment: true },
-    ],
-    '2-bucket-wash-kit': [
-      { name: 'Wash Bucket',              equipment: true, sectionPath: ['Equipment', 'Buckets'] },
-      { name: 'Rinse Bucket',             equipment: true, sectionPath: ['Equipment', 'Buckets'] },
-      { name: 'Great Barrier Thingy',     equipment: true, sectionPath: ['Equipment', 'Buckets'] },
-      { name: 'Great Barrier Thingy',     equipment: true, sectionPath: ['Equipment', 'Buckets'] },
-    ],
-    'the-essentials-starters-kit': [
-      { name: 'Wash Bucket',              equipment: true, sectionPath: ['Equipment', 'Buckets'] },
-      { name: 'Rinse Bucket',             equipment: true, sectionPath: ['Equipment', 'Buckets'] },
-      { name: 'Great Barrier Thingy',     equipment: true, sectionPath: ['Equipment', 'Buckets'] },
-      { name: 'Great Barrier Thingy',     equipment: true, sectionPath: ['Equipment', 'Buckets'] },
-      { slug: 'microfibre-bucket-lid',    name: 'Microfibre Bucket With Lid',  equipment: true },
-      { name: 'Nanolicious Wash (500ml)', volumeMl: 500,  sectionPath: ['Exterior Wash', 'Contact Wash'] },
-      { slug: 'shagtastic-wash-pad',      name: 'Shagtastic Wash Pad',         equipment: true },
-      { slug: 'wet-dreams-770ml',         name: 'Wet Dreams Sealant (770ml)' },
-      { slug: 'boss-gloss-770ml',         name: 'Boss Gloss (770ml)' },
-      { slug: 'twisted-pro-sucker',       name: 'Twisted Pro Sucker',          equipment: true },
-      { slug: 'microfibre-wash-1l',       name: 'Microfibre Wash (1L)' },
-    ],
-  };
+  const BUNDLE_COMPONENTS_CACHE_KEY = 'corolla-pack-components-v1';
+  let bundleComponents = {};
+
+  // Rebuilds the pack lookup from liveProducts and caches it locally so pack expansion still
+  // works (from last-known-good data) if the backend is briefly unreachable — packs used to be
+  // a synchronous hardcoded constant with no network dependency; this keeps that offline-first
+  // behaviour intact per the app's graceful-degradation principle.
+  function rebuildBundleComponents() {
+    bundleComponents = Object.fromEntries(
+      liveProducts.filter(p => p.isPack).map(p => [p.slug, p.components])
+    );
+    storageSet(BUNDLE_COMPONENTS_CACHE_KEY, bundleComponents);
+  }
 
   let inventoryState = {}; // { [slug]: { purchaseDate, volumeMl, usagePerWashMl, remainingMl, manualOverride } }
 
@@ -537,7 +505,7 @@ Output only the CSV starting with the header row.`;
     if (!inventoryState[slug]) inventoryState[slug] = {};
     if (!inventoryState[slug].purchaseDate) inventoryState[slug].purchaseDate = today;
 
-    const components = BUNDLE_COMPONENTS[slug];
+    const components = bundleComponents[slug];
     if (components) {
       for (const comp of components) {
         if (comp.equipment) continue;
@@ -939,123 +907,40 @@ Output only the CSV starting with the header row.`;
     setTimeout(() => { document.getElementById('budget-status').textContent = ''; }, 2000);
   }
 
+  // Pure read-only price display — category-grouped price rows, sparklines, sale badges, buy
+  // links, and the price-alert bell. Product identity/management (rename, slug, retailer URLs,
+  // category assignment, delete, pack config, add product) lives on the Inventory → Products
+  // sub-tab instead — see renderProductsPage().
   function renderPricesTab() {
     const container = document.getElementById('prices-list');
     if (!container) return;
 
     const productBySlug = Object.fromEntries(liveProducts.map(p => [p.slug, p]));
-    const categoryAssignment = getCategoryAssignment();
 
-    function categorySelectHtml(slug) {
-      if (!syncEnabled) return '';
-      const current = categoryAssignment[slug];
-      const currentValue = current ? `${current.category}::${current.section}` : '';
-      let options = `<option value=""${currentValue ? '' : ' selected'}>Uncategorised (Other)</option>`;
-      for (const cat of allCategories) {
-        for (const sec of cat.sections) {
-          const val = `${cat.label}::${sec.label}`;
-          options += `<option value="${escAttr(val)}"${val === currentValue ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
-        }
-      }
-      return `<select class="prices-category-select" onchange="changeProductCategory('${slug}', this.value)" title="Change category">${options}</select>`;
-    }
-
-    function productNameEditBtnHtml(product) {
-      if (!syncEnabled) return '';
-      return `<button class="url-edit-btn" onclick="toggleProductNameForm(${product.id})" title="Rename product">✎</button>`;
-    }
-
-    function productNameFormHtml(product) {
-      if (!syncEnabled) return '';
-      return `
-        <div class="url-inline-form" id="product-name-form-${product.id}" style="display:none">
-          <div class="url-form-row">
-            <input type="text" class="url-input" id="product-name-input-${product.id}" value="${escAttr(product.name)}" placeholder="Product name">
-            <button class="alert-set-btn" onclick="saveProductName(${product.id})">Save</button>
-          </div>
-          <div id="product-name-error-${product.id}" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
-        </div>`;
-    }
-
-    function deleteProductHtml(product) {
-      if (!syncEnabled) return '';
-      return `
-        <div class="prices-product-footer">
-          <button class="prices-delete-link" onclick="showDeleteProductConfirm(${product.id})">Delete product</button>
-        </div>
-        <div class="log-confirm-row" id="delete-product-confirm-${product.id}" hidden>
-          <span>Delete "${escHtml(product.name)}"? This removes all price history and retailer links. Cannot be undone.</span>
-          <button class="log-confirm-cancel" onclick="cancelDeleteProductConfirm(${product.id})">Cancel</button>
-          <button class="log-confirm-delete" onclick="deleteProduct(${product.id})">Delete</button>
-        </div>`;
-    }
-
-    function renderProducts(slugs, allowPending) {
+    function renderProducts(slugs) {
       let html = '';
       for (const slug of slugs) {
         const product = productBySlug[slug];
         if (!product) continue;
-        const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'];
         const RETAILER_ORDER = ['supercheap', 'repco', 'autobarn', 'autopro', 'bowdens'];
         const retailers = Object.entries(product.latestPrice ?? {})
           .sort(([a], [b]) => {
             const ai = RETAILER_ORDER.indexOf(a), bi = RETAILER_ORDER.indexOf(b);
             return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
           });
-        if (retailers.length === 0 && !allowPending) continue;
-        if (retailers.length === 0 && allowPending) {
-          const options = SCRAPED_RETAILERS
-            .map(r => `<option value="${r}">${escHtml(RETAILER_NAMES[r] || r)}</option>`)
-            .join('');
-          html += `
-            <div class="prices-product">
-              <div class="prices-product-name">${product.name}${productNameEditBtnHtml(product)}${categorySelectHtml(slug)}</div>
-              ${productNameFormHtml(product)}
-              <div class="prices-product-pending">No price data yet — checked on the next scrape.</div>
-              ${syncEnabled ? `
-                <div class="url-add-section" id="url-add-section-${product.id}" style="display:none">
-                  <div class="url-form-row">
-                    <select class="url-retailer-select" id="url-add-retailer-${product.id}">${options}</select>
-                    <input type="url" class="url-input" id="url-add-url-${product.id}" placeholder="https://...">
-                    <button class="alert-set-btn" onclick="saveAddRetailerUrl(${product.id})">Add</button>
-                  </div>
-                </div>
-                <button class="url-add-retailer-btn" onclick="toggleAddRetailerForm(${product.id})">+ Retailer</button>
-              ` : ''}
-              ${deleteProductHtml(product)}
-            </div>`;
-          continue;
-        }
+        if (retailers.length === 0) continue; // nothing scraped yet — nothing to display here
         const history = priceHistories[product.id] ?? [];
         const minPrice = Math.min(...retailers.map(([, d]) => d.priceCents));
         const allSame  = retailers.every(([, d]) => d.priceCents === minPrice);
         let retailerRows = '';
-        let urlForms = '';
-        let retailerConfirms = '';
         for (const [retailer, data] of retailers) {
           const price = `$${(data.priceCents / 100).toFixed(2)}`;
           const saleTag = data.onSale ? '<span class="price-on-sale">🔥 Sale</span>' : '';
           const retailerName = RETAILER_NAMES[retailer] || retailer;
           const url = product.urls?.[retailer] || null;
-          let linkEl;
-          if (url) {
-            const editBtn = syncEnabled
-              ? `<button class="url-edit-btn" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')" title="Edit URL">✎</button><button class="url-edit-btn url-edit-btn--danger" onclick="showRemoveRetailerConfirm(${product.id},'${retailer}')" title="Remove retailer">✕</button>`
-              : '';
-            linkEl = `<a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>${editBtn}`;
-            if (syncEnabled) {
-              retailerConfirms += `
-                <div class="log-confirm-row" id="remove-retailer-confirm-${product.id}-${retailer}" hidden>
-                  <span>Stop tracking ${escHtml(retailerName)} for this product? Its price history will be deleted.</span>
-                  <button class="log-confirm-cancel" onclick="cancelRemoveRetailerConfirm(${product.id},'${retailer}')">Cancel</button>
-                  <button class="log-confirm-delete" onclick="removeRetailer(${product.id},'${retailer}')">Remove</button>
-                </div>`;
-            }
-          } else if (syncEnabled) {
-            linkEl = `<button class="url-edit-btn url-edit-btn--add" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')">+ URL</button>`;
-          } else {
-            linkEl = '<span class="price-row-link-none"></span>';
-          }
+          const linkEl = url
+            ? `<a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer" class="price-row-link">Buy →</a>`
+            : '<span class="price-row-link-none"></span>';
           const sparklineSvg = buildSparklineSVG(history, retailer);
           const sparkline = (settings.prefs.showSparklines ?? true)
             ? (sparklineSvg || '<span class="prices-no-data">No data yet.</span>')
@@ -1070,35 +955,6 @@ Output only the CSV starting with the header row.`;
               </div>
               ${linkEl}
             </div>`;
-          if (syncEnabled) {
-            urlForms += `
-              <div class="url-inline-form" id="url-form-${product.id}-${retailer}" style="display:none">
-                <div class="url-form-row">
-                  <span class="url-form-label">${escHtml(retailerName)}</span>
-                  <input type="url" class="url-input" id="url-input-${product.id}-${retailer}" value="${escAttr(url ?? '')}" placeholder="https://...">
-                  <button class="alert-set-btn" onclick="saveRetailerUrl(${product.id},'${retailer}')">Save</button>
-                </div>
-              </div>`;
-          }
-        }
-        let addRetailerHtml = '';
-        if (syncEnabled) {
-          const existingRetailers = new Set(retailers.map(([r]) => r));
-          const missingRetailers = SCRAPED_RETAILERS.filter(r => !existingRetailers.has(r));
-          if (missingRetailers.length > 0) {
-            const options = missingRetailers
-              .map(r => `<option value="${r}">${escHtml(RETAILER_NAMES[r] || r)}</option>`)
-              .join('');
-            addRetailerHtml = `
-              <div class="url-add-section" id="url-add-section-${product.id}" style="display:none">
-                <div class="url-form-row">
-                  <select class="url-retailer-select" id="url-add-retailer-${product.id}">${options}</select>
-                  <input type="url" class="url-input" id="url-add-url-${product.id}" placeholder="https://...">
-                  <button class="alert-set-btn" onclick="saveAddRetailerUrl(${product.id})">Add</button>
-                </div>
-              </div>
-              <button class="url-add-retailer-btn" onclick="toggleAddRetailerForm(${product.id})">+ Retailer</button>`;
-          }
         }
         const hasAlert = !!priceAlerts[slug];
         const alertTitle = hasAlert ? 'Alert set — click to edit' : 'Set price alert';
@@ -1107,10 +963,7 @@ Output only the CSV starting with the header row.`;
             <div class="prices-product-name">
               ${product.name}
               ${syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="alert-btn-${slug}" data-alert-slug="${slug}" onclick="toggleAlertForm('${slug}')" title="${alertTitle}">🔔</button>` : ''}
-              ${productNameEditBtnHtml(product)}
-              ${categorySelectHtml(slug)}
             </div>
-            ${productNameFormHtml(product)}
             <div class="alert-inline-form" id="alert-form-${slug}" style="display:none;">
               <div class="alert-form-row">
                 <div class="alert-form-inputs">
@@ -1129,10 +982,6 @@ Output only the CSV starting with the header row.`;
               </div>
             </div>
             ${retailerRows}
-            ${urlForms}
-            ${retailerConfirms}
-            ${addRetailerHtml}
-            ${deleteProductHtml(product)}
           </div>`;
       }
       return html;
@@ -1145,7 +994,7 @@ Output only the CSV starting with the header row.`;
       let body = '';
       let firstSec = true;
       for (const sec of category.sections) {
-        const secHtml = renderProducts(sec.slugs, true);
+        const secHtml = renderProducts(sec.slugs);
         if (!secHtml) continue;
         const headClass = firstSec ? 'section-head' : 'section-head section-head--gap';
         body += `<div class="${headClass}">${sec.label}</div>${secHtml}`;
@@ -1164,15 +1013,13 @@ Output only the CSV starting with the header row.`;
       anyCard = true;
     }
 
-    // Uncategorised products (added via UI, or explicitly moved out via the category
-    // selector) — shown even before they have a scraped price so adding a product
-    // gives immediate visible feedback.
+    // Products not assigned to any category, but that do have scraped price data.
     const categorisedSlugs = new Set(allCategories.flatMap(c => c.sections.flatMap(s => s.slugs)));
     const uncategorisedSlugs = liveProducts
       .filter(p => !categorisedSlugs.has(p.slug))
       .map(p => p.slug);
     if (uncategorisedSlugs.length > 0) {
-      const body = renderProducts(uncategorisedSlugs, true);
+      const body = renderProducts(uncategorisedSlugs);
       if (body) {
         const card = document.createElement('div');
         card.className = 'phase-spend-card';
@@ -1184,32 +1031,6 @@ Output only the CSV starting with the header row.`;
 
     if (!anyCard) {
       container.innerHTML = '<p class="prices-empty">No prices loaded yet.</p>';
-    }
-
-    if (syncEnabled) {
-      const addWrap = document.createElement('div');
-      addWrap.className = 'prices-add-product-wrap';
-      addWrap.innerHTML = `
-        <button class="url-add-retailer-btn" onclick="toggleAddProductForm()">+ Add product</button>
-        <div class="url-add-section" id="prices-add-product-form" style="display:none">
-          <div class="url-form-row">
-            <input type="text" class="url-input" id="add-product-name" placeholder="Product name" oninput="autoFillProductSlug()">
-            <input type="text" class="url-input add-product-slug-input" id="add-product-slug" placeholder="product-slug">
-          </div>
-          <div class="url-form-row" style="margin-top:6px">
-            <select class="url-retailer-select" id="add-product-retailer">
-              <option value="">No URL yet</option>
-              <option value="supercheap">Supercheap Auto</option>
-              <option value="repco">Repco</option>
-              <option value="autobarn">Auto Barn</option>
-              <option value="autopro">Autopro</option>
-            </select>
-            <input type="url" class="url-input" id="add-product-url" placeholder="https://...">
-            <button class="alert-set-btn" onclick="saveNewProduct()">Add</button>
-          </div>
-          <div id="add-product-error" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
-        </div>`;
-      container.appendChild(addWrap);
     }
 
     renderAlertsPanel();
@@ -1268,6 +1089,515 @@ Output only the CSV starting with the header row.`;
         <div class="phase-spend-head"><div class="phase-spend-name">Active alerts</div></div>
         ${rows}
       </div>`;
+  }
+
+  // ─── Products (Inventory → Products sub-tab) ──────
+  // Product identity/management: name, slug (cascading rename), retailer URLs (no price shown),
+  // category assignment, delete, and pack/multi-buy component configuration. Split off the
+  // Prices tab so Prices can stay a pure read-only price display. This whole sub-tab lives
+  // inside the Inventory tab, which is already hidden until signed in (renderAuthUI) — the
+  // early-return below is defence in depth for the rare case this fires before that gate runs.
+  let packDrafts = {}; // productId → in-progress array of component drafts, while editing
+
+  function renderProductsPage() {
+    const container = document.getElementById('products-list');
+    if (!container) return;
+    if (!syncEnabled) { container.innerHTML = ''; return; }
+
+    const productBySlug = Object.fromEntries(liveProducts.map(p => [p.slug, p]));
+    const categoryAssignment = getCategoryAssignment();
+
+    function categorySelectHtml(slug) {
+      const current = categoryAssignment[slug];
+      const currentValue = current ? `${current.category}::${current.section}` : '';
+      let options = `<option value=""${currentValue ? '' : ' selected'}>Uncategorised (Other)</option>`;
+      for (const cat of allCategories) {
+        for (const sec of cat.sections) {
+          const val = `${cat.label}::${sec.label}`;
+          options += `<option value="${escAttr(val)}"${val === currentValue ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
+        }
+      }
+      return `<select class="prices-category-select" onchange="changeProductCategory('${slug}', this.value)" title="Change category">${options}</select>`;
+    }
+
+    function nameFormHtml(product) {
+      return `
+        <div class="url-inline-form" id="product-name-form-${product.id}" style="display:none">
+          <div class="url-form-row">
+            <input type="text" class="url-input" id="product-name-input-${product.id}" value="${escAttr(product.name)}" placeholder="Product name">
+            <button class="alert-set-btn" onclick="saveProductName(${product.id})">Save</button>
+          </div>
+          <div id="product-name-error-${product.id}" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
+        </div>`;
+    }
+
+    function slugRowHtml(product) {
+      return `
+        <div class="url-form-row" style="margin-bottom:6px;">
+          <span class="prices-retailer-name">Slug: ${escHtml(product.slug)}</span>
+          <button class="url-edit-btn" onclick="toggleProductSlugForm(${product.id})" title="Change slug (advanced)">✎</button>
+        </div>
+        <div class="url-inline-form" id="product-slug-form-${product.id}" style="display:none">
+          <div class="url-form-row">
+            <input type="text" class="url-input" id="product-slug-input-${product.id}" value="${escAttr(product.slug)}" placeholder="product-slug">
+            <button class="alert-set-btn" onclick="requestSlugRename(${product.id})">Save</button>
+          </div>
+          <div id="product-slug-error-${product.id}" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
+          <div class="log-confirm-row" id="slug-rename-confirm-${product.id}" hidden>
+            <span>Renaming the slug updates checklist, inventory, categories, and price alerts everywhere it's referenced. Continue?</span>
+            <button class="log-confirm-cancel" onclick="cancelSlugRenameConfirm(${product.id})">Cancel</button>
+            <button class="log-confirm-delete" onclick="confirmSlugRename(${product.id})">Rename</button>
+          </div>
+        </div>`;
+    }
+
+    function retailerUrlsHtml(product) {
+      const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'];
+      const existing = new Set(Object.keys(product.urls ?? {}));
+      let rows = '';
+      for (const retailer of SCRAPED_RETAILERS) {
+        const url = product.urls?.[retailer];
+        if (!url) continue;
+        const retailerName = RETAILER_NAMES[retailer] || retailer;
+        rows += `
+          <div class="url-form-row" style="margin-bottom:4px;">
+            <span class="prices-retailer-name">${retailerName}</span>
+            <a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer" class="price-row-link">Visit →</a>
+            <button class="url-edit-btn" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')" title="Edit URL">✎</button>
+            <button class="url-edit-btn url-edit-btn--danger" onclick="showRemoveRetailerConfirm(${product.id},'${retailer}')" title="Remove retailer">✕</button>
+          </div>
+          <div class="url-inline-form" id="url-form-${product.id}-${retailer}" style="display:none">
+            <div class="url-form-row">
+              <span class="url-form-label">${escHtml(retailerName)}</span>
+              <input type="url" class="url-input" id="url-input-${product.id}-${retailer}" value="${escAttr(url)}" placeholder="https://...">
+              <button class="alert-set-btn" onclick="saveRetailerUrl(${product.id},'${retailer}')">Save</button>
+            </div>
+          </div>
+          <div class="log-confirm-row" id="remove-retailer-confirm-${product.id}-${retailer}" hidden>
+            <span>Stop tracking ${escHtml(retailerName)} for this product? Its price history will be deleted.</span>
+            <button class="log-confirm-cancel" onclick="cancelRemoveRetailerConfirm(${product.id},'${retailer}')">Cancel</button>
+            <button class="log-confirm-delete" onclick="removeRetailer(${product.id},'${retailer}')">Remove</button>
+          </div>`;
+      }
+      const missing = SCRAPED_RETAILERS.filter(r => !existing.has(r));
+      let addHtml = '';
+      if (missing.length > 0) {
+        const options = missing.map(r => `<option value="${r}">${escHtml(RETAILER_NAMES[r] || r)}</option>`).join('');
+        addHtml = `
+          <div class="url-add-section" id="url-add-section-${product.id}" style="display:none">
+            <div class="url-form-row">
+              <select class="url-retailer-select" id="url-add-retailer-${product.id}">${options}</select>
+              <input type="url" class="url-input" id="url-add-url-${product.id}" placeholder="https://...">
+              <button class="alert-set-btn" onclick="saveAddRetailerUrl(${product.id})">Add</button>
+            </div>
+          </div>
+          <button class="url-add-retailer-btn" onclick="toggleAddRetailerForm(${product.id})">+ Retailer</button>`;
+      }
+      return rows + addHtml;
+    }
+
+    function packComponentRowHtml(product, comp, idx) {
+      // A pack cannot reference itself or another pack as a component (server-enforced too —
+      // this is a one-level expansion model, see resolveInventoryKey's bundleKey closure).
+      const productOptions = getAllProductSlugs()
+        .filter(s => s !== product.slug && !productBySlug[s]?.isPack)
+        .map(s => `<option value="${escAttr(s)}"${s === comp.slug ? ' selected' : ''}>${escHtml(resolveProductName(s))}</option>`)
+        .join('');
+      let sectionSelect = '';
+      if (!comp.slug) {
+        const current = comp.sectionCategory && comp.sectionLabel ? `${comp.sectionCategory}::${comp.sectionLabel}` : '';
+        let opts = `<option value="">Equipment — Other</option>`;
+        for (const cat of allCategories) {
+          for (const sec of cat.sections) {
+            const val = `${cat.label}::${sec.label}`;
+            opts += `<option value="${escAttr(val)}"${val === current ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
+          }
+        }
+        sectionSelect = `<select class="url-retailer-select" onchange="updatePackDraftField(${product.id},${idx},'sectionPath',this.value)">${opts}</select>`;
+      }
+      return `
+        <div class="url-form-row" style="margin-bottom:8px;">
+          <select class="url-retailer-select" onchange="updatePackDraftSlug(${product.id},${idx},this.value)">
+            <option value="">— Custom item —</option>
+            ${productOptions}
+          </select>
+          <input type="text" class="url-input" placeholder="Component name" value="${escAttr(comp.name || '')}" oninput="updatePackDraftField(${product.id},${idx},'name',this.value)">
+          <input type="number" class="url-input add-product-slug-input" placeholder="ml (optional)" value="${comp.volumeMl ?? ''}" oninput="updatePackDraftField(${product.id},${idx},'volumeMl',this.value)">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-mid);white-space:nowrap;">
+            <input type="checkbox" ${comp.equipment ? 'checked' : ''} onchange="updatePackDraftField(${product.id},${idx},'equipment',this.checked)"> Equipment
+          </label>
+          ${sectionSelect}
+          <button class="step-remove-btn" onclick="removePackDraftRow(${product.id},${idx})" title="Remove component">✕</button>
+        </div>`;
+    }
+
+    function packEditorHtml(product) {
+      const isEditing = packDrafts[product.id] !== undefined;
+      const checked = isEditing || product.isPack;
+      let html = `
+        <div style="display:flex;align-items:center;gap:10px;margin:10px 0;">
+          <label class="toggle-wrap">
+            <input type="checkbox" ${checked ? 'checked' : ''} onchange="togglePackForCard(${product.id}, this.checked, this)">
+            <span class="toggle-track"></span>
+          </label>
+          <span style="font-size:12.5px;color:var(--ink-mid);">Is a pack — checking it off in Checklist adds its components to Inventory</span>
+        </div>`;
+      if (checked) {
+        if (!packDrafts[product.id]) {
+          packDrafts[product.id] = product.components?.length ? product.components.map(c => ({ ...c })) : [{}];
+        }
+        const draft = packDrafts[product.id];
+        html += `
+          <div class="url-inline-form">
+            ${draft.map((comp, idx) => packComponentRowHtml(product, comp, idx)).join('')}
+            <button class="add-step-btn" onclick="addPackDraftRow(${product.id})">+ Add component</button>
+            <div class="settings-save-bar">
+              <button class="settings-save-btn" onclick="savePackDraft(${product.id})">Save pack</button>
+              <button class="settings-reset-btn" onclick="cancelPackEdit(${product.id})">Cancel</button>
+            </div>
+            <div id="pack-error-${product.id}" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
+          </div>`;
+      }
+      html += `
+        <div class="log-confirm-row" id="unpack-confirm-${product.id}" hidden>
+          <span>Remove pack configuration for "${escHtml(product.name)}"? Its components will no longer be added to Inventory when checked off.</span>
+          <button class="log-confirm-cancel" onclick="cancelUnpackConfirm(${product.id})">Cancel</button>
+          <button class="log-confirm-delete" onclick="confirmUnpack(${product.id})">Remove</button>
+        </div>`;
+      return html;
+    }
+
+    function deleteProductHtml(product) {
+      return `
+        <div class="prices-product-footer">
+          <button class="prices-delete-link" onclick="showDeleteProductConfirm(${product.id})">Delete product</button>
+        </div>
+        <div class="log-confirm-row" id="delete-product-confirm-${product.id}" hidden>
+          <span>Delete "${escHtml(product.name)}"? This removes all price history, retailer links, and pack configuration. Cannot be undone.</span>
+          <button class="log-confirm-cancel" onclick="cancelDeleteProductConfirm(${product.id})">Cancel</button>
+          <button class="log-confirm-delete" onclick="deleteProduct(${product.id})">Delete</button>
+        </div>`;
+    }
+
+    function renderProductCards(slugs) {
+      let html = '';
+      for (const slug of slugs) {
+        const product = productBySlug[slug];
+        if (!product) continue;
+        html += `
+          <div class="prices-product">
+            <div class="prices-product-name">
+              ${escHtml(product.name)}
+              <button class="url-edit-btn" onclick="toggleProductNameForm(${product.id})" title="Rename product">✎</button>
+              ${categorySelectHtml(slug)}
+            </div>
+            ${nameFormHtml(product)}
+            ${slugRowHtml(product)}
+            ${retailerUrlsHtml(product)}
+            ${packEditorHtml(product)}
+            ${deleteProductHtml(product)}
+          </div>`;
+      }
+      return html;
+    }
+
+    container.innerHTML = '';
+    let anyCard = false;
+
+    for (const category of allCategories) {
+      let body = '';
+      let firstSec = true;
+      for (const sec of category.sections) {
+        const secHtml = renderProductCards(sec.slugs);
+        if (!secHtml) continue;
+        const headClass = firstSec ? 'section-head' : 'section-head section-head--gap';
+        body += `<div class="${headClass}">${sec.label}</div>${secHtml}`;
+        firstSec = false;
+      }
+      if (!body) continue;
+      const card = document.createElement('div');
+      card.className = 'phase-spend-card';
+      card.innerHTML = `<div class="phase-spend-head"><div class="phase-spend-name">${category.label}</div></div>${body}`;
+      container.appendChild(card);
+      anyCard = true;
+    }
+
+    const categorisedSlugs = new Set(allCategories.flatMap(c => c.sections.flatMap(s => s.slugs)));
+    const uncategorisedSlugs = liveProducts.filter(p => !categorisedSlugs.has(p.slug)).map(p => p.slug);
+    if (uncategorisedSlugs.length > 0) {
+      const body = renderProductCards(uncategorisedSlugs);
+      if (body) {
+        const card = document.createElement('div');
+        card.className = 'phase-spend-card';
+        card.innerHTML = `<div class="phase-spend-head"><div class="phase-spend-name">Other</div></div>${body}`;
+        container.appendChild(card);
+        anyCard = true;
+      }
+    }
+
+    if (!anyCard) {
+      container.innerHTML = '<p class="prices-empty">No products yet.</p>';
+    }
+
+    const addWrap = document.createElement('div');
+    addWrap.className = 'prices-add-product-wrap';
+    addWrap.innerHTML = `
+      <button class="url-add-retailer-btn" onclick="toggleAddProductForm()">+ Add product</button>
+      <div class="url-add-section" id="prices-add-product-form" style="display:none">
+        <div class="url-form-row">
+          <input type="text" class="url-input" id="add-product-name" placeholder="Product name" oninput="autoFillProductSlug()">
+          <input type="text" class="url-input add-product-slug-input" id="add-product-slug" placeholder="product-slug">
+        </div>
+        <div class="url-form-row" style="margin-top:6px">
+          <select class="url-retailer-select" id="add-product-retailer">
+            <option value="">No URL yet</option>
+            <option value="supercheap">Supercheap Auto</option>
+            <option value="repco">Repco</option>
+            <option value="autobarn">Auto Barn</option>
+            <option value="autopro">Autopro</option>
+          </select>
+          <input type="url" class="url-input" id="add-product-url" placeholder="https://...">
+          <button class="alert-set-btn" onclick="saveNewProduct()">Add</button>
+        </div>
+        <div id="add-product-error" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
+      </div>`;
+    container.appendChild(addWrap);
+  }
+
+  function toggleProductSlugForm(productId) {
+    const form = document.getElementById(`product-slug-form-${productId}`);
+    if (!form) return;
+    const opening = form.style.display === 'none';
+    form.style.display = opening ? 'block' : 'none';
+    if (opening) document.getElementById(`product-slug-input-${productId}`)?.focus();
+  }
+
+  function requestSlugRename(productId) {
+    const input = document.getElementById(`product-slug-input-${productId}`);
+    const errorEl = document.getElementById(`product-slug-error-${productId}`);
+    if (errorEl) errorEl.style.display = 'none';
+    const slug = input?.value.trim() ?? '';
+    if (!slug || !/^[a-z0-9-]+$/.test(slug)) {
+      if (errorEl) { errorEl.textContent = 'Slug must be lowercase letters, numbers and hyphens.'; errorEl.style.display = 'block'; }
+      input?.focus();
+      return;
+    }
+    const product = liveProducts.find(p => p.id === productId);
+    if (product && slug === product.slug) {
+      if (errorEl) { errorEl.textContent = 'That is already the current slug.'; errorEl.style.display = 'block'; }
+      return;
+    }
+    document.getElementById(`slug-rename-confirm-${productId}`)?.removeAttribute('hidden');
+  }
+
+  function cancelSlugRenameConfirm(productId) {
+    document.getElementById(`slug-rename-confirm-${productId}`)?.setAttribute('hidden', '');
+  }
+
+  async function confirmSlugRename(productId) {
+    const input = document.getElementById(`product-slug-input-${productId}`);
+    const errorEl = document.getElementById(`product-slug-error-${productId}`);
+    const newSlug = input?.value.trim() ?? '';
+    const product = liveProducts.find(p => p.id === productId);
+    const oldSlug = product?.slug;
+    if (!newSlug || !oldSlug) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ slug: newSlug }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to rename slug.' }));
+        cancelSlugRenameConfirm(productId);
+        if (errorEl) { errorEl.textContent = err.error || 'Failed to rename slug.'; errorEl.style.display = 'block'; }
+        return;
+      }
+      product.slug = newSlug;
+      await renameProductSlugEverywhere(oldSlug, newSlug);
+    } catch (e) {
+      console.error('confirmSlugRename:', e);
+      cancelSlugRenameConfirm(productId);
+      if (errorEl) { errorEl.textContent = 'Network error — try again.'; errorEl.style.display = 'block'; }
+    }
+  }
+
+  // Updates every client-side store that keys data by product slug, after a successful
+  // PATCH /products/:id slug rename. Bypasses saveChecklist() (which would overwrite
+  // checklistState.checked from the still-old-slug itemData snapshot built by the last
+  // renderChecklist() call) — persists directly instead, then re-renders.
+  async function renameProductSlugEverywhere(oldSlug, newSlug) {
+    for (const cat of allCategories) {
+      for (const sec of cat.sections) {
+        const i = sec.slugs.indexOf(oldSlug);
+        if (i !== -1) sec.slugs[i] = newSlug;
+      }
+    }
+    await saveCategories();
+
+    for (const phase of checklistState.phases) {
+      const i = phase.items.indexOf(oldSlug);
+      if (i !== -1) phase.items[i] = newSlug;
+    }
+    if (oldSlug in checklistState.checked) {
+      checklistState.checked[newSlug] = checklistState.checked[oldSlug];
+      delete checklistState.checked[oldSlug];
+    }
+    await storageSet(CHECKLIST_V3_KEY, checklistState);
+    syncPush(CHECKLIST_V3_KEY, checklistState);
+    renderChecklist();
+    recompute();
+
+    const renamedInventory = {};
+    for (const [key, val] of Object.entries(inventoryState)) {
+      if (key === oldSlug) renamedInventory[newSlug] = val;
+      else if (key.startsWith(`${oldSlug}:`)) renamedInventory[`${newSlug}:${key.slice(oldSlug.length + 1)}`] = val;
+      else renamedInventory[key] = val;
+    }
+    inventoryState = renamedInventory;
+    await saveInventory();
+
+    if (oldSlug in priceAlerts) {
+      priceAlerts[newSlug] = priceAlerts[oldSlug];
+      delete priceAlerts[oldSlug];
+      await storageSet(ALERTS_KEY, priceAlerts);
+      syncPush(ALERTS_KEY, priceAlerts);
+    }
+
+    // Other packs may have this slug cached in their in-memory components snapshot — rather
+    // than hunting every pack's component list for a stale slug string, refetch liveProducts
+    // wholesale (this also rebuilds bundleComponents and re-renders Products/Prices/Inventory).
+    await loadPriceData();
+  }
+
+  function togglePackForCard(productId, checked, checkboxEl) {
+    const product = liveProducts.find(p => p.id === productId);
+    if (!product) return;
+    if (checked) {
+      if (!packDrafts[productId]) {
+        packDrafts[productId] = product.components?.length ? product.components.map(c => ({ ...c })) : [{}];
+      }
+      renderProductsPage();
+      return;
+    }
+    if (product.isPack) {
+      if (checkboxEl) checkboxEl.checked = true; // hold visually checked until the confirm resolves
+      document.getElementById(`unpack-confirm-${productId}`)?.removeAttribute('hidden');
+    } else {
+      delete packDrafts[productId];
+      renderProductsPage();
+    }
+  }
+
+  function cancelUnpackConfirm(productId) {
+    document.getElementById(`unpack-confirm-${productId}`)?.setAttribute('hidden', '');
+  }
+
+  async function confirmUnpack(productId) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}/pack`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error(await res.text());
+      const product = liveProducts.find(p => p.id === productId);
+      if (product) { product.isPack = false; product.components = []; }
+      delete packDrafts[productId];
+      rebuildBundleComponents();
+      renderInventory();
+      renderProductsPage();
+    } catch (e) {
+      console.error('confirmUnpack:', e);
+    }
+  }
+
+  function cancelPackEdit(productId) {
+    delete packDrafts[productId];
+    renderProductsPage();
+  }
+
+  function addPackDraftRow(productId) {
+    if (!packDrafts[productId]) packDrafts[productId] = [];
+    packDrafts[productId].push({});
+    renderProductsPage();
+  }
+
+  function removePackDraftRow(productId, idx) {
+    packDrafts[productId]?.splice(idx, 1);
+    renderProductsPage();
+  }
+
+  function updatePackDraftSlug(productId, idx, slug) {
+    const comp = packDrafts[productId]?.[idx];
+    if (!comp) return;
+    if (slug) {
+      comp.slug = slug;
+      if (!comp.name) comp.name = resolveProductName(slug);
+      delete comp.sectionCategory;
+      delete comp.sectionLabel;
+    } else {
+      delete comp.slug;
+    }
+    renderProductsPage();
+  }
+
+  function updatePackDraftField(productId, idx, field, val) {
+    const comp = packDrafts[productId]?.[idx];
+    if (!comp) return;
+    if (field === 'volumeMl') comp.volumeMl = val ? parseInt(val, 10) : undefined;
+    else if (field === 'equipment') comp.equipment = val;
+    else if (field === 'sectionPath') {
+      if (val) { const [c, s] = val.split('::'); comp.sectionCategory = c; comp.sectionLabel = s; }
+      else { delete comp.sectionCategory; delete comp.sectionLabel; }
+    } else {
+      comp.name = val;
+    }
+  }
+
+  async function savePackDraft(productId) {
+    const draft = packDrafts[productId];
+    const errorEl = document.getElementById(`pack-error-${productId}`);
+    if (errorEl) errorEl.style.display = 'none';
+    if (!draft || draft.length === 0) {
+      if (errorEl) { errorEl.textContent = 'Add at least one component.'; errorEl.style.display = 'block'; }
+      return;
+    }
+    for (const c of draft) {
+      if (!c.name || !c.name.trim()) {
+        if (errorEl) { errorEl.textContent = 'Every component needs a name.'; errorEl.style.display = 'block'; }
+        return;
+      }
+    }
+    const slugToId = Object.fromEntries(liveProducts.map(p => [p.slug, p.id]));
+    const components = draft.map(c => ({
+      componentProductId: c.slug ? slugToId[c.slug] : undefined,
+      name: c.name.trim(),
+      volumeMl: c.volumeMl || undefined,
+      equipment: c.equipment || undefined,
+      sectionCategory: c.sectionCategory || undefined,
+      sectionLabel: c.sectionLabel || undefined,
+    }));
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}/pack`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ components }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to save pack.' }));
+        if (errorEl) { errorEl.textContent = err.error || 'Failed to save pack.'; errorEl.style.display = 'block'; }
+        return;
+      }
+      const data = await res.json();
+      const product = liveProducts.find(p => p.id === productId);
+      if (product) { product.isPack = true; product.components = data.components; }
+      delete packDrafts[productId];
+      rebuildBundleComponents();
+      renderInventory();
+      renderProductsPage();
+    } catch (e) {
+      console.error('savePackDraft:', e);
+      if (errorEl) { errorEl.textContent = 'Network error — try again.'; errorEl.style.display = 'block'; }
+    }
   }
 
   function editAlertInSummary(slug) {
@@ -1786,6 +2116,7 @@ Output only the CSV starting with the header row.`;
     syncPush(CATEGORIES_KEY, allCategories);
     renderInventory();
     renderPricesTab();
+    renderProductsPage();
   }
 
   function getCategoryAssignment() {
@@ -2024,7 +2355,7 @@ Output only the CSV starting with the header row.`;
   // accounting for bundle expansion and size-variant fallback via SLUG_FAMILIES.
   function resolveInventoryKey(slug) {
     const bundleKey = (s) => {
-      const comps = BUNDLE_COMPONENTS[s];
+      const comps = bundleComponents[s];
       if (!comps) return s;
       const first = comps.find(c => !c.equipment);
       if (!first) return null;
@@ -2423,7 +2754,7 @@ Output only the CSV starting with the header row.`;
     const inlineSectionItems = new Map();
 
     for (const bSlug of ownedSlugs) {
-      const components = BUNDLE_COMPONENTS[bSlug];
+      const components = bundleComponents[bSlug];
       if (!components) continue;
 
       // Count names within this bundle to detect duplicates needing numbering
@@ -2500,7 +2831,7 @@ Output only the CSV starting with the header row.`;
 
         for (const slug of sec.slugs) {
           // Bundle slug owned: skip it — its components render at their correct slug positions
-          if (BUNDLE_COMPONENTS[slug] && ownedSlugs.has(slug)) continue;
+          if (bundleComponents[slug] && ownedSlugs.has(slug)) continue;
 
           // Slug-referenced bundle components that belong in this section
           const expansions = bundleExpansion.get(slug);
@@ -2515,7 +2846,7 @@ Output only the CSV starting with the header row.`;
           }
 
           // Directly owned non-bundle item
-          if (ownedSlugs.has(slug) && !BUNDLE_COMPONENTS[slug]) {
+          if (ownedSlugs.has(slug) && !bundleComponents[slug]) {
             const inv = inventoryState[slug] ?? {};
             if (!EQUIPMENT_SLUGS.has(slug) && inv.remainingMl === 0) continue;
             secHtml += renderInvCard(slug);
@@ -2550,7 +2881,7 @@ Output only the CSV starting with the header row.`;
     let otherHtml = '';
     for (const slug of new Set([...ownedSlugs, ...bundleExpansion.keys()])) {
       if (categorisedSlugs.has(slug)) continue;
-      if (BUNDLE_COMPONENTS[slug] && ownedSlugs.has(slug)) continue;
+      if (bundleComponents[slug] && ownedSlugs.has(slug)) continue;
 
       const expansions = bundleExpansion.get(slug);
       if (expansions) {
@@ -2562,7 +2893,7 @@ Output only the CSV starting with the header row.`;
           otherHtml += renderComponentCard(displayComp, bundleSlug, stateKey);
         }
       }
-      if (ownedSlugs.has(slug) && !BUNDLE_COMPONENTS[slug]) {
+      if (ownedSlugs.has(slug) && !bundleComponents[slug]) {
         const inv = inventoryState[slug] ?? {};
         if (!EQUIPMENT_SLUGS.has(slug) && inv.remainingMl === 0) continue;
         otherHtml += renderInvCard(slug);
@@ -4527,6 +4858,7 @@ Output only the CSV starting with the header row.`;
       const prod = liveProducts.find(p => p.id === productId);
       if (prod) { prod.urls = prod.urls ?? {}; prod.urls[retailer] = url; }
       renderPricesTab();
+      renderProductsPage();
     } catch (e) {
       console.error('saveRetailerUrl:', e);
     }
@@ -4548,6 +4880,7 @@ Output only the CSV starting with the header row.`;
       const prod = liveProducts.find(p => p.id === productId);
       if (prod) { prod.urls = prod.urls ?? {}; prod.urls[retailer] = url; }
       renderPricesTab();
+      renderProductsPage();
     } catch (e) {
       console.error('saveAddRetailerUrl:', e);
     }
@@ -4574,6 +4907,7 @@ Output only the CSV starting with the header row.`;
         delete prod.latestPrice?.[retailer];
       }
       renderPricesTab();
+      renderProductsPage();
     } catch (e) {
       console.error('removeRetailer:', e);
     }
@@ -4631,8 +4965,9 @@ Output only the CSV starting with the header row.`;
         return;
       }
       const newProd = await res.json();
-      liveProducts.push({ ...newProd, latestPrice: {}, urls: retailer && url ? { [retailer]: url } : {} });
+      liveProducts.push({ ...newProd, isPack: false, components: [], latestPrice: {}, urls: retailer && url ? { [retailer]: url } : {} });
       renderPricesTab();
+      renderProductsPage();
     } catch (e) {
       console.error('saveNewProduct:', e);
       if (errorEl) { errorEl.textContent = 'Network error — try again.'; errorEl.style.display = 'block'; }
@@ -4689,6 +5024,7 @@ Output only the CSV starting with the header row.`;
         if (changed) await saveRoutines();
       }
       renderPricesTab();
+      renderProductsPage();
     } catch (e) {
       console.error('saveProductName:', e);
       if (errorEl) { errorEl.textContent = 'Network error — try again.'; errorEl.style.display = 'block'; }
@@ -4712,7 +5048,12 @@ Output only the CSV starting with the header row.`;
       if (!res.ok) throw new Error(await res.text());
       liveProducts = liveProducts.filter(p => p.id !== productId);
       delete priceHistories[productId];
+      delete packDrafts[productId];
       renderPricesTab();
+      renderProductsPage();
+      // The deleted product may have been a component of another pack (backend cascades that
+      // removal server-side) — refetch so any such pack's card and Inventory reflect it too.
+      await loadPriceData();
     } catch (e) {
       console.error('deleteProduct:', e);
     }
@@ -4831,9 +5172,13 @@ Output only the CSV starting with the header row.`;
       if (!res.ok) return;
       liveProducts = await res.json();
       applyLivePrices();
+      rebuildBundleComponents();
       // Inventory's add-product picker and "Other" card depend on liveProducts,
       // which loads after the tab's initial render — re-render now that it's ready.
       renderInventory();
+      // Products doesn't need price history, so render it here rather than waiting on the
+      // slower loadPriceHistories() → renderPricesTab() chain below.
+      renderProductsPage();
       loadPriceHistories();
     } catch {
       // backend unavailable or cold-starting — app works without prices
@@ -5075,6 +5420,7 @@ Output only the CSV starting with the header row.`;
       storageSet(CATEGORY_OVERRIDES_KEY, {}),
       storageSet(CUSTOM_CATEGORIES_KEY, []),
       storageSet(CATEGORIES_KEY, []),
+      storageSet(BUNDLE_COMPONENTS_CACHE_KEY, {}),
       storageSet(AUTH_CACHE_KEY, null),
     ]);
     location.reload();
@@ -5481,6 +5827,10 @@ Output only the CSV starting with the header row.`;
     });
     await loadChecklist();
     await loadCategories();
+    // Hydrate pack data from the last successful GET /api/products before loadInventory()
+    // renders — otherwise a checklist check-off during a brief backend outage would silently
+    // fail to expand a pack's components, since packs are no longer a hardcoded constant.
+    bundleComponents = (await storageGet(BUNDLE_COMPONENTS_CACHE_KEY)) ?? {};
     await loadInventory();
     await loadLog();
     await loadBudget();
