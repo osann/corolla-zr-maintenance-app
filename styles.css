@@ -1233,6 +1233,76 @@
     letter-spacing: 0.04em;
   }
 
+  /* ─── Generic modal shell (currently used by the pack editor) ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-card {
+    background: var(--bg);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 640px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--rule);
+    flex-shrink: 0;
+  }
+  .modal-title {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: var(--ink-mid);
+    cursor: pointer;
+    padding: 4px 8px;
+    opacity: 0.6;
+    transition: opacity 120ms;
+    flex-shrink: 0;
+  }
+  .modal-close:hover { opacity: 1; }
+  .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  /* Each pack component gets its own bounded card so it's obvious which fields
+     (product/name, ml/equipment, category) belong together — previously these were one
+     long flex row that wrapped unpredictably with no visual grouping between components. */
+  .pack-component-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .pack-component-card .url-form-row { margin-bottom: 8px; flex-wrap: nowrap; }
+  .pack-component-card .url-form-row:last-child { margin-bottom: 0; }
+  .pack-component-card .url-input { min-width: 0; }
+  @media (max-width: 480px) {
+    .pack-component-card .url-form-row { flex-wrap: wrap; }
+  }
+
   /* ─── Spend Panel ───────────────────────────────── */
   .spend-summary {
     display: grid;

@@ -1098,6 +1098,7 @@ Output only the CSV starting with the header row.`;
   // inside the Inventory tab, which is already hidden until signed in (renderAuthUI) — the
   // early-return below is defence in depth for the rare case this fires before that gate runs.
   let packDrafts = {}; // productId → in-progress array of component drafts, while editing
+  let activePackEditorId = null; // productId currently open in #pack-editor-modal, or null
 
   function renderProductsPage() {
     const container = document.getElementById('products-list');
@@ -1196,75 +1197,29 @@ Output only the CSV starting with the header row.`;
       return rows + addHtml;
     }
 
-    function packComponentRowHtml(product, comp, idx) {
-      // A pack cannot reference itself or another pack as a component (server-enforced too —
-      // this is a one-level expansion model, see resolveInventoryKey's bundleKey closure).
-      const productOptions = getAllProductSlugs()
-        .filter(s => s !== product.slug && !productBySlug[s]?.isPack)
-        .map(s => `<option value="${escAttr(s)}"${s === comp.slug ? ' selected' : ''}>${escHtml(resolveProductName(s))}</option>`)
-        .join('');
-      let sectionSelect = '';
-      if (!comp.slug) {
-        const current = comp.sectionCategory && comp.sectionLabel ? `${comp.sectionCategory}::${comp.sectionLabel}` : '';
-        let opts = `<option value="">Equipment — Other</option>`;
-        for (const cat of allCategories) {
-          for (const sec of cat.sections) {
-            const val = `${cat.label}::${sec.label}`;
-            opts += `<option value="${escAttr(val)}"${val === current ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
-          }
-        }
-        sectionSelect = `<select class="url-retailer-select" onchange="updatePackDraftField(${product.id},${idx},'sectionPath',this.value)">${opts}</select>`;
-      }
-      return `
-        <div class="url-form-row" style="margin-bottom:8px;">
-          <select class="url-retailer-select" onchange="updatePackDraftSlug(${product.id},${idx},this.value)">
-            <option value="">— Custom item —</option>
-            ${productOptions}
-          </select>
-          <input type="text" class="url-input" placeholder="Component name" value="${escAttr(comp.name || '')}" oninput="updatePackDraftField(${product.id},${idx},'name',this.value)">
-          <input type="number" class="url-input add-product-slug-input" placeholder="ml (optional)" value="${comp.volumeMl ?? ''}" oninput="updatePackDraftField(${product.id},${idx},'volumeMl',this.value)">
-          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-mid);white-space:nowrap;">
-            <input type="checkbox" ${comp.equipment ? 'checked' : ''} onchange="updatePackDraftField(${product.id},${idx},'equipment',this.checked)"> Equipment
-          </label>
-          ${sectionSelect}
-          <button class="step-remove-btn" onclick="removePackDraftRow(${product.id},${idx})" title="Remove component">✕</button>
-        </div>`;
-    }
-
+    // Card-level summary only — the actual component list is edited in the pack-editor modal
+    // (openPackEditor), which has room to lay each component out clearly. Keeping the full
+    // editor inline here (as before) meant every pack-enabled product's card permanently
+    // showed its whole component list, making the Products page extremely long.
     function packEditorHtml(product) {
-      const isEditing = packDrafts[product.id] !== undefined;
-      const checked = isEditing || product.isPack;
-      let html = `
+      const isPack = product.isPack;
+      const count = product.components?.length ?? 0;
+      const label = isPack
+        ? `Pack — ${count} component${count === 1 ? '' : 's'}. <a href="#" onclick="openPackEditor(${product.id});return false;" style="color:var(--accent);">Edit contents</a>`
+        : `Is a pack — checking it off in Checklist adds its components to Inventory`;
+      return `
         <div style="display:flex;align-items:center;gap:10px;margin:10px 0;">
           <label class="toggle-wrap">
-            <input type="checkbox" ${checked ? 'checked' : ''} onchange="togglePackForCard(${product.id}, this.checked, this)">
+            <input type="checkbox" ${isPack ? 'checked' : ''} onchange="togglePackForCard(${product.id}, this.checked, this)">
             <span class="toggle-track"></span>
           </label>
-          <span style="font-size:12.5px;color:var(--ink-mid);">Is a pack — checking it off in Checklist adds its components to Inventory</span>
-        </div>`;
-      if (checked) {
-        if (!packDrafts[product.id]) {
-          packDrafts[product.id] = product.components?.length ? product.components.map(c => ({ ...c })) : [{}];
-        }
-        const draft = packDrafts[product.id];
-        html += `
-          <div class="url-inline-form">
-            ${draft.map((comp, idx) => packComponentRowHtml(product, comp, idx)).join('')}
-            <button class="add-step-btn" onclick="addPackDraftRow(${product.id})">+ Add component</button>
-            <div class="settings-save-bar">
-              <button class="settings-save-btn" onclick="savePackDraft(${product.id})">Save pack</button>
-              <button class="settings-reset-btn" onclick="cancelPackEdit(${product.id})">Cancel</button>
-            </div>
-            <div id="pack-error-${product.id}" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;"></div>
-          </div>`;
-      }
-      html += `
+          <span style="font-size:12.5px;color:var(--ink-mid);">${label}</span>
+        </div>
         <div class="log-confirm-row" id="unpack-confirm-${product.id}" hidden>
           <span>Remove pack configuration for "${escHtml(product.name)}"? Its components will no longer be added to Inventory when checked off.</span>
           <button class="log-confirm-cancel" onclick="cancelUnpackConfirm(${product.id})">Cancel</button>
           <button class="log-confirm-delete" onclick="confirmUnpack(${product.id})">Remove</button>
         </div>`;
-      return html;
     }
 
     function deleteProductHtml(product) {
@@ -1475,23 +1430,102 @@ Output only the CSV starting with the header row.`;
     const product = liveProducts.find(p => p.id === productId);
     if (!product) return;
     if (checked) {
-      if (!packDrafts[productId]) {
-        packDrafts[productId] = product.components?.length ? product.components.map(c => ({ ...c })) : [{}];
-      }
-      renderProductsPage();
+      // Jump straight into the editor for a brand-new pack — nothing is saved until "Save
+      // pack" there, so there's no half-configured state left behind if the user backs out.
+      openPackEditor(productId);
       return;
     }
     if (product.isPack) {
       if (checkboxEl) checkboxEl.checked = true; // hold visually checked until the confirm resolves
       document.getElementById(`unpack-confirm-${productId}`)?.removeAttribute('hidden');
-    } else {
-      delete packDrafts[productId];
-      renderProductsPage();
     }
   }
 
   function cancelUnpackConfirm(productId) {
     document.getElementById(`unpack-confirm-${productId}`)?.setAttribute('hidden', '');
+  }
+
+  // Opens the pack-contents modal for a product, seeding a draft from its saved components
+  // (or one blank row for a brand-new pack) if one isn't already in progress.
+  function openPackEditor(productId) {
+    const product = liveProducts.find(p => p.id === productId);
+    if (!product) return;
+    if (!packDrafts[productId]) {
+      packDrafts[productId] = product.components?.length ? product.components.map(c => ({ ...c })) : [{}];
+    }
+    activePackEditorId = productId;
+    renderPackEditorModal();
+    document.getElementById('pack-editor-modal')?.removeAttribute('hidden');
+  }
+
+  function closePackEditor() {
+    document.getElementById('pack-editor-modal')?.setAttribute('hidden', '');
+    activePackEditorId = null;
+  }
+
+  // Each component gets its own bordered card (name+remove on top, ml/equipment below, and
+  // a category picker for inline items) instead of one long flex row — six fields packed
+  // into a single row wrapped unpredictably with no visual boundary between components.
+  function packComponentCardHtml(product, comp, idx) {
+    // A pack cannot reference itself or another pack as a component (server-enforced too —
+    // this is a one-level expansion model, see resolveInventoryKey's bundleKey closure).
+    const productOptions = getAllProductSlugs()
+      .filter(s => s !== product.slug && !liveProducts.find(p => p.slug === s)?.isPack)
+      .map(s => `<option value="${escAttr(s)}"${s === comp.slug ? ' selected' : ''}>${escHtml(resolveProductName(s))}</option>`)
+      .join('');
+    let sectionRow = '';
+    if (!comp.slug) {
+      const current = comp.sectionCategory && comp.sectionLabel ? `${comp.sectionCategory}::${comp.sectionLabel}` : '';
+      let opts = `<option value="">Equipment — Other</option>`;
+      for (const cat of allCategories) {
+        for (const sec of cat.sections) {
+          const val = `${cat.label}::${sec.label}`;
+          opts += `<option value="${escAttr(val)}"${val === current ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
+        }
+      }
+      sectionRow = `
+        <div class="url-form-row">
+          <span class="url-form-label">Category</span>
+          <select class="url-retailer-select" onchange="updatePackDraftField(${product.id},${idx},'sectionPath',this.value)">${opts}</select>
+        </div>`;
+    }
+    return `
+      <div class="pack-component-card">
+        <div class="url-form-row">
+          <select class="url-retailer-select" onchange="updatePackDraftSlug(${product.id},${idx},this.value)">
+            <option value="">— Custom item —</option>
+            ${productOptions}
+          </select>
+          <input type="text" class="url-input" placeholder="Component name" value="${escAttr(comp.name || '')}" oninput="updatePackDraftField(${product.id},${idx},'name',this.value)">
+          <button class="step-remove-btn" onclick="removePackDraftRow(${product.id},${idx})" title="Remove component">✕</button>
+        </div>
+        <div class="url-form-row">
+          <input type="number" class="url-input add-product-slug-input" placeholder="ml (optional)" value="${comp.volumeMl ?? ''}" oninput="updatePackDraftField(${product.id},${idx},'volumeMl',this.value)">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-mid);white-space:nowrap;">
+            <input type="checkbox" ${comp.equipment ? 'checked' : ''} onchange="updatePackDraftField(${product.id},${idx},'equipment',this.checked)"> Equipment
+          </label>
+        </div>
+        ${sectionRow}
+      </div>`;
+  }
+
+  function renderPackEditorModal() {
+    const productId = activePackEditorId;
+    const product = liveProducts.find(p => p.id === productId);
+    const draft = packDrafts[productId];
+    const titleEl = document.getElementById('pack-editor-title');
+    const bodyEl = document.getElementById('pack-editor-body');
+    if (!product || !draft || !titleEl || !bodyEl) return;
+
+    titleEl.textContent = `Pack contents — ${product.name}`;
+    bodyEl.innerHTML = `
+      ${draft.map((comp, idx) => packComponentCardHtml(product, comp, idx)).join('')}
+      <button class="add-step-btn" onclick="addPackDraftRow(${productId})">+ Add component</button>
+      <div class="settings-save-bar">
+        <button class="settings-save-btn" onclick="savePackDraft(${productId})">Save pack</button>
+        <button class="settings-reset-btn" onclick="cancelPackEdit()">Cancel</button>
+      </div>
+      <div id="pack-error-${productId}" style="display:none;color:var(--danger);font-size:12px;margin-top:8px;"></div>`;
   }
 
   async function confirmUnpack(productId) {
@@ -1509,20 +1543,21 @@ Output only the CSV starting with the header row.`;
     }
   }
 
-  function cancelPackEdit(productId) {
-    delete packDrafts[productId];
+  function cancelPackEdit() {
+    if (activePackEditorId != null) delete packDrafts[activePackEditorId];
+    closePackEditor();
     renderProductsPage();
   }
 
   function addPackDraftRow(productId) {
     if (!packDrafts[productId]) packDrafts[productId] = [];
     packDrafts[productId].push({});
-    renderProductsPage();
+    renderPackEditorModal();
   }
 
   function removePackDraftRow(productId, idx) {
     packDrafts[productId]?.splice(idx, 1);
-    renderProductsPage();
+    renderPackEditorModal();
   }
 
   function updatePackDraftSlug(productId, idx, slug) {
@@ -1536,7 +1571,7 @@ Output only the CSV starting with the header row.`;
     } else {
       delete comp.slug;
     }
-    renderProductsPage();
+    renderPackEditorModal();
   }
 
   function updatePackDraftField(productId, idx, field, val) {
@@ -1591,6 +1626,7 @@ Output only the CSV starting with the header row.`;
       const product = liveProducts.find(p => p.id === productId);
       if (product) { product.isPack = true; product.components = data.components; }
       delete packDrafts[productId];
+      closePackEditor();
       rebuildBundleComponents();
       renderInventory();
       renderProductsPage();
@@ -5820,10 +5856,14 @@ Output only the CSV starting with the header row.`;
     setupPhotoUploadUI();
     document.addEventListener('keydown', e => {
       const lb = document.getElementById('lightbox');
-      if (!lb || lb.hidden) return;
-      if (e.key === 'Escape') closeLightbox();
-      else if (e.key === 'ArrowLeft') lightboxNav(-1);
-      else if (e.key === 'ArrowRight') lightboxNav(1);
+      if (lb && !lb.hidden) {
+        if (e.key === 'Escape') closeLightbox();
+        else if (e.key === 'ArrowLeft') lightboxNav(-1);
+        else if (e.key === 'ArrowRight') lightboxNav(1);
+        return;
+      }
+      const pe = document.getElementById('pack-editor-modal');
+      if (pe && !pe.hidden && e.key === 'Escape') cancelPackEdit();
     });
     await loadChecklist();
     await loadCategories();

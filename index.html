@@ -1401,6 +1401,16 @@
   <div class="lightbox-counter" id="lightbox-counter"></div>
 </div>
 
+<div id="pack-editor-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" onclick="if(event.target===this)cancelPackEdit()">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title" id="pack-editor-title">Pack contents</div>
+      <button class="modal-close" onclick="cancelPackEdit()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="pack-editor-body"></div>
+  </div>
+</div>
+
 <script src="app.js" defer></script>
 
 </body>
