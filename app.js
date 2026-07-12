@@ -369,6 +369,20 @@ Output only the CSV starting with the header row.`;
     'bolp-leather-care-pack':         { volumeMl: 1000, usagePerWashMl: 25  },
   };
 
+  // Per-product overrides from the backend (Products tab) take precedence over the hardcoded
+  // INVENTORY_DEFAULTS above, which stays as the fallback for slugs nobody has customised yet.
+  function getDefaultVolumeMl(slug) {
+    const product = liveProducts.find(p => p.slug === slug);
+    return product?.defaultVolumeMl ?? INVENTORY_DEFAULTS[slug]?.volumeMl ?? null;
+  }
+  // usagePerWashMl here is only ever a fallback — the primary source for "sessions remaining"
+  // is getRoutineUsageMl(slug) (summed from actual routine step ml values). This only kicks in
+  // for a product no routine currently references.
+  function getDefaultUsagePerWashMl(slug) {
+    const product = liveProducts.find(p => p.slug === slug);
+    return product?.defaultUsagePerWashMl ?? INVENTORY_DEFAULTS[slug]?.usagePerWashMl ?? null;
+  }
+
   // Groups size/format variants of the same product so depletion can fall back to
   // whichever variant the user actually owns when the step references a different size.
   const SLUG_FAMILIES = {
@@ -514,12 +528,12 @@ Output only the CSV starting with the header row.`;
         if (!inventoryState[key]) inventoryState[key] = {};
         if (!inventoryState[key].purchaseDate) inventoryState[key].purchaseDate = today;
         if (inventoryState[key].remainingMl == null) {
-          const vol = comp.volumeMl ?? (comp.slug ? INVENTORY_DEFAULTS[comp.slug]?.volumeMl : null) ?? null;
+          const vol = comp.volumeMl ?? (comp.slug ? getDefaultVolumeMl(comp.slug) : null) ?? null;
           if (vol != null) { inventoryState[key].volumeMl = vol; inventoryState[key].remainingMl = vol; }
         }
       }
     } else if (!EQUIPMENT_SLUGS.has(slug) && inventoryState[slug].remainingMl == null) {
-      const vol = INVENTORY_DEFAULTS[slug]?.volumeMl ?? null;
+      const vol = getDefaultVolumeMl(slug);
       if (vol != null) { inventoryState[slug].volumeMl = vol; inventoryState[slug].remainingMl = vol; }
     }
   }
@@ -1165,6 +1179,22 @@ Output only the CSV starting with the header row.`;
         </div>`;
     }
 
+    // Default volume/usage — the sizes assumed when this product is checked off with no stock
+    // recorded yet (volume) and the "sessions remaining" fallback when no routine step
+    // references it (usage). Both are nullable overrides on top of the app's hardcoded
+    // INVENTORY_DEFAULTS fallback — see getDefaultVolumeMl()/getDefaultUsagePerWashMl().
+    function defaultVolumeHtml(product) {
+      return `
+        <div class="url-form-row" style="margin-bottom:6px;">
+          <span class="url-form-label">Default volume</span>
+          <input type="number" class="url-input add-product-slug-input" id="default-volume-${product.id}" placeholder="ml" min="1" value="${product.defaultVolumeMl ?? ''}">
+          <span class="url-form-label">Usage/wash</span>
+          <input type="number" class="url-input add-product-slug-input" id="default-usage-${product.id}" placeholder="ml" min="1" value="${product.defaultUsagePerWashMl ?? ''}">
+          <button class="alert-set-btn" onclick="saveProductDefaults(${product.id})">Save</button>
+        </div>
+        <div id="product-defaults-error-${product.id}" style="display:none;color:var(--danger);font-size:12px;margin:-2px 0 6px;"></div>`;
+    }
+
     // Card-level summary only — the actual component list is edited in the pack-editor modal
     // (openPackEditor), which has room to lay each component out clearly. Keeping the full
     // editor inline here (as before) meant every pack-enabled product's card permanently
@@ -1217,6 +1247,7 @@ Output only the CSV starting with the header row.`;
             ${nameFormHtml(product)}
             ${slugRowHtml(product)}
             ${retailerUrlsHtml(product)}
+            ${defaultVolumeHtml(product)}
             ${packEditorHtml(product)}
             ${deleteProductHtml(product)}
           </div>`;
@@ -1394,6 +1425,42 @@ Output only the CSV starting with the header row.`;
     await loadPriceData();
   }
 
+  async function saveProductDefaults(productId) {
+    const volInput = document.getElementById(`default-volume-${productId}`);
+    const usageInput = document.getElementById(`default-usage-${productId}`);
+    const errorEl = document.getElementById(`product-defaults-error-${productId}`);
+    if (errorEl) errorEl.style.display = 'none';
+
+    const volRaw = volInput?.value?.trim();
+    const usageRaw = usageInput?.value?.trim();
+    const defaultVolumeMl = volRaw ? parseInt(volRaw, 10) : null;
+    const defaultUsagePerWashMl = usageRaw ? parseInt(usageRaw, 10) : null;
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/products/${productId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ defaultVolumeMl, defaultUsagePerWashMl }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to save.' }));
+        if (errorEl) { errorEl.textContent = err.error || 'Failed to save.'; errorEl.style.display = 'block'; }
+        return;
+      }
+      const product = liveProducts.find(p => p.id === productId);
+      if (product) { product.defaultVolumeMl = defaultVolumeMl; product.defaultUsagePerWashMl = defaultUsagePerWashMl; }
+      // Doesn't retroactively change already-recorded stock (initInventoryStock never
+      // overwrites an existing remainingMl), but usage-per-wash feeds the "sessions remaining"
+      // estimate live at render time, so already-owned items need a re-render to pick it up.
+      renderInventory();
+      renderProductsPage();
+    } catch (e) {
+      console.error('saveProductDefaults:', e);
+      if (errorEl) { errorEl.textContent = 'Network error — try again.'; errorEl.style.display = 'block'; }
+    }
+  }
+
   function togglePackForCard(productId, checked, checkboxEl) {
     const product = liveProducts.find(p => p.id === productId);
     if (!product) return;
@@ -1435,14 +1502,13 @@ Output only the CSV starting with the header row.`;
   // a category picker for inline items) instead of one long flex row — six fields packed
   // into a single row wrapped unpredictably with no visual boundary between components.
   function packComponentCardHtml(product, comp, idx) {
-    // A pack cannot reference itself or another pack as a component (server-enforced too —
-    // this is a one-level expansion model, see resolveInventoryKey's bundleKey closure).
-    const productOptions = getAllProductSlugs()
-      .filter(s => s !== product.slug && !liveProducts.find(p => p.slug === s)?.isPack)
-      .map(s => `<option value="${escAttr(s)}"${s === comp.slug ? ' selected' : ''}>${escHtml(resolveProductName(s))}</option>`)
-      .join('');
-    let sectionRow = '';
-    if (!comp.slug) {
+    let statusRow;
+    if (comp.slug) {
+      statusRow = `
+        <div class="url-form-row">
+          <span style="font-size:11.5px;color:var(--accent);">🔗 Linked to ${escHtml(resolveProductName(comp.slug))} — its category follows the product, and it shares inventory with any standalone copy you own.</span>
+        </div>`;
+    } else {
       const current = comp.sectionCategory && comp.sectionLabel ? `${comp.sectionCategory}::${comp.sectionLabel}` : '';
       let opts = `<option value="">Equipment — Other</option>`;
       for (const cat of allCategories) {
@@ -1451,20 +1517,20 @@ Output only the CSV starting with the header row.`;
           opts += `<option value="${escAttr(val)}"${val === current ? ' selected' : ''}>${escHtml(cat.label)} — ${escHtml(sec.label)}</option>`;
         }
       }
-      sectionRow = `
+      statusRow = `
         <div class="url-form-row">
-          <span class="url-form-label">Category</span>
+          <span style="font-size:11.5px;color:var(--ink-low);white-space:nowrap;">Not linked —</span>
           <select class="url-retailer-select" onchange="updatePackDraftField(${product.id},${idx},'sectionPath',this.value)">${opts}</select>
         </div>`;
     }
     return `
       <div class="field-card">
         <div class="url-form-row">
-          <select class="url-retailer-select" onchange="updatePackDraftSlug(${product.id},${idx},this.value)">
-            <option value="">— Custom item —</option>
-            ${productOptions}
-          </select>
-          <input type="text" class="url-input" placeholder="Component name" value="${escAttr(comp.name || '')}" oninput="updatePackDraftField(${product.id},${idx},'name',this.value)">
+          <input type="text" class="url-input" placeholder="Search products or type a custom name…"
+            value="${escAttr(comp.name || '')}"
+            oninput="onPackComponentInput(event,${product.id},${idx})"
+            onfocus="openPackProductDropdown(event,${product.id},${idx})"
+            onblur="hidePackProductDropdown()">
           <button class="step-remove-btn" onclick="removePackDraftRow(${product.id},${idx})" title="Remove component">✕</button>
         </div>
         <div class="url-form-row">
@@ -1473,7 +1539,7 @@ Output only the CSV starting with the header row.`;
             <input type="checkbox" ${comp.equipment ? 'checked' : ''} onchange="updatePackDraftField(${product.id},${idx},'equipment',this.checked)"> Equipment
           </label>
         </div>
-        ${sectionRow}
+        ${statusRow}
       </div>`;
   }
 
@@ -1583,8 +1649,10 @@ Output only the CSV starting with the header row.`;
     const comp = packDrafts[productId]?.[idx];
     if (!comp) return;
     if (slug) {
+      // Picking a suggestion is an explicit choice — always take its name, even if the user
+      // had already typed something different before selecting.
       comp.slug = slug;
-      if (!comp.name) comp.name = resolveProductName(slug);
+      comp.name = resolveProductName(slug);
       delete comp.sectionCategory;
       delete comp.sectionLabel;
     } else {
@@ -1604,6 +1672,89 @@ Output only the CSV starting with the header row.`;
     } else {
       comp.name = val;
     }
+  }
+
+  // Typing in the component search/name field diverges from any previously-linked product
+  // until a suggestion is explicitly clicked (updatePackDraftSlug) — no re-render here so
+  // typing doesn't lose focus/cursor position; the "linked" status row catches up on the next
+  // full re-render (add/remove a row, pick a suggestion, or reopen the editor).
+  function onPackComponentInput(event, productId, idx) {
+    const comp = packDrafts[productId]?.[idx];
+    if (comp) {
+      comp.name = event.target.value;
+      delete comp.slug;
+      delete comp.sectionCategory;
+      delete comp.sectionLabel;
+    }
+    _filterPackProductDropdown(event.target.value);
+  }
+
+  let _packDropdownInput = null;
+
+  // Searchable existing-product picker for pack components — same floating-dropdown pattern as
+  // the Routine step editor's product picker (openCatalogDropdown/_buildCatalogGroups), but
+  // keyed by slug (not collapsed to a family name) since a pack component needs the exact
+  // product, and scoped to a higher z-index so it renders above the pack-editor modal overlay.
+  function openPackProductDropdown(event, productId, idx) {
+    _packDropdownInput = event.target;
+    let dd = document.getElementById('pack-product-dropdown');
+    if (!dd) {
+      dd = document.createElement('div');
+      dd.id = 'pack-product-dropdown';
+      dd.className = 'catalog-dropdown';
+      document.body.appendChild(dd);
+      dd.addEventListener('mousedown', e => {
+        const item = e.target.closest('.catalog-dropdown-item');
+        if (!item) return;
+        e.preventDefault();
+        const { pid, idx: i } = dd.dataset;
+        updatePackDraftSlug(+pid, +i, item.dataset.slug);
+        dd.style.display = 'none';
+      });
+    }
+    Object.assign(dd.dataset, { pid: productId, idx });
+
+    const product = liveProducts.find(p => p.id === productId);
+    const candidateSlugs = getAllProductSlugs()
+      .filter(s => s !== product?.slug && !liveProducts.find(p => p.slug === s)?.isPack);
+    const groups = groupSlugsByCategory(candidateSlugs, resolveProductName);
+    dd.innerHTML = groups.map(g => `
+      <div class="catalog-dd-cat">
+        <div class="catalog-dd-header">${escHtml(g.label)}</div>
+        ${g.entries.map(e => `<div class="catalog-dropdown-item" data-slug="${escAttr(e.slug)}">${escHtml(e.name)}</div>`).join('')}
+      </div>
+    `).join('');
+
+    const rect = _packDropdownInput.getBoundingClientRect();
+    Object.assign(dd.style, {
+      display: 'block',
+      top: `${rect.bottom + window.scrollY + 2}px`,
+      left: `${rect.left + window.scrollX}px`,
+      width: `${Math.max(rect.width, 240)}px`,
+    });
+    _filterPackProductDropdown(_packDropdownInput.value);
+  }
+
+  function _filterPackProductDropdown(query) {
+    const dd = document.getElementById('pack-product-dropdown');
+    if (!dd || dd.style.display === 'none') return;
+    const q = query.toLowerCase().trim();
+    dd.querySelectorAll('.catalog-dd-cat').forEach(cat => {
+      let catHas = false;
+      cat.querySelectorAll('.catalog-dropdown-item').forEach(item => {
+        const show = !q || item.textContent.toLowerCase().includes(q);
+        item.style.display = show ? '' : 'none';
+        if (show) catHas = true;
+      });
+      cat.style.display = catHas ? '' : 'none';
+    });
+  }
+
+  function hidePackProductDropdown() {
+    setTimeout(() => {
+      const dd = document.getElementById('pack-product-dropdown');
+      if (dd) dd.style.display = 'none';
+    }, 150);
   }
 
   async function savePackDraft(productId) {
@@ -2367,8 +2518,7 @@ Output only the CSV starting with the header row.`;
   function saveInvAdjust(key, uid) {
     const volumeEl  = document.getElementById(`inv-vol-${uid}`);
     const remainEl  = document.getElementById(`inv-remain-${uid}`);
-    const defaults  = INVENTORY_DEFAULTS[key] ?? {};
-    const volumeMl  = volumeEl && volumeEl.value !== '' ? +volumeEl.value : (inventoryState[key]?.volumeMl ?? defaults.volumeMl ?? null);
+    const volumeMl  = volumeEl && volumeEl.value !== '' ? +volumeEl.value : (inventoryState[key]?.volumeMl ?? getDefaultVolumeMl(key) ?? null);
     const remainingMl = remainEl && remainEl.value !== '' ? +remainEl.value : null;
 
     inventoryState[key] = {
@@ -2614,7 +2764,6 @@ Output only the CSV starting with the header row.`;
       if (!catalogItem) return '';
       const uid = nextUid();
       const meta = inventoryState[slug] ?? {};
-      const defaults = INVENTORY_DEFAULTS[slug] ?? {};
       const isEquip = EQUIPMENT_SLUGS.has(slug);
       const safeSlug = escAttr(slug);
       const name = escHtml(catalogItem.name);
@@ -2647,8 +2796,8 @@ Output only the CSV starting with the header row.`;
       }
 
       // Consumable
-      const volumeMl       = meta.volumeMl  ?? defaults.volumeMl ?? null;
-      const usagePerWashMl = getRoutineUsageMl(slug);
+      const volumeMl       = meta.volumeMl ?? getDefaultVolumeMl(slug);
+      const usagePerWashMl = getRoutineUsageMl(slug) || getDefaultUsagePerWashMl(slug);
       const remainingMl    = meta.remainingMl;
       const notConfigured  = remainingMl == null;
       const pct            = (volumeMl && remainingMl != null) ? Math.max(0, Math.min(100, Math.round((remainingMl / volumeMl) * 100))) : null;
@@ -2719,8 +2868,7 @@ Output only the CSV starting with the header row.`;
         inventoryState[compKey].purchaseDate = inventoryState[bundleSlug].purchaseDate;
       }
 
-      const meta     = inventoryState[compKey];
-      const defaults = comp.slug ? (INVENTORY_DEFAULTS[comp.slug] ?? {}) : {};
+      const meta = inventoryState[compKey];
 
       if (isEquip) {
         const uses    = comp.slug ? countProductUses(comp.slug) : 0;
@@ -2749,8 +2897,8 @@ Output only the CSV starting with the header row.`;
           </div>`;
       }
 
-      const volumeMl       = meta.volumeMl ?? comp.volumeMl ?? defaults.volumeMl ?? null;
-      const usagePerWashMl = comp.slug ? getRoutineUsageMl(comp.slug) : (comp.usagePerWashMl ?? null);
+      const volumeMl       = meta.volumeMl ?? comp.volumeMl ?? (comp.slug ? getDefaultVolumeMl(comp.slug) : null);
+      const usagePerWashMl = comp.slug ? (getRoutineUsageMl(comp.slug) || getDefaultUsagePerWashMl(comp.slug)) : (comp.usagePerWashMl ?? null);
       const remainingMl    = meta.remainingMl;
       const notConfigured  = remainingMl == null;
       const pct = (volumeMl && remainingMl != null) ? Math.max(0, Math.min(100, Math.round((remainingMl / volumeMl) * 100))) : null;

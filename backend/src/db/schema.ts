@@ -2,12 +2,18 @@ import { integer, text, sqliteTable, uniqueIndex, index } from 'drizzle-orm/sqli
 import { sql } from 'drizzle-orm';
 
 export const products = sqliteTable('products', {
-  id:        integer('id').primaryKey({ autoIncrement: true }),
-  name:      text('name').notNull().unique(),
-  slug:      text('slug').notNull().unique(),
-  phase:     integer('phase').notNull(),
-  isPack:    integer('is_pack', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  id:                    integer('id').primaryKey({ autoIncrement: true }),
+  name:                  text('name').notNull().unique(),
+  slug:                  text('slug').notNull().unique(),
+  phase:                 integer('phase').notNull(),
+  isPack:                integer('is_pack', { mode: 'boolean' }).notNull().default(false),
+  // Nullable overrides for the frontend's hardcoded INVENTORY_DEFAULTS fallback — null means
+  // "use the hardcoded default for this slug, if any". defaultVolumeMl sizes a fresh bottle
+  // when checked off; defaultUsagePerWashMl is a fallback for the "sessions remaining" estimate
+  // when no routine step references this product (the primary source is routine step ml values).
+  defaultVolumeMl:       integer('default_volume_ml'),
+  defaultUsagePerWashMl: integer('default_usage_per_wash_ml'),
+  createdAt:             text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const retailerUrls = sqliteTable('retailer_urls', {

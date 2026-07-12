@@ -1702,6 +1702,9 @@
   .catalog-dd-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-mid); padding: 8px 12px 3px; position: sticky; top: 0; background: var(--bg-elev); }
   .catalog-dropdown-item { padding: 5px 12px; font-size: 13px; color: var(--ink); cursor: pointer; }
   .catalog-dropdown-item:hover { background: var(--bg-muted); }
+  /* Pack-component picker reuses .catalog-dropdown but must render above the pack-editor
+     modal overlay (z-index 9999), not just above the page. */
+  #pack-product-dropdown { z-index: 10000; }
   .alert-editor-row { display: grid; grid-template-columns: auto 120px 1fr auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--rule); }
   .alert-severity-select { font-size: 12.5px; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--rule-strong); background: var(--bg-elev); color: var(--ink); font-family: 'Inter', sans-serif; }
   .alert-label-input, .alert-text-input { font-family: 'Inter', sans-serif; font-size: 13px; padding: 6px 10px; border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; }

@@ -194,7 +194,9 @@ router.put('/products/:id/url', sessionMiddleware, async (c) => {
   return c.json({ ok: true });
 });
 
-// PATCH /products/:id — rename a product's name and/or slug (session-protected)
+// PATCH /products/:id — rename a product's name/slug and/or set its default volume/usage
+// overrides (session-protected). defaultVolumeMl/defaultUsagePerWashMl are nullable — sending
+// an explicit null clears the override back to the frontend's hardcoded fallback, if any.
 router.patch('/products/:id', sessionMiddleware, async (c) => {
   const userId = c.var.userId;
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
@@ -202,15 +204,19 @@ router.patch('/products/:id', sessionMiddleware, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
-  const body = await c.req.json<{ name?: string; slug?: string }>();
+  const body = await c.req.json<{ name?: string; slug?: string; defaultVolumeMl?: number | null; defaultUsagePerWashMl?: number | null }>();
   const name = body.name?.trim();
   const slug = body.slug?.trim();
-  if (!name && !slug) return c.json({ error: 'Name or slug required' }, 400);
+  const hasVolume = 'defaultVolumeMl' in body;
+  const hasUsage = 'defaultUsagePerWashMl' in body;
+  if (!name && !slug && !hasVolume && !hasUsage) {
+    return c.json({ error: 'Nothing to update' }, 400);
+  }
 
   const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
 
-  const update: { name?: string; slug?: string } = {};
+  const update: { name?: string; slug?: string; defaultVolumeMl?: number | null; defaultUsagePerWashMl?: number | null } = {};
 
   if (name) {
     const existingName = await db.select({ id: products.id }).from(products).where(eq(products.name, name)).limit(1);
@@ -227,9 +233,23 @@ router.patch('/products/:id', sessionMiddleware, async (c) => {
     update.slug = slug;
   }
 
+  if (hasVolume) {
+    if (body.defaultVolumeMl != null && (!Number.isFinite(body.defaultVolumeMl) || body.defaultVolumeMl <= 0)) {
+      return c.json({ error: 'Default volume must be a positive number, or null to clear it' }, 400);
+    }
+    update.defaultVolumeMl = body.defaultVolumeMl ?? null;
+  }
+
+  if (hasUsage) {
+    if (body.defaultUsagePerWashMl != null && (!Number.isFinite(body.defaultUsagePerWashMl) || body.defaultUsagePerWashMl <= 0)) {
+      return c.json({ error: 'Default usage per wash must be a positive number, or null to clear it' }, 400);
+    }
+    update.defaultUsagePerWashMl = body.defaultUsagePerWashMl ?? null;
+  }
+
   await db.update(products).set(update).where(eq(products.id, id));
-  const [updated] = await db.select({ id: products.id, name: products.name, slug: products.slug }).from(products).where(eq(products.id, id)).limit(1);
-  return c.json({ ok: true, ...updated });
+  const [updated] = await db.select().from(products).where(eq(products.id, id)).limit(1);
+  return c.json({ ok: true, ...updated, isPack: Boolean(updated.isPack) });
 });
 
 // PUT /products/:id/pack — replace a product's whole pack-component list atomically and mark

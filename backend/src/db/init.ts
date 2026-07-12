@@ -2,12 +2,14 @@ import { createClient } from '@libsql/client';
 
 const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS products (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT    NOT NULL UNIQUE,
-    slug       TEXT    NOT NULL UNIQUE,
-    phase      INTEGER NOT NULL,
-    is_pack    INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                    TEXT    NOT NULL UNIQUE,
+    slug                    TEXT    NOT NULL UNIQUE,
+    phase                   INTEGER NOT NULL,
+    is_pack                 INTEGER NOT NULL DEFAULT 0,
+    default_volume_ml       INTEGER,
+    default_usage_per_wash_ml INTEGER,
+    created_at              TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS retailer_urls (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,13 +94,20 @@ export async function initDb() {
   }
 
   // `CREATE TABLE IF NOT EXISTS` is a no-op against an already-existing table, so it won't
-  // retrofit the is_pack column onto a pre-existing products table (e.g. the live Render/Turso
-  // DB). SQLite's ALTER TABLE ADD COLUMN has no IF NOT EXISTS clause and errors if run twice,
-  // so check first.
+  // retrofit new columns onto a pre-existing products table (e.g. the live Render/Turso DB).
+  // SQLite's ALTER TABLE ADD COLUMN has no IF NOT EXISTS clause and errors if run twice, so
+  // check first.
   const cols = await client.execute(`PRAGMA table_info(products)`);
-  const hasIsPack = cols.rows.some((r) => r.name === 'is_pack');
-  if (!hasIsPack) {
-    await client.execute(`ALTER TABLE products ADD COLUMN is_pack INTEGER NOT NULL DEFAULT 0`);
+  const existingCols = new Set(cols.rows.map((r) => r.name));
+  const columnsToAdd = [
+    { name: 'is_pack', ddl: 'INTEGER NOT NULL DEFAULT 0' },
+    { name: 'default_volume_ml', ddl: 'INTEGER' },
+    { name: 'default_usage_per_wash_ml', ddl: 'INTEGER' },
+  ];
+  for (const { name, ddl } of columnsToAdd) {
+    if (!existingCols.has(name)) {
+      await client.execute(`ALTER TABLE products ADD COLUMN ${name} ${ddl}`);
+    }
   }
 
   await client.close();
