@@ -15,14 +15,23 @@
 // through this domain, the browser sees it as same-origin and CORS doesn't apply at all.
 //
 // Setup (Cloudflare dashboard — see CLAUDE.md's Hosting section for full instructions):
-//   1. Workers & Pages -> Create -> Create Worker (deploy the default template first).
+//   1. Workers & Pages -> Create -> Create Worker (deploy the default blank/"Hello World"
+//      template first). Do NOT use "Import a repository" / connect this to Git — that flow
+//      pulls in the whole repo, auto-detects it as a static-assets project, and never runs
+//      this script at all (every request then 404s with no X-Render-Origin-Server header —
+//      happened once already; fix was deleting that Worker and recreating it the plain way).
 //   2. Edit code, paste this file's contents in, Deploy.
 //   3. Worker's Settings -> Triggers -> Routes -> Add route:
 //        Route: corolla.jhosan.top/api/*
 //        Zone:  jhosan.top
 //
-// Only after that route is confirmed live should the BACKEND_URL GitHub secret be changed
-// from the Render URL to https://corolla.jhosan.top — flipping it earlier breaks the site.
+// This file is a reference copy — the deployed Worker is a manual paste, not Git-connected.
+// Changing this file does NOT redeploy anything; re-paste and re-deploy in the dashboard too.
+//
+// Only after that route is confirmed live (curl https://corolla.jhosan.top/api/health should
+// return the same JSON as hitting Render directly, with an X-Render-Origin-Server header)
+// should the BACKEND_URL GitHub secret be changed from the Render URL to
+// https://corolla.jhosan.top — flipping it earlier breaks the site.
 
 const BACKEND_ORIGIN = 'https://corolla-zr-maintenance-app.onrender.com';
 
