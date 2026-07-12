@@ -10,3 +10,9 @@ dist/
 backend/dist/
 Next Prompts
 PLAN-FixAutobarn.md
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
