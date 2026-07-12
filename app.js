@@ -5453,9 +5453,9 @@ Output only the CSV starting with the header row.`;
         credentials: 'include',
         signal: AbortSignal.timeout(8000),
       });
-      if (!meRes.ok) { await storageSet(AUTH_CACHE_KEY, null); renderAuthUI(); return; }
+      if (!meRes.ok) { syncEnabled = false; syncEmail = null; await storageSet(AUTH_CACHE_KEY, null); renderAuthUI(); return; }
       const me = await meRes.json();
-      if (!me.authenticated) { await storageSet(AUTH_CACHE_KEY, null); renderAuthUI(); return; }
+      if (!me.authenticated) { syncEnabled = false; syncEmail = null; await storageSet(AUTH_CACHE_KEY, null); renderAuthUI(); return; }
 
       syncEnabled = true;
       syncEmail   = me.email;
