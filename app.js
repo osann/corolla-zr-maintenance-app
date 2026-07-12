@@ -1099,6 +1099,7 @@ Output only the CSV starting with the header row.`;
   // early-return below is defence in depth for the rare case this fires before that gate runs.
   let packDrafts = {}; // productId → in-progress array of component drafts, while editing
   let activePackEditorId = null; // productId currently open in #pack-editor-modal, or null
+  let activeRetailerEditorId = null; // productId currently open in #retailer-editor-modal, or null
 
   function renderProductsPage() {
     const container = document.getElementById('products-list');
@@ -1152,49 +1153,16 @@ Output only the CSV starting with the header row.`;
         </div>`;
     }
 
+    // Card-level summary only — retailer URLs are edited in the retailer-editor modal
+    // (openRetailerEditor), one bounded field-card per retailer instead of inline rows and
+    // toggle-forms scattered across the product card.
     function retailerUrlsHtml(product) {
-      const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'];
-      const existing = new Set(Object.keys(product.urls ?? {}));
-      let rows = '';
-      for (const retailer of SCRAPED_RETAILERS) {
-        const url = product.urls?.[retailer];
-        if (!url) continue;
-        const retailerName = RETAILER_NAMES[retailer] || retailer;
-        rows += `
-          <div class="url-form-row" style="margin-bottom:4px;">
-            <span class="prices-retailer-name">${retailerName}</span>
-            <a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer" class="price-row-link">Visit →</a>
-            <button class="url-edit-btn" onclick="toggleRetailerUrlForm(${product.id},'${retailer}')" title="Edit URL">✎</button>
-            <button class="url-edit-btn url-edit-btn--danger" onclick="showRemoveRetailerConfirm(${product.id},'${retailer}')" title="Remove retailer">✕</button>
-          </div>
-          <div class="url-inline-form" id="url-form-${product.id}-${retailer}" style="display:none">
-            <div class="url-form-row">
-              <span class="url-form-label">${escHtml(retailerName)}</span>
-              <input type="url" class="url-input" id="url-input-${product.id}-${retailer}" value="${escAttr(url)}" placeholder="https://...">
-              <button class="alert-set-btn" onclick="saveRetailerUrl(${product.id},'${retailer}')">Save</button>
-            </div>
-          </div>
-          <div class="log-confirm-row" id="remove-retailer-confirm-${product.id}-${retailer}" hidden>
-            <span>Stop tracking ${escHtml(retailerName)} for this product? Its price history will be deleted.</span>
-            <button class="log-confirm-cancel" onclick="cancelRemoveRetailerConfirm(${product.id},'${retailer}')">Cancel</button>
-            <button class="log-confirm-delete" onclick="removeRetailer(${product.id},'${retailer}')">Remove</button>
-          </div>`;
-      }
-      const missing = SCRAPED_RETAILERS.filter(r => !existing.has(r));
-      let addHtml = '';
-      if (missing.length > 0) {
-        const options = missing.map(r => `<option value="${r}">${escHtml(RETAILER_NAMES[r] || r)}</option>`).join('');
-        addHtml = `
-          <div class="url-add-section" id="url-add-section-${product.id}" style="display:none">
-            <div class="url-form-row">
-              <select class="url-retailer-select" id="url-add-retailer-${product.id}">${options}</select>
-              <input type="url" class="url-input" id="url-add-url-${product.id}" placeholder="https://...">
-              <button class="alert-set-btn" onclick="saveAddRetailerUrl(${product.id})">Add</button>
-            </div>
-          </div>
-          <button class="url-add-retailer-btn" onclick="toggleAddRetailerForm(${product.id})">+ Retailer</button>`;
-      }
-      return rows + addHtml;
+      const names = Object.keys(product.urls ?? {}).map(r => RETAILER_NAMES[r] || r);
+      const summary = names.length ? `${names.join(', ')}. ` : `No retailers linked yet. `;
+      return `
+        <div class="url-form-row" style="margin-bottom:6px;">
+          <span class="prices-retailer-name">${escHtml(summary)}<a href="#" onclick="openRetailerEditor(${product.id});return false;" style="color:var(--accent);">Edit retailers</a></span>
+        </div>`;
     }
 
     // Card-level summary only — the actual component list is edited in the pack-editor modal
@@ -1490,7 +1458,7 @@ Output only the CSV starting with the header row.`;
         </div>`;
     }
     return `
-      <div class="pack-component-card">
+      <div class="field-card">
         <div class="url-form-row">
           <select class="url-retailer-select" onchange="updatePackDraftSlug(${product.id},${idx},this.value)">
             <option value="">— Custom item —</option>
@@ -1526,6 +1494,57 @@ Output only the CSV starting with the header row.`;
         <button class="settings-reset-btn" onclick="cancelPackEdit()">Cancel</button>
       </div>
       <div id="pack-error-${productId}" style="display:none;color:var(--danger);font-size:12px;margin-top:8px;"></div>`;
+  }
+
+  const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'];
+
+  // One bounded field-card per retailer (always all four, whether linked or not) instead of
+  // separate "existing row + toggle edit form" vs "+ Retailer add form" flows — a retailer
+  // with no URL yet is just an empty input ready to fill in, saved the same way as an edit.
+  function retailerFieldCardHtml(product, retailer) {
+    const url = product.urls?.[retailer] || '';
+    const retailerName = RETAILER_NAMES[retailer] || retailer;
+    const linkedRow = url ? `
+      <div class="url-form-row" style="justify-content:flex-end;">
+        <a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer" class="price-row-link">Visit →</a>
+        <button class="prices-delete-link" onclick="showRemoveRetailerConfirm(${product.id},'${retailer}')">Remove</button>
+      </div>
+      <div class="log-confirm-row" id="remove-retailer-confirm-${product.id}-${retailer}" hidden>
+        <span>Stop tracking ${escHtml(retailerName)} for this product? Its price history will be deleted.</span>
+        <button class="log-confirm-cancel" onclick="cancelRemoveRetailerConfirm(${product.id},'${retailer}')">Cancel</button>
+        <button class="log-confirm-delete" onclick="removeRetailer(${product.id},'${retailer}')">Remove</button>
+      </div>` : '';
+    return `
+      <div class="field-card">
+        <div class="url-form-row">
+          <span class="url-form-label" style="min-width:100px;">${escHtml(retailerName)}</span>
+          <input type="url" class="url-input" id="url-input-${product.id}-${retailer}" value="${escAttr(url)}" placeholder="https://...">
+          <button class="alert-set-btn" onclick="saveRetailerUrl(${product.id},'${retailer}')">Save</button>
+        </div>
+        ${linkedRow}
+      </div>`;
+  }
+
+  function openRetailerEditor(productId) {
+    activeRetailerEditorId = productId;
+    renderRetailerEditorModal();
+    document.getElementById('retailer-editor-modal')?.removeAttribute('hidden');
+  }
+
+  function closeRetailerEditor() {
+    document.getElementById('retailer-editor-modal')?.setAttribute('hidden', '');
+    activeRetailerEditorId = null;
+  }
+
+  function renderRetailerEditorModal() {
+    const productId = activeRetailerEditorId;
+    const product = liveProducts.find(p => p.id === productId);
+    const titleEl = document.getElementById('retailer-editor-title');
+    const bodyEl = document.getElementById('retailer-editor-body');
+    if (!product || !titleEl || !bodyEl) return;
+
+    titleEl.textContent = `Retailer URLs — ${product.name}`;
+    bodyEl.innerHTML = SCRAPED_RETAILERS.map(r => retailerFieldCardHtml(product, r)).join('');
   }
 
   async function confirmUnpack(productId) {
@@ -4858,27 +4877,6 @@ Output only the CSV starting with the header row.`;
     renderAlertsPanel();
   }
 
-  function toggleRetailerUrlForm(productId, retailer) {
-    // Close any other open url forms on this product card
-    document.querySelectorAll(`[id^="url-form-${productId}-"], #url-add-section-${productId}`)
-      .forEach(el => { if (el.id !== `url-form-${productId}-${retailer}`) el.style.display = 'none'; });
-    const form = document.getElementById(`url-form-${productId}-${retailer}`);
-    if (!form) return;
-    const opening = form.style.display === 'none';
-    form.style.display = opening ? 'block' : 'none';
-    if (opening) document.getElementById(`url-input-${productId}-${retailer}`)?.focus();
-  }
-
-  function toggleAddRetailerForm(productId) {
-    document.querySelectorAll(`[id^="url-form-${productId}-"]`)
-      .forEach(el => { el.style.display = 'none'; });
-    const section = document.getElementById(`url-add-section-${productId}`);
-    if (!section) return;
-    const opening = section.style.display === 'none';
-    section.style.display = opening ? 'block' : 'none';
-    if (opening) document.getElementById(`url-add-url-${productId}`)?.focus();
-  }
-
   async function saveRetailerUrl(productId, retailer) {
     const input = document.getElementById(`url-input-${productId}-${retailer}`);
     const url = input?.value?.trim();
@@ -4895,30 +4893,9 @@ Output only the CSV starting with the header row.`;
       if (prod) { prod.urls = prod.urls ?? {}; prod.urls[retailer] = url; }
       renderPricesTab();
       renderProductsPage();
+      if (activeRetailerEditorId === productId) renderRetailerEditorModal();
     } catch (e) {
       console.error('saveRetailerUrl:', e);
-    }
-  }
-
-  async function saveAddRetailerUrl(productId) {
-    const retailer = document.getElementById(`url-add-retailer-${productId}`)?.value;
-    const input = document.getElementById(`url-add-url-${productId}`);
-    const url = input?.value?.trim();
-    if (!retailer || !url || !url.startsWith('http')) { input?.focus(); return; }
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/products/${productId}/url`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ retailer, url }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const prod = liveProducts.find(p => p.id === productId);
-      if (prod) { prod.urls = prod.urls ?? {}; prod.urls[retailer] = url; }
-      renderPricesTab();
-      renderProductsPage();
-    } catch (e) {
-      console.error('saveAddRetailerUrl:', e);
     }
   }
 
@@ -4944,6 +4921,7 @@ Output only the CSV starting with the header row.`;
       }
       renderPricesTab();
       renderProductsPage();
+      if (activeRetailerEditorId === productId) renderRetailerEditorModal();
     } catch (e) {
       console.error('removeRetailer:', e);
     }
@@ -5863,7 +5841,9 @@ Output only the CSV starting with the header row.`;
         return;
       }
       const pe = document.getElementById('pack-editor-modal');
-      if (pe && !pe.hidden && e.key === 'Escape') cancelPackEdit();
+      if (pe && !pe.hidden && e.key === 'Escape') { cancelPackEdit(); return; }
+      const re = document.getElementById('retailer-editor-modal');
+      if (re && !re.hidden && e.key === 'Escape') closeRetailerEditor();
     });
     await loadChecklist();
     await loadCategories();

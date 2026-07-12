@@ -1286,21 +1286,21 @@
     overflow-y: auto;
   }
 
-  /* Each pack component gets its own bounded card so it's obvious which fields
-     (product/name, ml/equipment, category) belong together — previously these were one
-     long flex row that wrapped unpredictably with no visual grouping between components. */
-  .pack-component-card {
+  /* Generic bounded field group — used inside modals so it's obvious which fields belong
+     together (pack components, retailer URLs) instead of one long flex row that wraps
+     unpredictably with no visual grouping. */
+  .field-card {
     background: var(--bg-elev);
     border: 1px solid var(--rule);
     border-radius: var(--radius);
     padding: 12px;
     margin-bottom: 10px;
   }
-  .pack-component-card .url-form-row { margin-bottom: 8px; flex-wrap: nowrap; }
-  .pack-component-card .url-form-row:last-child { margin-bottom: 0; }
-  .pack-component-card .url-input { min-width: 0; }
+  .field-card .url-form-row { margin-bottom: 8px; flex-wrap: nowrap; }
+  .field-card .url-form-row:last-child { margin-bottom: 0; }
+  .field-card .url-input { min-width: 0; }
   @media (max-width: 480px) {
-    .pack-component-card .url-form-row { flex-wrap: wrap; }
+    .field-card .url-form-row { flex-wrap: wrap; }
   }
 
   /* ─── Spend Panel ───────────────────────────────── */

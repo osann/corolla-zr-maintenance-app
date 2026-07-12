@@ -1411,6 +1411,16 @@
   </div>
 </div>
 
+<div id="retailer-editor-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" onclick="if(event.target===this)closeRetailerEditor()">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title" id="retailer-editor-title">Retailer URLs</div>
+      <button class="modal-close" onclick="closeRetailerEditor()" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="retailer-editor-body"></div>
+  </div>
+</div>
+
 <script src="app.js" defer></script>
 
 </body>
