@@ -900,6 +900,10 @@ Output only the CSV starting with the header row.`;
   let liveProducts = [];
   let slugToBest = {};
   let priceHistories = {}; // productId → [{ retailer, priceCents, onSale, observedAt }, ...]
+  let priceDataRequestSeq = 0; // guards against an older loadPriceData() call's response landing
+                                // after a newer one (e.g. deleting several products in quick
+                                // succession each trigger their own refetch) and clobbering
+                                // liveProducts with stale data
 
   async function loadBudget() {
     const b = await storageGet(BUDGET_KEY);
@@ -5326,13 +5330,19 @@ Output only the CSV starting with the header row.`;
 
   async function loadPriceData() {
     if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+    const seq = ++priceDataRequestSeq;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 40000);
-      const res = await fetch(`${BACKEND_URL}/api/products`, { signal: controller.signal });
+      const res = await fetch(`${BACKEND_URL}/api/products`, { signal: controller.signal, cache: 'no-store' });
       clearTimeout(timeout);
       if (!res.ok) return;
-      liveProducts = await res.json();
+      const data = await res.json();
+      // A newer loadPriceData() call has since started — its response (or a later one still in
+      // flight) is authoritative, so discard this now-stale one rather than clobbering
+      // liveProducts back to an earlier state.
+      if (seq !== priceDataRequestSeq) return;
+      liveProducts = data;
       applyLivePrices();
       rebuildBundleComponents();
       // Inventory's add-product picker and "Other" card depend on liveProducts,
