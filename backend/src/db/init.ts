@@ -82,6 +82,11 @@ const DDL_STATEMENTS = [
     sort_order            INTEGER NOT NULL DEFAULT 0
   )`,
   `CREATE INDEX IF NOT EXISTS idx_pack_components_pack ON pack_components(pack_product_id)`,
+  `CREATE TABLE IF NOT EXISTS deleted_products (
+    slug       TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
 ];
 
 export async function initDb() {

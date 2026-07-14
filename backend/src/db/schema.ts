@@ -56,10 +56,22 @@ export const packComponents = sqliteTable('pack_components', {
   index('idx_pack_components_pack').on(t.packProductId),
 ]);
 
-export type Product       = typeof products.$inferSelect;
-export type RetailerUrl   = typeof retailerUrls.$inferSelect;
-export type PriceRecord   = typeof priceHistory.$inferSelect;
-export type PackComponent = typeof packComponents.$inferSelect;
+// Tracks catalog products the user has explicitly deleted via the Products tab, so seed()
+// never resurrects them on the next Render restart — it re-upserts the full static catalog
+// on every boot, and once the product row itself is gone that's the only place deletion
+// intent can be remembered. Keyed by slug (seed()'s primary lookup); name is kept alongside
+// since seed()'s fallback lookup also matches on name — see seed.ts.
+export const deletedProducts = sqliteTable('deleted_products', {
+  slug:      text('slug').primaryKey(),
+  name:      text('name').notNull(),
+  deletedAt: text('deleted_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type Product         = typeof products.$inferSelect;
+export type RetailerUrl     = typeof retailerUrls.$inferSelect;
+export type PriceRecord     = typeof priceHistory.$inferSelect;
+export type PackComponent   = typeof packComponents.$inferSelect;
+export type DeletedProduct  = typeof deletedProducts.$inferSelect;
 
 export const users = sqliteTable('users', {
   id:        integer('id').primaryKey({ autoIncrement: true }),

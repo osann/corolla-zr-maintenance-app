@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
-import { products, priceHistory, retailerUrls, packComponents } from '../db/schema.js';
+import { products, priceHistory, retailerUrls, packComponents, deletedProducts } from '../db/schema.js';
 import { sessionMiddleware, type AppEnv } from '../lib/auth.js';
 
 const router = new Hono<AppEnv>();
@@ -147,6 +147,10 @@ router.post('/products', sessionMiddleware, async (c) => {
 
   const existing = await db.select({ id: products.id }).from(products).where(eq(products.slug, slug)).limit(1);
   if (existing.length) return c.json({ error: 'A product with that slug already exists' }, 409);
+
+  // Explicitly (re)creating a product overrides any earlier deletion of that slug, so a future
+  // reseed doesn't skip it as "user deleted this" — see deletedProducts in schema.ts.
+  await db.delete(deletedProducts).where(eq(deletedProducts.slug, slug));
 
   await db.insert(products).values({ name: name.trim(), slug, phase: 0 });
   const [newProduct] = await db.select().from(products).where(eq(products.slug, slug)).limit(1);
@@ -346,7 +350,9 @@ router.delete('/products/:id/url/:retailer', sessionMiddleware, async (c) => {
 // history, its own pack-component definition (if it is a pack), and its entry in any other
 // pack's component list (session-protected). Does not touch the frontend's static CATALOG,
 // checklist phases, routines, or category assignments — those are keyed by slug and
-// independent of backend price tracking.
+// independent of backend price tracking. Records a deletedProducts tombstone so that if this
+// slug/name is part of the hardcoded seed.ts catalog, the next Render restart's reseed doesn't
+// silently resurrect it (seed() checks this table before inserting).
 router.delete('/products/:id', sessionMiddleware, async (c) => {
   const userId = c.var.userId;
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
@@ -354,13 +360,16 @@ router.delete('/products/:id', sessionMiddleware, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
-  const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
+  const prod = await db.select({ id: products.id, slug: products.slug, name: products.name }).from(products).where(eq(products.id, id)).limit(1);
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
 
   await db.delete(packComponents).where(eq(packComponents.packProductId, id));
   await db.delete(packComponents).where(eq(packComponents.componentProductId, id));
   await db.delete(priceHistory).where(eq(priceHistory.productId, id));
   await db.delete(retailerUrls).where(eq(retailerUrls.productId, id));
+  await db.insert(deletedProducts)
+    .values({ slug: prod[0].slug, name: prod[0].name })
+    .onConflictDoUpdate({ target: [deletedProducts.slug], set: { name: prod[0].name, deletedAt: sql`CURRENT_TIMESTAMP` } });
   await db.delete(products).where(eq(products.id, id));
 
   return c.json({ ok: true });

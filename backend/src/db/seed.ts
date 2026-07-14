@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from './connection.js';
-import { products, retailerUrls, packComponents } from './schema.js';
+import { products, retailerUrls, packComponents, deletedProducts } from './schema.js';
 
 // autobarnSku:    SKU code on autobarn.com.au — used to derive Autopro URLs (/ap/p/{sku})
 // autobarnUrl:    Full canonical Auto Barn URL — used in preference to the short /ab/p/{sku} form.
@@ -229,7 +229,18 @@ export async function seed() {
   let inserted = 0;
   let skipped = 0;
 
+  // Catalog products the user has explicitly deleted via the Products tab — never resurrect
+  // these on a reseed. Loaded once up front rather than per-item.
+  const deletedRows = await db.select({ slug: deletedProducts.slug, name: deletedProducts.name }).from(deletedProducts);
+  const deletedSlugs = new Set(deletedRows.map((r) => r.slug));
+  const deletedNames = new Set(deletedRows.map((r) => r.name));
+
   for (const item of ALL_ITEMS) {
+    if (deletedSlugs.has(item.slug) || deletedNames.has(item.name)) {
+      skipped++;
+      continue;
+    }
+
     // Look up by slug first — the common case, nothing's been renamed.
     let [existing] = await db
       .select({ id: products.id })
