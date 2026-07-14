@@ -279,11 +279,13 @@ export function createFetchScraper(config: FetchScraperConfig) {
   // `onProduct`, if given, fires after each successful fetch so a long-running caller (e.g. the
   // self-hosted Auto Barn runner) can push results incrementally instead of holding everything
   // in memory until the run fully completes — a mid-run crash then only loses the in-flight
-  // product, not the whole day's data.
-  async function scrapeToArray(onProduct?: (obs: PriceObservation) => void | Promise<void>): Promise<PriceObservation[]> {
+  // product, not the whole day's data. `externalRows`, if given, is used instead of querying
+  // the local DB — see fetch-backend-rows.ts for why the self-hosted runner entry point
+  // (run-autobarn.ts) passes the live backend's product list in here.
+  async function scrapeToArray(onProduct?: (obs: PriceObservation) => void | Promise<void>, externalRows?: Row[]): Promise<PriceObservation[]> {
     if (!checkWindow()) return [];
 
-    const rows = await getRows();
+    const rows = externalRows ?? await getRows();
     console.log(`${retailer}: scraping ${rows.length} products...`);
 
     let cookies = await fetchSessionCookies();

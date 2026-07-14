@@ -4,19 +4,26 @@
 //
 // Bowden's Own is scraped by the Render backend's internal cron job (cloud IPs blocked by Bowden's).
 // Auto Barn is scraped by a separate workflow (scrape-autobarn.yml) timed to its crawl window.
+//
+// Product/retailer-URL rows come from the live backend (fetchRowsFromBackend), not the local
+// DB — this runner's local SQLite is freshly re-seeded from the static seed.ts catalogue on
+// every run, so it never sees products or retailer URLs added later via the Products tab.
 
 import { scrapeToArray as scrapeRepco } from './repco.js';
 import { scrapeToArray as scrapeSupercheap } from './supercheap.js';
+import { fetchRowsFromBackend } from './fetch-backend-rows.js';
 
 const BACKEND_URL = process.env.BACKEND_URL ?? 'https://corolla-zr-maintenance-app.onrender.com';
 const SCRAPE_SECRET = process.env.SCRAPE_SECRET ?? '';
 
 async function main() {
   console.log('=== Supercheap Auto ===');
-  const supercheapResults = await scrapeSupercheap();
+  const supercheapRows = await fetchRowsFromBackend(BACKEND_URL, 'supercheap');
+  const supercheapResults = await scrapeSupercheap(supercheapRows);
 
   console.log('=== Repco ===');
-  const repcoResults = await scrapeRepco();
+  const repcoRows = await fetchRowsFromBackend(BACKEND_URL, 'repco');
+  const repcoResults = await scrapeRepco(repcoRows);
 
   const results = [...supercheapResults, ...repcoResults];
   console.log(`\nCollected ${results.length} price observations. Pushing to ${BACKEND_URL}...`);

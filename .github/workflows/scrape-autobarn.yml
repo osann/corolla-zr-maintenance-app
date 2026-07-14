@@ -30,9 +30,11 @@ jobs:
 
       - name: Initialise local database
         working-directory: backend
-        run: |
-          node --import tsx/esm src/db/init.ts
-          node --import tsx/esm src/db/seed.ts
+        # Schema only, deliberately no seed step — the product/retailer-URL list for scraping
+        # now comes from the live backend (see fetch-backend-rows.ts). This just creates empty
+        # tables so the scraper's local 12h-cache-check query doesn't error on a missing table;
+        # that check is always a no-op here anyway since the table starts empty every run.
+        run: node --import tsx/esm src/db/init.ts
 
       - name: Run Auto Barn scraper and push to Render
         working-directory: backend

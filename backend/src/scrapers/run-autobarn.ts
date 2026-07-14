@@ -1,8 +1,14 @@
 // GitHub Actions entry point for Auto Barn only.
 // Runs within the robots.txt crawl window (04:00–08:45 UTC).
 // A separate workflow triggers this at 05:00 UTC daily.
+//
+// Product/retailer-URL rows come from the live backend (fetchRowsFromBackend), not the local
+// DB — this self-hosted runner's local SQLite is freshly re-seeded from the static seed.ts
+// catalogue on every run (git clean wipes db.sqlite beforehand), so it never sees products or
+// retailer URLs added later via the Products tab.
 
 import { scrapeToArray as scrapeAutobarn } from './autobarn.js';
+import { fetchRowsFromBackend } from './fetch-backend-rows.js';
 import type { PriceObservation } from '../routes/prices.js';
 
 const BACKEND_URL = process.env.BACKEND_URL ?? 'https://corolla-zr-maintenance-app.onrender.com';
@@ -54,10 +60,11 @@ async function flush(): Promise<void> {
 async function main() {
   console.log('=== Auto Barn ===');
 
+  const rows = await fetchRowsFromBackend(BACKEND_URL, 'autobarn');
   await scrapeAutobarn(async (obs) => {
     batch.push(obs);
     if (batch.length >= BATCH_SIZE) await flush();
-  });
+  }, rows);
 
   await flush();
 

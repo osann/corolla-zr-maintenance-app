@@ -5,6 +5,7 @@ import { products, retailerUrls, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
 import { createStealthContext } from '../lib/browser.js';
 import type { PriceObservation } from '../routes/prices.js';
+import type { ScrapeRow } from './fetch-backend-rows.js';
 
 const CACHE_HOURS = 12;
 const RATE_LIMIT_MS = 5_000;
@@ -100,9 +101,11 @@ async function getRows() {
     .where(eq(retailerUrls.retailer, 'supercheap'));
 }
 
-// Returns price observations without writing to the DB
-export async function scrapeToArray(): Promise<PriceObservation[]> {
-  const rows = await getRows();
+// Returns price observations without writing to the DB. externalRows, if given, is used
+// instead of querying the local DB — see fetch-backend-rows.ts for why the GitHub Actions
+// entry point (run-and-push.ts) passes the live backend's product list in here.
+export async function scrapeToArray(externalRows?: ScrapeRow[]): Promise<PriceObservation[]> {
+  const rows = externalRows ?? await getRows();
   if (rows.length === 0) {
     console.log('Supercheap Auto: no products configured — skipping');
     return [];

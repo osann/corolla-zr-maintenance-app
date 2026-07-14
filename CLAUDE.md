@@ -50,6 +50,7 @@ corolla-zr-maintenance-app/
 │   │   │   ├── supercheap.ts
 │   │   │   ├── repco.ts
 │   │   │   ├── index.ts         # scrapeAllRetailers() — unused in production (kept for local use)
+│   │   │   ├── fetch-backend-rows.ts # fetchRowsFromBackend() — GET /api/products → scrape rows, for the two ephemeral entry points below
 │   │   │   ├── run-and-push.ts  # GitHub Actions entry point: Supercheap + Repco → POST to backend
 │   │   │   └── run-autobarn.ts  # Self-hosted runner entry point: Auto Barn → POST to backend
 │   │   └── lib/
@@ -149,6 +150,8 @@ Three execution paths — read `SCRAPER-LEARNING.md` before modifying any scrape
 2. **Render cron** (`scrapers/autopro.ts`): calls `scrapeAutopro()` which writes directly to the production DB via Turso. Fires at 05:00 UTC within the robots.txt crawl window (04:00–08:45 UTC). The 12-hour cache check (`wasRecentlyScraped()`) is effective here.
 
 3. **Self-hosted runner** (`run-autobarn.ts`): calls `scrapeToArray(onProduct)` then pushes to Render in batches of 10 as they're scraped (not one bulk POST at the end — a mid-run crash on the self-hosted runner only loses the current partial batch, not the whole day's data). Runs on `debian-server` (home machine, residential IP) to bypass Auto Barn's cloud IP block. Fires daily at 05:00 UTC via `scrape-autobarn.yml`. `playwrightFallback` is disabled on `autobarn.ts` — it was tried and confirmed not to help (see `SCRAPER-LEARNING.md`); do not re-enable it.
+
+**Paths 1 and 3 get their product/retailer-URL list from the live backend, not the local DB.** Both run in an ephemeral environment with no `TURSO_URL`/`TURSO_TOKEN` (confirmed — only `BACKEND_URL`/`SCRAPE_SECRET` are passed in `scrape.yml`/`scrape-autobarn.yml`), so their local SQLite falls back to a throwaway file that only ever gets `db:init`'s schema — no `db:seed` step any more. Instead, `run-and-push.ts`/`run-autobarn.ts` call `fetchRowsFromBackend(BACKEND_URL, retailer)` (`scrapers/fetch-backend-rows.ts`), which hits `GET /api/products` and builds the `{productId, url, slug, name}` row list from whatever's live in production right now, then pass it into `scrapeToArray(rows)`. Path 2 (Autopro, in-process on Render) is unaffected — it already queries Turso directly via `getRows()`, so it already saw live data. Before this, any retailer URL or product added via the Products tab was invisible to paths 1 and 3 until the next deploy re-ran `seed.ts` — which never happens for anything not hardcoded in `seed.ts` itself, so it was invisible indefinitely.
 
 Scraper order for GitHub Actions hosted runner: Supercheap → Repco (Repco is slower and more prone to rate-limiting).
 
