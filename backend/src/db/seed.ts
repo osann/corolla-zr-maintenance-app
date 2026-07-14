@@ -230,27 +230,36 @@ export async function seed() {
   let skipped = 0;
 
   for (const item of ALL_ITEMS) {
-    // Insert product (idempotent)
-    const [row] = await db
-      .insert(products)
-      .values({ name: item.name, slug: item.slug, phase: item.phase })
-      .onConflictDoNothing()
-      .returning({ id: products.id });
+    // Look up by slug first — the common case, nothing's been renamed.
+    let [existing] = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.slug, item.slug))
+      .limit(1);
 
-    // Fetch the id whether or not we just inserted
-    let productId: number;
-    if (row) {
-      productId = row.id;
-      inserted++;
-    } else {
-      const [existing] = await db
+    // Not found by slug — it may already exist under a DIFFERENT slug if the user renamed it
+    // via the Products tab's cascading slug rename. `name` is also UNIQUE, so check there
+    // before assuming this is a genuinely new product. Never overwrite the existing slug here —
+    // that would silently revert the user's intentional rename on every redeploy.
+    if (!existing) {
+      [existing] = await db
         .select({ id: products.id })
         .from(products)
-        .where(eq(products.slug, item.slug))
+        .where(eq(products.name, item.name))
         .limit(1);
-      if (!existing) throw new Error(`Product not found after insert: ${item.slug}`);
+    }
+
+    let productId: number;
+    if (existing) {
       productId = existing.id;
       skipped++;
+    } else {
+      const [row] = await db
+        .insert(products)
+        .values({ name: item.name, slug: item.slug, phase: item.phase })
+        .returning({ id: products.id });
+      productId = row.id;
+      inserted++;
     }
 
     // Auto Barn — prefer full canonical URL (autobarnUrl) over short /ab/p/{sku} form.
