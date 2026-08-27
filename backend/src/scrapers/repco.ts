@@ -1,3 +1,12 @@
+// NOT called from the automated GitHub Actions path (run-and-push.ts) as of 2026-08-27 — Repco
+// rolled out a Cloudflare bot-management challenge on their product pages sometime around
+// 2026-08-16 (last successful scrape that day). Every request now gets HTTP 403 with
+// `Cf-Mitigated: challenge`, confirmed from both a plain curl and a residential IP with this
+// file's own stealth context, so it isn't a fixable header/UA/fingerprint tweak. Left in place
+// (not deleted) in case Repco's WAF config changes again — see run-and-push.ts for the decision
+// to disable it and scrapers/index.ts (`npm run scrape`, local-only) which still calls it, useful
+// for manually checking whether the block has lifted.
+
 import { eq, and, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, retailerUrls, priceHistory } from '../db/schema.js';
