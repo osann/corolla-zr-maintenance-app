@@ -100,7 +100,9 @@ router.post('/auth/verify', async (c) => {
     expiresAt: sessionExpiresAt(30),
   });
 
-  // SameSite=None required: frontend (corolla.jhosan.top) and backend (*.onrender.com) are different origins
+  // Requests normally arrive via the Cloudflare Worker on corolla.jhosan.top, so this is a
+  // first-party cookie. SameSite=None is kept so direct cross-origin calls to Render (e.g. from
+  // the osann.github.io origin still in the CORS allowlist) keep working.
   setCookie(c, 'session', sessionId, {
     httpOnly: true,
     secure:   true,

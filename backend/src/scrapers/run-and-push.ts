@@ -21,7 +21,7 @@
 import { scrapeToArray as scrapeSupercheap } from './supercheap.js';
 import { fetchRowsFromBackend } from './fetch-backend-rows.js';
 
-const BACKEND_URL = process.env.BACKEND_URL ?? 'https://corolla-zr-maintenance-app.onrender.com';
+const BACKEND_URL = process.env.BACKEND_URL ?? 'https://corolla.jhosan.top';
 const SCRAPE_SECRET = process.env.SCRAPE_SECRET ?? '';
 
 async function main() {

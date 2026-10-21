@@ -33,6 +33,10 @@ try {
   console.error('Startup init/seed failed (continuing):', e);
 }
 
+if (!process.env.OWNER_EMAIL) {
+  console.error('OWNER_EMAIL is not set — sign-in, notifications and TickTick are disabled.');
+}
+
 const app = new Hono();
 
 app.use('*', cors({
@@ -64,7 +68,8 @@ cron.schedule('0 5 * * *', () => {
 // Wash reminder: daily at 07:00 UTC (after Autopro scrape window closes).
 // Iterates settings.schedules; falls back to legacy fullWash check if no schedules configured.
 cron.schedule('0 7 * * *', async () => {
-  const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
+  const ownerEmail = process.env.OWNER_EMAIL;
+  if (!ownerEmail) return;
   const notifSettings = await getOwnerNotificationSettings(ownerEmail);
   const canSendWash = (notifSettings.washReminders && notifSettings.ticktickConnected) || notifSettings.emailWashReminders;
   if (!canSendWash) return;
@@ -204,7 +209,8 @@ cron.schedule('0 7 * * *', async () => {
 // Daily price digest: 08:00 UTC (after Autopro scrape + wash reminder).
 // Sends only when there are on-sale items or threshold breaches. At most once per day via cron.
 cron.schedule('0 8 * * *', async () => {
-  const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
+  const ownerEmail = process.env.OWNER_EMAIL;
+  if (!ownerEmail) return;
   const notifSettings = await getOwnerNotificationSettings(ownerEmail);
   if (!notifSettings.emailDigest) return;
 

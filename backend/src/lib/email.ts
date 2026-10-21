@@ -6,6 +6,14 @@ import { isTickTickConnected } from './ticktick.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// The single account that receives notifications and owns TickTick tokens. Deliberately no
+// hardcoded fallback — an unset OWNER_EMAIL should fail loudly, not notify a baked-in address.
+export function getOwnerEmail(): string {
+  const email = process.env.OWNER_EMAIL;
+  if (!email) throw new Error('OWNER_EMAIL is not set');
+  return email;
+}
+
 export interface NotificationSettings {
   ticktickConnected:  boolean;
   saleAlerts:         boolean;

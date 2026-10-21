@@ -3,7 +3,7 @@ import { eq, desc, and, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { sessionMiddleware } from '../lib/auth.js';
-import { getOwnerNotificationSettings } from '../lib/email.js';
+import { getOwnerEmail, getOwnerNotificationSettings } from '../lib/email.js';
 import { createTickTickTask } from '../lib/ticktick.js';
 
 const router = new Hono();
@@ -54,7 +54,7 @@ router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
 
   const { routineName, dueDate } = await c.req.json<{ routineName: string; dueDate?: string }>();
-  const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
+  const ownerEmail = getOwnerEmail();
   const notif = await getOwnerNotificationSettings(ownerEmail);
 
   if (!notif.washReminders || !notif.ticktickConnected) return c.json({ ok: true });

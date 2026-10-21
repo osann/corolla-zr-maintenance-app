@@ -11,7 +11,7 @@ import { scrapeToArray as scrapeAutobarn } from './autobarn.js';
 import { fetchRowsFromBackend } from './fetch-backend-rows.js';
 import type { PriceObservation } from '../routes/prices.js';
 
-const BACKEND_URL = process.env.BACKEND_URL ?? 'https://corolla-zr-maintenance-app.onrender.com';
+const BACKEND_URL = process.env.BACKEND_URL ?? 'https://corolla.jhosan.top';
 const SCRAPE_SECRET = process.env.SCRAPE_SECRET ?? '';
 
 // Auto Barn runs on a self-hosted runner (home machine) for 40–70+ minutes and has been

@@ -3,13 +3,13 @@ import { sessionMiddleware } from '../lib/auth.js';
 import {
   storeOAuthTokens, fetchTickTickProjects, isTickTickConnected, disconnectTickTick,
 } from '../lib/ticktick.js';
+import { getOwnerEmail } from '../lib/email.js';
 
 const router = new Hono();
 
 const CLIENT_ID    = () => process.env.TICKTICK_CLIENT_ID!;
 const CLIENT_SECRET = () => process.env.TICKTICK_CLIENT_SECRET!;
 const REDIRECT_URI  = () => `${process.env.BACKEND_PUBLIC_URL}/api/ticktick/callback`;
-const OWNER_EMAIL   = () => process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
 const AUTH_URL      = 'https://ticktick.com/oauth/authorize';
 const TOKEN_URL     = 'https://ticktick.com/oauth/token';
 
@@ -46,7 +46,7 @@ router.get('/ticktick/callback', async (c) => {
   const data = await res.json() as {
     access_token: string; refresh_token: string; expires_in: number;
   };
-  await storeOAuthTokens(OWNER_EMAIL(), data.access_token, data.refresh_token, data.expires_in);
+  await storeOAuthTokens(getOwnerEmail(), data.access_token, data.refresh_token, data.expires_in);
 
   const appUrl = process.env.APP_URL ?? 'https://corolla.jhosan.top';
   return c.redirect(`${appUrl}?ticktick=connected`);
@@ -54,14 +54,14 @@ router.get('/ticktick/callback', async (c) => {
 
 // Whether the owner has connected TickTick. No auth required — UI uses this to show status.
 router.get('/ticktick/status', async (c) => {
-  const connected = await isTickTickConnected(OWNER_EMAIL());
+  const connected = await isTickTickConnected(getOwnerEmail());
   return c.json({ connected });
 });
 
 // Fetch TickTick project list — for the project selector in settings.
 router.get('/ticktick/projects', sessionMiddleware, async (c) => {
   try {
-    const projects = await fetchTickTickProjects(OWNER_EMAIL());
+    const projects = await fetchTickTickProjects(getOwnerEmail());
     return c.json(projects);
   } catch (err) {
     console.error('TickTick project fetch error:', err);
@@ -71,7 +71,7 @@ router.get('/ticktick/projects', sessionMiddleware, async (c) => {
 
 // Disconnect — deletes stored tokens.
 router.delete('/ticktick/disconnect', sessionMiddleware, async (c) => {
-  await disconnectTickTick(OWNER_EMAIL());
+  await disconnectTickTick(getOwnerEmail());
   return c.json({ ok: true });
 });
 

@@ -5,6 +5,7 @@ import { products, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
 import {
   sendDirectEmail,
+  getOwnerEmail,
   getOwnerNotificationSettings,
   getOwnerAlertThresholds,
 } from '../lib/email.js';
@@ -43,7 +44,7 @@ router.post('/prices', async (c) => {
     return c.json({ error: 'Expected non-empty array of observations' }, 400);
   }
 
-  const ownerEmail = process.env.OWNER_EMAIL ?? 'joh.10@pm.me';
+  const ownerEmail = getOwnerEmail();
   const [notifSettings, alertThresholds] = await Promise.all([
     getOwnerNotificationSettings(ownerEmail),
     getOwnerAlertThresholds(ownerEmail),
