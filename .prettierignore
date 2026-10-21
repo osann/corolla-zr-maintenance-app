@@ -1,0 +1,8 @@
+# Prettier formats JS, TS and CSS only. HTML is left alone because reformatting can change
+# whitespace between inline elements; Markdown and YAML are hand-formatted.
+*.html
+*.md
+*.yml
+*.json
+CNAME
+backend/package-lock.json

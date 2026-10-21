@@ -857,18 +857,13 @@ Output only the CSV starting with the header row.`;
   }
 
   function recompute() {
-    let done = 0, spent = 0, total = 0;
     const byPhase = {};
     itemData.forEach(item => {
-      total += item.price;
-      if (!byPhase[item.phase]) byPhase[item.phase] = { done: 0, count: 0, spent: 0, total: 0 };
+      if (!byPhase[item.phase]) byPhase[item.phase] = { done: 0, count: 0 };
       byPhase[item.phase].count++;
-      byPhase[item.phase].total += item.price;
       if (item.input.checked) {
         item.el.classList.add('done');
-        done++; spent += item.price;
         byPhase[item.phase].done++;
-        byPhase[item.phase].spent += item.price;
       } else {
         item.el.classList.remove('done');
       }
@@ -2776,7 +2771,7 @@ Output only the CSV starting with the header row.`;
       const pct            = (volumeMl && remainingMl != null) ? Math.max(0, Math.min(100, Math.round((remainingMl / volumeMl) * 100))) : null;
       const isLow          = pct != null && pct <= 20;
 
-      let stockHtml = '';
+      let stockHtml;
       if (notConfigured) {
         stockHtml = `<div class="inv-not-set">Stock not set — <button class="inv-link-btn" onclick="toggleInvAdjustForm('${uid}')">configure</button></div>`;
       } else {
@@ -2877,7 +2872,7 @@ Output only the CSV starting with the header row.`;
       const pct = (volumeMl && remainingMl != null) ? Math.max(0, Math.min(100, Math.round((remainingMl / volumeMl) * 100))) : null;
       const isLow = pct != null && pct <= 20;
 
-      let stockHtml = '';
+      let stockHtml;
       if (notConfigured) {
         stockHtml = `<div class="inv-not-set">Stock not set — <button class="inv-link-btn" onclick="toggleInvAdjustForm('${uid}')">configure</button></div>`;
       } else {
@@ -3451,7 +3446,7 @@ Output only the CSV starting with the header row.`;
   }
 
   function parseRoutinesCSV(text) {
-    const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
+    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) return [];
     const headers = parseCSVRow(lines[0]);
     const idx = {};
@@ -4144,7 +4139,6 @@ Output only the CSV starting with the header row.`;
               ? item.lastCompletedDate
               : item.lastCompletedOdometer != null ? `${item.lastCompletedOdometer.toLocaleString()} km` : '—';
             const nextLabel = maintenanceDueLabel(item);
-            const urgent = due.status === 'overdue' || due.status === 'due-soon';
             const rowStyle = due.status === 'overdue' ? 'style="color:var(--accent);font-weight:600"' : '';
             return `<tr ${rowStyle}>
               <td>${escHtml(item.name)}</td>
@@ -4388,7 +4382,7 @@ Output only the CSV starting with the header row.`;
   }
 
   function parseMaintenanceCSV(text) {
-    const lines = text.replace(/^﻿/, '').split(/\r?\n/).filter(l => l.trim());
+    const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => l.trim());
     const items = [];
     for (const line of lines) {
       const cols = parseCSVRow(line);

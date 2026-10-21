@@ -13,6 +13,11 @@
     "scrape": "node --import tsx/esm src/scrapers/index.ts",
     "scrape:push": "node --import tsx/esm src/scrapers/run-and-push.ts",
     "scrape:autobarn": "node --import tsx/esm src/scrapers/run-autobarn.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "cd .. && eslint -c backend/eslint.config.js .",
+    "format": "cd .. && prettier --write .",
+    "format:check": "cd .. && prettier --check .",
     "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
@@ -28,8 +33,14 @@
     "tsx": "^4.19.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.15.3",
     "@types/node-cron": "^3.0.11",
-    "typescript": "^5.8.3"
+    "eslint": "^10.12.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.10",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^3.2.7"
   }
 }

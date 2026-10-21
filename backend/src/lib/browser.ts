@@ -26,7 +26,7 @@ export async function createStealthContext(): Promise<{ context: BrowserContext;
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
     Object.defineProperty(navigator, 'languages', { get: () => ['en-AU', 'en'] });
-    // @ts-ignore
+    // @ts-expect-error — window.chrome is not in the DOM typings
     window.chrome = { runtime: {} };
   });
 
