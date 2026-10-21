@@ -29,7 +29,9 @@ const RATE_LIMIT_MS = 5_000;
 // Member price: first .promotion-price on the page — present only when a promo applies.
 //   [itemprop="price"] only appears inside a <script type="application/ld+json"> tag,
 //   NOT as a visible DOM attribute, so never use it as a waitForSelector target.
-async function fetchRepcoPlaywright(pageUrl: string): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
+async function fetchRepcoPlaywright(
+  pageUrl: string,
+): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
   const { context, close } = await createStealthContext();
   const page = await context.newPage();
   try {
@@ -43,8 +45,8 @@ async function fetchRepcoPlaywright(pageUrl: string): Promise<{ priceCents: numb
 
       // Exclude .promotion-price inside carousel/related-product tiles (a.price-group).
       // Those belong to other products, not the current PDP item.
-      const promoEl = Array.from(document.querySelectorAll('.promotion-price'))
-        .find(el => !el.closest('a.price-group')) ?? null;
+      const promoEl =
+        Array.from(document.querySelectorAll('.promotion-price')).find((el) => !el.closest('a.price-group')) ?? null;
 
       return {
         regularText: regularEl?.getAttribute('content') ?? null,
@@ -67,7 +69,7 @@ async function fetchRepcoPlaywright(pageUrl: string): Promise<{ priceCents: numb
     // Use the lowest available price (member/promo if present, else regular).
     // compareAt is intentionally null — Repco's member discount is a permanent
     // baseline, not a sale. Sale detection relies on rolling average in isOnSale.
-    const priceCents = (promoCents && promoCents < regularCents) ? promoCents : regularCents;
+    const priceCents = promoCents && promoCents < regularCents ? promoCents : regularCents;
 
     return { priceCents, compareAtCents: null };
   } catch (err) {
@@ -118,7 +120,7 @@ async function getRows() {
 // instead of querying the local DB — see fetch-backend-rows.ts for why the GitHub Actions
 // entry point (run-and-push.ts) passes the live backend's product list in here.
 export async function scrapeToArray(externalRows?: ScrapeRow[]): Promise<PriceObservation[]> {
-  const rows = externalRows ?? await getRows();
+  const rows = externalRows ?? (await getRows());
   if (rows.length === 0) {
     console.log('Repco: no products configured — skipping');
     return [];
@@ -191,11 +193,13 @@ export async function scrapeRepco(): Promise<void> {
       const avgRows = await db
         .select({ avg: sql<number>`AVG(price_cents)` })
         .from(priceHistory)
-        .where(and(
-          eq(priceHistory.productId, row.productId),
-          eq(priceHistory.retailer, 'repco'),
-          gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
-        ));
+        .where(
+          and(
+            eq(priceHistory.productId, row.productId),
+            eq(priceHistory.retailer, 'repco'),
+            gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
+          ),
+        );
       const rollingAvg = avgRows[0]?.avg ?? null;
       const onSale = isOnSale(result.priceCents, null, rollingAvg);
 

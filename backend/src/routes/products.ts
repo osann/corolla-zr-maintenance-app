@@ -8,7 +8,13 @@ const router = new Hono<AppEnv>();
 
 // Shape returned to the frontend for each pack component — matches the client's existing
 // BUNDLE_COMPONENTS contract so the frontend can treat it as a drop-in replacement.
-type ComponentOut = { slug?: string; name: string; volumeMl?: number; equipment?: boolean; sectionPath?: [string, string] };
+type ComponentOut = {
+  slug?: string;
+  name: string;
+  volumeMl?: number;
+  equipment?: boolean;
+  sectionPath?: [string, string];
+};
 
 // GET /products — all products with their latest price per retailer
 router.get('/products', async (c) => {
@@ -34,7 +40,10 @@ router.get('/products', async (c) => {
   `);
 
   // Index by product_id → retailer
-  const pricesByProduct = new Map<number, Record<string, { priceCents: number; onSale: boolean; observedAt: string }>>();
+  const pricesByProduct = new Map<
+    number,
+    Record<string, { priceCents: number; onSale: boolean; observedAt: string }>
+  >();
   for (const row of latestPriceRows) {
     if (!pricesByProduct.has(row.product_id)) pricesByProduct.set(row.product_id, {});
     pricesByProduct.get(row.product_id)![row.retailer] = {
@@ -138,7 +147,7 @@ router.post('/products', sessionMiddleware, async (c) => {
   }
 
   const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'] as const;
-  if (retailer && !SCRAPED_RETAILERS.includes(retailer as typeof SCRAPED_RETAILERS[number])) {
+  if (retailer && !SCRAPED_RETAILERS.includes(retailer as (typeof SCRAPED_RETAILERS)[number])) {
     return c.json({ error: 'Invalid retailer' }, 400);
   }
   if (retailer && (!url || !url.startsWith('http'))) {
@@ -158,7 +167,7 @@ router.post('/products', sessionMiddleware, async (c) => {
   if (retailer && url) {
     await db.insert(retailerUrls).values({
       productId: newProduct.id,
-      retailer: retailer as typeof SCRAPED_RETAILERS[number],
+      retailer: retailer as (typeof SCRAPED_RETAILERS)[number],
       url,
     });
   }
@@ -178,7 +187,7 @@ router.put('/products/:id/url', sessionMiddleware, async (c) => {
   const body = await c.req.json<{ retailer?: string; url?: string }>();
   const { retailer, url } = body;
 
-  if (!retailer || !SCRAPED_RETAILERS.includes(retailer as typeof SCRAPED_RETAILERS[number])) {
+  if (!retailer || !SCRAPED_RETAILERS.includes(retailer as (typeof SCRAPED_RETAILERS)[number])) {
     return c.json({ error: 'Invalid retailer' }, 400);
   }
   if (!url || typeof url !== 'string' || !url.startsWith('http')) {
@@ -188,8 +197,9 @@ router.put('/products/:id/url', sessionMiddleware, async (c) => {
   const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
 
-  await db.insert(retailerUrls)
-    .values({ productId: id, retailer: retailer as typeof SCRAPED_RETAILERS[number], url })
+  await db
+    .insert(retailerUrls)
+    .values({ productId: id, retailer: retailer as (typeof SCRAPED_RETAILERS)[number], url })
     .onConflictDoUpdate({
       target: [retailerUrls.productId, retailerUrls.retailer],
       set: { url },
@@ -208,7 +218,12 @@ router.patch('/products/:id', sessionMiddleware, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
-  const body = await c.req.json<{ name?: string; slug?: string; defaultVolumeMl?: number | null; defaultUsagePerWashMl?: number | null }>();
+  const body = await c.req.json<{
+    name?: string;
+    slug?: string;
+    defaultVolumeMl?: number | null;
+    defaultUsagePerWashMl?: number | null;
+  }>();
   const name = body.name?.trim();
   const slug = body.slug?.trim();
   const hasVolume = 'defaultVolumeMl' in body;
@@ -220,11 +235,17 @@ router.patch('/products/:id', sessionMiddleware, async (c) => {
   const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
 
-  const update: { name?: string; slug?: string; defaultVolumeMl?: number | null; defaultUsagePerWashMl?: number | null } = {};
+  const update: {
+    name?: string;
+    slug?: string;
+    defaultVolumeMl?: number | null;
+    defaultUsagePerWashMl?: number | null;
+  } = {};
 
   if (name) {
     const existingName = await db.select({ id: products.id }).from(products).where(eq(products.name, name)).limit(1);
-    if (existingName.length && existingName[0].id !== id) return c.json({ error: 'A product with that name already exists' }, 409);
+    if (existingName.length && existingName[0].id !== id)
+      return c.json({ error: 'A product with that name already exists' }, 409);
     update.name = name;
   }
 
@@ -233,7 +254,8 @@ router.patch('/products/:id', sessionMiddleware, async (c) => {
       return c.json({ error: 'Slug must contain only lowercase letters, numbers and hyphens' }, 400);
     }
     const existingSlug = await db.select({ id: products.id }).from(products).where(eq(products.slug, slug)).limit(1);
-    if (existingSlug.length && existingSlug[0].id !== id) return c.json({ error: 'A product with that slug already exists' }, 409);
+    if (existingSlug.length && existingSlug[0].id !== id)
+      return c.json({ error: 'A product with that slug already exists' }, 409);
     update.slug = slug;
   }
 
@@ -245,7 +267,10 @@ router.patch('/products/:id', sessionMiddleware, async (c) => {
   }
 
   if (hasUsage) {
-    if (body.defaultUsagePerWashMl != null && (!Number.isFinite(body.defaultUsagePerWashMl) || body.defaultUsagePerWashMl <= 0)) {
+    if (
+      body.defaultUsagePerWashMl != null &&
+      (!Number.isFinite(body.defaultUsagePerWashMl) || body.defaultUsagePerWashMl <= 0)
+    ) {
       return c.json({ error: 'Default usage per wash must be a positive number, or null to clear it' }, 400);
     }
     update.defaultUsagePerWashMl = body.defaultUsagePerWashMl ?? null;
@@ -271,7 +296,14 @@ router.put('/products/:id/pack', sessionMiddleware, async (c) => {
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
 
   const body = await c.req.json<{
-    components?: Array<{ componentProductId?: number; name?: string; volumeMl?: number; equipment?: boolean; sectionCategory?: string; sectionLabel?: string }>;
+    components?: Array<{
+      componentProductId?: number;
+      name?: string;
+      volumeMl?: number;
+      equipment?: boolean;
+      sectionCategory?: string;
+      sectionLabel?: string;
+    }>;
   }>();
   const components = body.components;
   if (!Array.isArray(components) || components.length === 0) {
@@ -283,8 +315,13 @@ router.put('/products/:id/pack', sessionMiddleware, async (c) => {
       return c.json({ error: 'Every component needs a name' }, 400);
     }
     if (comp.componentProductId != null) {
-      if (comp.componentProductId === id) return c.json({ error: 'A pack cannot reference itself as a component' }, 400);
-      const compProd = await db.select({ id: products.id, isPack: products.isPack }).from(products).where(eq(products.id, comp.componentProductId)).limit(1);
+      if (comp.componentProductId === id)
+        return c.json({ error: 'A pack cannot reference itself as a component' }, 400);
+      const compProd = await db
+        .select({ id: products.id, isPack: products.isPack })
+        .from(products)
+        .where(eq(products.id, comp.componentProductId))
+        .limit(1);
       if (!compProd.length) return c.json({ error: 'Component product not found' }, 400);
       if (compProd[0].isPack) return c.json({ error: 'A pack cannot be used as a component of another pack' }, 400);
     }
@@ -335,10 +372,10 @@ router.delete('/products/:id/url/:retailer', sessionMiddleware, async (c) => {
 
   const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'] as const;
   const retailer = c.req.param('retailer');
-  if (!SCRAPED_RETAILERS.includes(retailer as typeof SCRAPED_RETAILERS[number])) {
+  if (!SCRAPED_RETAILERS.includes(retailer as (typeof SCRAPED_RETAILERS)[number])) {
     return c.json({ error: 'Invalid retailer' }, 400);
   }
-  const typedRetailer = retailer as typeof SCRAPED_RETAILERS[number];
+  const typedRetailer = retailer as (typeof SCRAPED_RETAILERS)[number];
 
   await db.delete(priceHistory).where(and(eq(priceHistory.productId, id), eq(priceHistory.retailer, typedRetailer)));
   await db.delete(retailerUrls).where(and(eq(retailerUrls.productId, id), eq(retailerUrls.retailer, typedRetailer)));
@@ -360,16 +397,24 @@ router.delete('/products/:id', sessionMiddleware, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
-  const prod = await db.select({ id: products.id, slug: products.slug, name: products.name }).from(products).where(eq(products.id, id)).limit(1);
+  const prod = await db
+    .select({ id: products.id, slug: products.slug, name: products.name })
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1);
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
 
   await db.delete(packComponents).where(eq(packComponents.packProductId, id));
   await db.delete(packComponents).where(eq(packComponents.componentProductId, id));
   await db.delete(priceHistory).where(eq(priceHistory.productId, id));
   await db.delete(retailerUrls).where(eq(retailerUrls.productId, id));
-  await db.insert(deletedProducts)
+  await db
+    .insert(deletedProducts)
     .values({ slug: prod[0].slug, name: prod[0].name })
-    .onConflictDoUpdate({ target: [deletedProducts.slug], set: { name: prod[0].name, deletedAt: sql`CURRENT_TIMESTAMP` } });
+    .onConflictDoUpdate({
+      target: [deletedProducts.slug],
+      set: { name: prod[0].name, deletedAt: sql`CURRENT_TIMESTAMP` },
+    });
   await db.delete(products).where(eq(products.id, id));
 
   return c.json({ ok: true });

@@ -17,7 +17,7 @@ interface BackendProduct {
 export async function fetchRowsFromBackend(backendUrl: string, retailer: string): Promise<ScrapeRow[]> {
   const res = await fetch(`${backendUrl}/api/products`);
   if (!res.ok) throw new Error(`Failed to fetch products from backend: HTTP ${res.status}`);
-  const allProducts = await res.json() as BackendProduct[];
+  const allProducts = (await res.json()) as BackendProduct[];
   return allProducts
     .filter((p) => p.urls?.[retailer])
     .map((p) => ({ productId: p.id, url: p.urls![retailer], slug: p.slug, name: p.name }));

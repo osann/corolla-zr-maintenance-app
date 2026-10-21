@@ -28,12 +28,7 @@ router.get('/alerts', async (c) => {
     })
     .from(priceHistory)
     .innerJoin(products, eq(products.id, priceHistory.productId))
-    .where(
-      and(
-        eq(priceHistory.onSale, true),
-        gt(priceHistory.observedAt, recentCutoff),
-      ),
-    )
+    .where(and(eq(priceHistory.onSale, true), gt(priceHistory.observedAt, recentCutoff)))
     .orderBy(desc(priceHistory.observedAt));
 
   // Deduplicate: keep only the most recent alert per product+retailer
@@ -60,12 +55,12 @@ router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
   if (!notif.washReminders || !notif.ticktickConnected) return c.json({ ok: true });
 
   await createTickTickTask(ownerEmail, {
-    title:     `🚗 ${routineName} due`,
-    content:   'Wash reminder sent from the Corolla app.',
+    title: `🚗 ${routineName} due`,
+    content: 'Wash reminder sent from the Corolla app.',
     projectId: notif.ticktickProjectId ?? '',
-    tags:      notif.ticktickTags ?? [],
-    priority:  notif.ticktickPriority as 0 | 1 | 3 | 5,
-    dueDate:   dueDate ? new Date(dueDate).toISOString().replace(/\.\d{3}Z$/, '+0000') : undefined,
+    tags: notif.ticktickTags ?? [],
+    priority: notif.ticktickPriority as 0 | 1 | 3 | 5,
+    dueDate: dueDate ? new Date(dueDate).toISOString().replace(/\.\d{3}Z$/, '+0000') : undefined,
   });
   return c.json({ ok: true });
 });

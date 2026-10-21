@@ -24,7 +24,9 @@ function sleep(ms: number) {
 //
 // We are a club member, so club price (when shown) is what we pay.
 // compareAtCents = standard retail when it's higher than what we pay.
-async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
+async function fetchProductPrice(
+  pageUrl: string,
+): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
   const { context, close } = await createStealthContext();
   const page = await context.newPage();
   try {
@@ -41,9 +43,16 @@ async function fetchProductPrice(pageUrl: string): Promise<{ priceCents: number;
 
     // Only plain DOM reads inside evaluate — no helper functions, avoids tsx __name injection
     const raw = await page.evaluate(() => ({
-      clubText: document.querySelector('#product-content > .product-price.has-club .text-club-price')?.textContent?.trim() ?? null,
-      sellText: document.querySelector('#product-content > .product-price .price-sales .promo-price')?.textContent?.trim() ?? null,
-      retailText: document.querySelector('#product-content > .product-price .price-standard .stroke-content')?.textContent?.trim() ?? null,
+      clubText:
+        document.querySelector('#product-content > .product-price.has-club .text-club-price')?.textContent?.trim() ??
+        null,
+      sellText:
+        document.querySelector('#product-content > .product-price .price-sales .promo-price')?.textContent?.trim() ??
+        null,
+      retailText:
+        document
+          .querySelector('#product-content > .product-price .price-standard .stroke-content')
+          ?.textContent?.trim() ?? null,
     }));
 
     const parsePrice = (text: string | null) =>
@@ -105,7 +114,7 @@ async function getRows() {
 // instead of querying the local DB — see fetch-backend-rows.ts for why the GitHub Actions
 // entry point (run-and-push.ts) passes the live backend's product list in here.
 export async function scrapeToArray(externalRows?: ScrapeRow[]): Promise<PriceObservation[]> {
-  const rows = externalRows ?? await getRows();
+  const rows = externalRows ?? (await getRows());
   if (rows.length === 0) {
     console.log('Supercheap Auto: no products configured — skipping');
     return [];

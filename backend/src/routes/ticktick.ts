@@ -1,25 +1,23 @@
 import { Hono } from 'hono';
 import { sessionMiddleware } from '../lib/auth.js';
-import {
-  storeOAuthTokens, fetchTickTickProjects, isTickTickConnected, disconnectTickTick,
-} from '../lib/ticktick.js';
+import { storeOAuthTokens, fetchTickTickProjects, isTickTickConnected, disconnectTickTick } from '../lib/ticktick.js';
 import { getOwnerEmail } from '../lib/email.js';
 
 const router = new Hono();
 
-const CLIENT_ID    = () => process.env.TICKTICK_CLIENT_ID!;
+const CLIENT_ID = () => process.env.TICKTICK_CLIENT_ID!;
 const CLIENT_SECRET = () => process.env.TICKTICK_CLIENT_SECRET!;
-const REDIRECT_URI  = () => `${process.env.BACKEND_PUBLIC_URL}/api/ticktick/callback`;
-const AUTH_URL      = 'https://ticktick.com/oauth/authorize';
-const TOKEN_URL     = 'https://ticktick.com/oauth/token';
+const REDIRECT_URI = () => `${process.env.BACKEND_PUBLIC_URL}/api/ticktick/callback`;
+const AUTH_URL = 'https://ticktick.com/oauth/authorize';
+const TOKEN_URL = 'https://ticktick.com/oauth/token';
 
 // Redirect to TickTick OAuth — session-protected so only the owner can connect.
 router.get('/ticktick/auth', sessionMiddleware, (c) => {
   const url = new URL(AUTH_URL);
-  url.searchParams.set('client_id',     CLIENT_ID());
+  url.searchParams.set('client_id', CLIENT_ID());
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('redirect_uri',  REDIRECT_URI());
-  url.searchParams.set('scope',         'tasks:write tasks:read');
+  url.searchParams.set('redirect_uri', REDIRECT_URI());
+  url.searchParams.set('scope', 'tasks:write tasks:read');
   return c.redirect(url.toString());
 });
 
@@ -30,10 +28,12 @@ router.get('/ticktick/callback', async (c) => {
 
   const creds = Buffer.from(`${CLIENT_ID()}:${CLIENT_SECRET()}`).toString('base64');
   const res = await fetch(TOKEN_URL, {
-    method:  'POST',
+    method: 'POST',
     headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    new URLSearchParams({
-      code, grant_type: 'authorization_code', redirect_uri: REDIRECT_URI(),
+    body: new URLSearchParams({
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: REDIRECT_URI(),
     }),
   });
 
@@ -43,8 +43,10 @@ router.get('/ticktick/callback', async (c) => {
     return c.redirect(`${appUrl}?ticktick=error`);
   }
 
-  const data = await res.json() as {
-    access_token: string; refresh_token: string; expires_in: number;
+  const data = (await res.json()) as {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
   };
   await storeOAuthTokens(getOwnerEmail(), data.access_token, data.refresh_token, data.expires_in);
 

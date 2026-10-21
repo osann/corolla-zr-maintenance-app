@@ -29,7 +29,7 @@ async function pushBatch(observations: PriceObservation[]): Promise<void> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SCRAPE_SECRET}`,
+      Authorization: `Bearer ${SCRAPE_SECRET}`,
     },
     body: JSON.stringify(observations),
   });
@@ -39,7 +39,7 @@ async function pushBatch(observations: PriceObservation[]): Promise<void> {
     throw new Error(`POST /api/prices failed: HTTP ${res.status} — ${text}`);
   }
 
-  const data = await res.json() as { inserted: number; skipped: number };
+  const data = (await res.json()) as { inserted: number; skipped: number };
   totalInserted += data.inserted;
   totalSkipped += data.skipped;
   console.log(`  → pushed batch of ${observations.length} (${data.inserted} inserted, ${data.skipped} skipped)`);
@@ -71,4 +71,7 @@ async function main() {
   console.log(`\nDone. ${totalInserted} observations stored, ${totalSkipped} skipped.`);
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

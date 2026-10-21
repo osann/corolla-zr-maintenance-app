@@ -13,7 +13,7 @@ const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 10 * 1024 * 1024;
 
 function extForMime(mime: string): string {
-  if (mime === 'image/png')  return 'png';
+  if (mime === 'image/png') return 'png';
   if (mime === 'image/webp') return 'webp';
   return 'jpg';
 }
@@ -40,31 +40,29 @@ router.post('/photos/upload', sessionMiddleware, async (c) => {
   const buf = Buffer.from(await file.arrayBuffer());
   const ext = extForMime(file.type);
   const uuid = randomUUID();
-  const r2Key    = `photos/${userId}/${logEntryId}/${uuid}.${ext}`;
+  const r2Key = `photos/${userId}/${logEntryId}/${uuid}.${ext}`;
   const thumbKey = `photos/${userId}/${logEntryId}/thumb_${uuid}.${ext}`;
 
   // Sharp resizes and strips EXIF automatically on any transform
-  const thumbBuf = await sharp(buf)
-    .resize({ width: 400, withoutEnlargement: true })
-    .toBuffer();
+  const thumbBuf = await sharp(buf).resize({ width: 400, withoutEnlargement: true }).toBuffer();
 
-  await Promise.all([
-    uploadToR2(r2Key, buf, file.type),
-    uploadToR2(thumbKey, thumbBuf, file.type),
-  ]);
+  await Promise.all([uploadToR2(r2Key, buf, file.type), uploadToR2(thumbKey, thumbBuf, file.type)]);
 
-  const [row] = await db.insert(photos).values({
-    userId,
-    logEntryId,
-    r2Key,
-    thumbKey,
-    mimeType: file.type,
-    sizeBytes: file.size,
-  }).returning({ id: photos.id });
+  const [row] = await db
+    .insert(photos)
+    .values({
+      userId,
+      logEntryId,
+      r2Key,
+      thumbKey,
+      mimeType: file.type,
+      sizeBytes: file.size,
+    })
+    .returning({ id: photos.id });
 
   return c.json({
     id: row.id,
-    thumbUrl:    getPublicUrl(thumbKey),
+    thumbUrl: getPublicUrl(thumbKey),
     originalUrl: getPublicUrl(r2Key),
   });
 });
@@ -75,7 +73,11 @@ router.get('/photos', sessionMiddleware, async (c) => {
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
 
   const raw = c.req.query('logEntryIds') ?? '';
-  const ids = raw.split(',').map(Number).filter(n => Number.isFinite(n) && n > 0).slice(0, 100);
+  const ids = raw
+    .split(',')
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .slice(0, 100);
   if (!ids.length) return c.json({});
 
   const rows = await db
@@ -89,7 +91,7 @@ router.get('/photos', sessionMiddleware, async (c) => {
     result[row.logEntryId].push({
       id: row.id,
       logEntryId: row.logEntryId,
-      thumbUrl:    getPublicUrl(row.thumbKey),
+      thumbUrl: getPublicUrl(row.thumbKey),
       originalUrl: getPublicUrl(row.r2Key),
     });
   }

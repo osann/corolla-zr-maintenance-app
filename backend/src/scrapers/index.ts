@@ -23,5 +23,8 @@ export async function scrapeAllRetailers(): Promise<void> {
 
 // Allow running directly: npm run scrape
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  scrapeAllRetailers().catch((err) => { console.error(err); process.exit(1); });
+  scrapeAllRetailers().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
 }

@@ -15,31 +15,31 @@ export function getOwnerEmail(): string {
 }
 
 export interface NotificationSettings {
-  ticktickConnected:  boolean;
-  saleAlerts:         boolean;
-  thresholdAlerts:    boolean;
-  ticktickAlerts:     boolean;
-  ticktickProjectId:  string | null;
-  ticktickTags:       string[];
-  ticktickPriority:   0 | 1 | 3 | 5;
-  emailAlerts:        boolean;
-  washReminders:      boolean;
+  ticktickConnected: boolean;
+  saleAlerts: boolean;
+  thresholdAlerts: boolean;
+  ticktickAlerts: boolean;
+  ticktickProjectId: string | null;
+  ticktickTags: string[];
+  ticktickPriority: 0 | 1 | 3 | 5;
+  emailAlerts: boolean;
+  washReminders: boolean;
   emailWashReminders: boolean;
-  emailDigest:        boolean;
+  emailDigest: boolean;
 }
 
 const NOTIF_DEFAULTS: NotificationSettings = {
-  ticktickConnected:  false,
-  saleAlerts:         true,
-  thresholdAlerts:    true,
-  ticktickAlerts:     true,
-  ticktickProjectId:  null,
-  ticktickTags:       [],
-  ticktickPriority:   0,
-  emailAlerts:        false,
-  washReminders:      true,
+  ticktickConnected: false,
+  saleAlerts: true,
+  thresholdAlerts: true,
+  ticktickAlerts: true,
+  ticktickProjectId: null,
+  ticktickTags: [],
+  ticktickPriority: 0,
+  emailAlerts: false,
+  washReminders: true,
   emailWashReminders: false,
-  emailDigest:        false,
+  emailDigest: false,
 };
 
 export interface DigestSaleItem {
@@ -68,24 +68,15 @@ export interface AlertThreshold {
   channel: 'global' | 'ticktick' | 'email';
 }
 
-export async function getOwnerNotificationSettings(
-  ownerEmail: string
-): Promise<NotificationSettings> {
+export async function getOwnerNotificationSettings(ownerEmail: string): Promise<NotificationSettings> {
   try {
-    const userRows = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, ownerEmail))
-      .limit(1);
+    const userRows = await db.select({ id: users.id }).from(users).where(eq(users.email, ownerEmail)).limit(1);
     if (userRows.length === 0) return { ...NOTIF_DEFAULTS };
 
     const dataRows = await db
       .select({ valueJson: userData.valueJson })
       .from(userData)
-      .where(and(
-        eq(userData.userId, userRows[0].id),
-        eq(userData.key, 'corolla-settings-v1'),
-      ))
+      .where(and(eq(userData.userId, userRows[0].id), eq(userData.key, 'corolla-settings-v1')))
       .limit(1);
     if (dataRows.length === 0) return { ...NOTIF_DEFAULTS };
 
@@ -96,41 +87,32 @@ export async function getOwnerNotificationSettings(
     if (!n || typeof n !== 'object') return { ...NOTIF_DEFAULTS, ticktickConnected: connected };
 
     return {
-      ticktickConnected:  connected,
-      saleAlerts:         typeof n.saleAlerts          === 'boolean' ? n.saleAlerts          : true,
-      thresholdAlerts:    typeof n.thresholdAlerts     === 'boolean' ? n.thresholdAlerts     : true,
-      ticktickAlerts:     typeof n.ticktickAlerts      === 'boolean' ? n.ticktickAlerts      : true,
-      ticktickProjectId:  typeof n.ticktickProjectId   === 'string'  ? n.ticktickProjectId   : null,
-      ticktickTags:       Array.isArray(n.ticktickTags)              ? n.ticktickTags         : [],
-      ticktickPriority:   [0,1,3,5].includes(n.ticktickPriority)    ? n.ticktickPriority     : 0,
-      emailAlerts:        typeof n.emailAlerts          === 'boolean' ? n.emailAlerts          : false,
-      washReminders:      typeof n.washReminders        === 'boolean' ? n.washReminders        : true,
-      emailWashReminders: typeof n.emailWashReminders   === 'boolean' ? n.emailWashReminders   : false,
-      emailDigest:        typeof n.emailDigest          === 'boolean' ? n.emailDigest          : false,
+      ticktickConnected: connected,
+      saleAlerts: typeof n.saleAlerts === 'boolean' ? n.saleAlerts : true,
+      thresholdAlerts: typeof n.thresholdAlerts === 'boolean' ? n.thresholdAlerts : true,
+      ticktickAlerts: typeof n.ticktickAlerts === 'boolean' ? n.ticktickAlerts : true,
+      ticktickProjectId: typeof n.ticktickProjectId === 'string' ? n.ticktickProjectId : null,
+      ticktickTags: Array.isArray(n.ticktickTags) ? n.ticktickTags : [],
+      ticktickPriority: [0, 1, 3, 5].includes(n.ticktickPriority) ? n.ticktickPriority : 0,
+      emailAlerts: typeof n.emailAlerts === 'boolean' ? n.emailAlerts : false,
+      washReminders: typeof n.washReminders === 'boolean' ? n.washReminders : true,
+      emailWashReminders: typeof n.emailWashReminders === 'boolean' ? n.emailWashReminders : false,
+      emailDigest: typeof n.emailDigest === 'boolean' ? n.emailDigest : false,
     };
   } catch {
     return { ...NOTIF_DEFAULTS };
   }
 }
 
-export async function getOwnerAlertThresholds(
-  ownerEmail: string
-): Promise<Record<string, AlertThreshold>> {
+export async function getOwnerAlertThresholds(ownerEmail: string): Promise<Record<string, AlertThreshold>> {
   try {
-    const userRows = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, ownerEmail))
-      .limit(1);
+    const userRows = await db.select({ id: users.id }).from(users).where(eq(users.email, ownerEmail)).limit(1);
     if (userRows.length === 0) return {};
 
     const dataRows = await db
       .select({ valueJson: userData.valueJson })
       .from(userData)
-      .where(and(
-        eq(userData.userId, userRows[0].id),
-        eq(userData.key, 'corolla-price-alerts-v1'),
-      ))
+      .where(and(eq(userData.userId, userRows[0].id), eq(userData.key, 'corolla-price-alerts-v1')))
       .limit(1);
     if (dataRows.length === 0) return {};
 
@@ -155,7 +137,7 @@ export async function sendDirectEmail(to: string, subject: string, bodyText: str
 </div>`;
 
   await resend.emails.send({
-    from:    process.env.RESEND_FROM ?? 'Corolla Detailing <sync@corolla.jhosan.top>',
+    from: process.env.RESEND_FROM ?? 'Corolla Detailing <sync@corolla.jhosan.top>',
     to,
     subject,
     html,
@@ -172,7 +154,10 @@ export async function sendDigestEmail(
 
   const appUrl = process.env.APP_URL ?? 'https://corolla.jhosan.top';
   const today = new Date().toLocaleDateString('en-AU', {
-    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Australia/Sydney',
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Australia/Sydney',
   });
 
   const sectionHead = (title: string) =>
@@ -198,7 +183,8 @@ export async function sendDigestEmail(
 
   let sectionsHtml = '';
   if (saleItems.length > 0) sectionsHtml += sectionHead('On sale now') + saleItems.map(saleRow).join('');
-  if (thresholdItems.length > 0) sectionsHtml += sectionHead('Below your thresholds') + thresholdItems.map(thresholdRow).join('');
+  if (thresholdItems.length > 0)
+    sectionsHtml += sectionHead('Below your thresholds') + thresholdItems.map(thresholdRow).join('');
 
   const total = saleItems.length + thresholdItems.length;
   const subject = `🏷️ ${total} price alert${total === 1 ? '' : 's'} — ${today}`;
@@ -218,16 +204,25 @@ export async function sendDigestEmail(
     'Corolla Detailing — Daily price digest',
     today,
     '',
-    ...(saleItems.length > 0 ? [
-      'ON SALE NOW',
-      ...saleItems.map(i => `${i.name} (${RETAILER_DISPLAY[i.retailer] ?? i.retailer}): $${(i.priceCents / 100).toFixed(2)}`),
-      '',
-    ] : []),
-    ...(thresholdItems.length > 0 ? [
-      'BELOW YOUR THRESHOLDS',
-      ...thresholdItems.map(i => `${i.name} (${RETAILER_DISPLAY[i.retailer] ?? i.retailer}): $${(i.priceCents / 100).toFixed(2)} (threshold $${(i.thresholdCents / 100).toFixed(2)})`),
-      '',
-    ] : []),
+    ...(saleItems.length > 0
+      ? [
+          'ON SALE NOW',
+          ...saleItems.map(
+            (i) => `${i.name} (${RETAILER_DISPLAY[i.retailer] ?? i.retailer}): $${(i.priceCents / 100).toFixed(2)}`,
+          ),
+          '',
+        ]
+      : []),
+    ...(thresholdItems.length > 0
+      ? [
+          'BELOW YOUR THRESHOLDS',
+          ...thresholdItems.map(
+            (i) =>
+              `${i.name} (${RETAILER_DISPLAY[i.retailer] ?? i.retailer}): $${(i.priceCents / 100).toFixed(2)} (threshold $${(i.thresholdCents / 100).toFixed(2)})`,
+          ),
+          '',
+        ]
+      : []),
     appUrl,
   ];
 
@@ -242,12 +237,12 @@ export async function sendDigestEmail(
 
 export async function sendMagicLink(to: string, token: string): Promise<void> {
   const appUrl = process.env.APP_URL ?? 'https://corolla.jhosan.top';
-  const link   = `${appUrl}?token=${token}`;
+  const link = `${appUrl}?token=${token}`;
   await resend.emails.send({
-    from:    process.env.RESEND_FROM ?? 'Corolla Detailing <sync@corolla.jhosan.top>',
+    from: process.env.RESEND_FROM ?? 'Corolla Detailing <sync@corolla.jhosan.top>',
     to,
     subject: 'Sign in to Corolla Detailing',
-    html:    `
+    html: `
 <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1a1a1a;">
   <p style="font-size:14px;color:#666;margin:0 0 24px;">Corolla Detailing</p>
   <h2 style="font-size:20px;font-weight:600;margin:0 0 12px;">Sign in</h2>
@@ -255,6 +250,6 @@ export async function sendMagicLink(to: string, token: string): Promise<void> {
   <a href="${link}" style="display:inline-block;background:#2d7d5a;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;">Sign in →</a>
   <p style="font-size:13px;color:#999;margin:32px 0 0;">If you didn't request this, you can safely ignore it.<br>Link: ${link}</p>
 </div>`,
-    text:    `Sign in to Corolla Detailing\n\n${link}\n\nExpires in 15 minutes, one-time use. If you didn't request this, ignore it.`,
+    text: `Sign in to Corolla Detailing\n\n${link}\n\nExpires in 15 minutes, one-time use. If you didn't request this, ignore it.`,
   });
 }

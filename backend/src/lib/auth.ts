@@ -6,9 +6,9 @@ import { eq } from 'drizzle-orm';
 
 export type AppEnv = { Variables: { userId: number | null } };
 
-export const generateToken    = () => randomBytes(32).toString('hex');
-export const hashToken        = (raw: string) => createHash('sha256').update(raw).digest('hex');
-export const tokenExpiresAt   = (mins = 15) => new Date(Date.now() + mins * 60_000).toISOString();
+export const generateToken = () => randomBytes(32).toString('hex');
+export const hashToken = (raw: string) => createHash('sha256').update(raw).digest('hex');
+export const tokenExpiresAt = (mins = 15) => new Date(Date.now() + mins * 60_000).toISOString();
 export const sessionExpiresAt = (days = 30) => new Date(Date.now() + days * 86_400_000).toISOString();
 
 export async function sessionMiddleware(c: Context<AppEnv>, next: Next) {

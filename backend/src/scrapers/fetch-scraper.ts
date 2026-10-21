@@ -9,12 +9,13 @@ import { products, retailerUrls, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
 import type { PriceObservation } from '../routes/prices.js';
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const BASE_HEADERS: Record<string, string> = {
   'User-Agent': UA,
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-AU,en;q=0.9',
-  'Connection': 'keep-alive',
+  Connection: 'keep-alive',
   'Upgrade-Insecure-Requests': '1',
   'Sec-Fetch-Dest': 'document',
   'Sec-Fetch-Mode': 'navigate',
@@ -52,7 +53,10 @@ function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5, deadline
     if (opts.referer) headers['Referer'] = opts.referer;
 
     const remainingMs = effectiveDeadline - Date.now();
-    if (remainingMs <= 0) { reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`)); return; }
+    if (remainingMs <= 0) {
+      reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`));
+      return;
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), remainingMs);
@@ -61,15 +65,24 @@ function httpsGet(url: string, opts: GetOptions = {}, maxRedirects = 5, deadline
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
         clearTimeout(timer);
-        if (maxRedirects === 0) { reject(new Error('Too many redirects')); return; }
+        if (maxRedirects === 0) {
+          reject(new Error('Too many redirects'));
+          return;
+        }
         resolve(httpsGet(res.headers.location, opts, maxRedirects - 1, effectiveDeadline));
         return;
       }
-      const setCookies = (res.headers['set-cookie'] ?? []).map(c => c.split(';')[0]);
+      const setCookies = (res.headers['set-cookie'] ?? []).map((c) => c.split(';')[0]);
       const chunks: Buffer[] = [];
       res.on('data', (chunk: Buffer) => chunks.push(chunk));
-      res.on('end', () => { clearTimeout(timer); resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString(), setCookies }); });
-      res.on('error', (err) => { clearTimeout(timer); reject(err); });
+      res.on('end', () => {
+        clearTimeout(timer);
+        resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString(), setCookies });
+      });
+      res.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
     });
     req.on('error', (err) => {
       clearTimeout(timer);
@@ -150,7 +163,7 @@ type FetchRetailer = 'autobarn' | 'autopro';
 
 interface CrawlWindow {
   startHour: number; // UTC, inclusive
-  endHour: number;   // UTC, inclusive up to endMinute
+  endHour: number; // UTC, inclusive up to endMinute
   endMinute: number; // UTC minute at which the window closes
 }
 
@@ -176,7 +189,8 @@ function isInCrawlWindow(w: CrawlWindow): boolean {
 }
 
 export function createFetchScraper(config: FetchScraperConfig) {
-  const { retailer, homepageUrl, rateLimitMs, cacheHours, crawlWindow, ignoreWindowEnvVar, playwrightFallback } = config;
+  const { retailer, homepageUrl, rateLimitMs, cacheHours, crawlWindow, ignoreWindowEnvVar, playwrightFallback } =
+    config;
 
   function checkWindow(): boolean {
     if (process.env[ignoreWindowEnvVar] === '1') {
@@ -184,7 +198,9 @@ export function createFetchScraper(config: FetchScraperConfig) {
       return true;
     }
     if (!isInCrawlWindow(crawlWindow)) {
-      console.log(`${retailer}: outside crawl window (${crawlWindow.startHour}:00–${crawlWindow.endHour}:${String(crawlWindow.endMinute).padStart(2, '0')} UTC) — skipping`);
+      console.log(
+        `${retailer}: outside crawl window (${crawlWindow.startHour}:00–${crawlWindow.endHour}:${String(crawlWindow.endMinute).padStart(2, '0')} UTC) — skipping`,
+      );
       console.log(`  (set ${ignoreWindowEnvVar}=1 to override)`);
       return false;
     }
@@ -195,11 +211,13 @@ export function createFetchScraper(config: FetchScraperConfig) {
     const rows = await db
       .select({ id: priceHistory.id })
       .from(priceHistory)
-      .where(and(
-        eq(priceHistory.productId, productId),
-        eq(priceHistory.retailer, retailer),
-        gt(priceHistory.observedAt, sql`datetime('now', ${`-${cacheHours} hours`})`),
-      ))
+      .where(
+        and(
+          eq(priceHistory.productId, productId),
+          eq(priceHistory.retailer, retailer),
+          gt(priceHistory.observedAt, sql`datetime('now', ${`-${cacheHours} hours`})`),
+        ),
+      )
       .limit(1);
     return rows.length > 0;
   }
@@ -259,9 +277,18 @@ export function createFetchScraper(config: FetchScraperConfig) {
           await page.close();
 
           const result = parsePriceHtml(html);
-          if (!result) { console.warn(`  [playwright] No price found: ${row.url}`); await sleep(8_000); continue; }
+          if (!result) {
+            console.warn(`  [playwright] No price found: ${row.url}`);
+            await sleep(8_000);
+            continue;
+          }
 
-          results.push({ slug: row.slug, retailer, priceCents: result.priceCents, compareAtCents: result.compareAtCents });
+          results.push({
+            slug: row.slug,
+            retailer,
+            priceCents: result.priceCents,
+            compareAtCents: result.compareAtCents,
+          });
           console.log(`  [playwright ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}`);
         } catch (err) {
           console.error(`  [playwright error] ${row.name}:`, (err as Error).message.split('\n')[0]);
@@ -282,10 +309,13 @@ export function createFetchScraper(config: FetchScraperConfig) {
   // product, not the whole day's data. `externalRows`, if given, is used instead of querying
   // the local DB — see fetch-backend-rows.ts for why the self-hosted runner entry point
   // (run-autobarn.ts) passes the live backend's product list in here.
-  async function scrapeToArray(onProduct?: (obs: PriceObservation) => void | Promise<void>, externalRows?: Row[]): Promise<PriceObservation[]> {
+  async function scrapeToArray(
+    onProduct?: (obs: PriceObservation) => void | Promise<void>,
+    externalRows?: Row[],
+  ): Promise<PriceObservation[]> {
     if (!checkWindow()) return [];
 
-    const rows = externalRows ?? await getRows();
+    const rows = externalRows ?? (await getRows());
     console.log(`${retailer}: scraping ${rows.length} products...`);
 
     let cookies = await fetchSessionCookies();
@@ -345,7 +375,9 @@ export function createFetchScraper(config: FetchScraperConfig) {
         if (result) {
           cookies = mergeCookies(cookies, result.setCookies);
           const onSale = isOnSale(result.priceCents, result.compareAtCents, null);
-          await db.insert(priceHistory).values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
+          await db
+            .insert(priceHistory)
+            .values({ productId: row.productId, retailer, priceCents: result.priceCents, onSale });
           console.log(`  [ok] ${row.name} — $${(result.priceCents / 100).toFixed(2)}${onSale ? ' 🔥 ON SALE' : ''}`);
         } else {
           console.warn(`  [miss] ${row.name}`);

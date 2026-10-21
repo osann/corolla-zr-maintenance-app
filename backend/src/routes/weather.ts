@@ -29,7 +29,7 @@ router.get('/weather', async (c) => {
       {
         headers: { 'User-Agent': NOMINATIM_UA, Accept: 'application/json' },
         signal: AbortSignal.timeout(6000),
-      }
+      },
     );
     if (!geoRes.ok) return c.json(null);
 
@@ -41,7 +41,7 @@ router.get('/weather', async (c) => {
     // Step 2: lat/lon → 7-day daily forecast via Open-Meteo
     const fcRes = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_probability_max,temperature_2m_max&timezone=auto&forecast_days=7`,
-      { signal: AbortSignal.timeout(6000) }
+      { signal: AbortSignal.timeout(6000) },
     );
     if (!fcRes.ok) return c.json(null);
 

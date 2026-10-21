@@ -59,14 +59,13 @@ router.post('/auth/request', async (c) => {
   }
 
   // Invalidate existing unused tokens
-  await db.delete(magicTokens)
-    .where(and(eq(magicTokens.userId, user.id), isNull(magicTokens.usedAt)));
+  await db.delete(magicTokens).where(and(eq(magicTokens.userId, user.id), isNull(magicTokens.usedAt)));
 
   // Create new token
   const raw = generateToken();
   await db.insert(magicTokens).values({
     tokenHash: hashToken(raw),
-    userId:    user.id,
+    userId: user.id,
     expiresAt: tokenExpiresAt(15),
   });
 
@@ -76,27 +75,25 @@ router.post('/auth/request', async (c) => {
 
 // ── POST /auth/verify ─────────────────────────────────────────────────────────
 router.post('/auth/verify', async (c) => {
-  const body  = await c.req.json<{ token?: string }>();
-  const raw   = (body.token ?? '').trim();
+  const body = await c.req.json<{ token?: string }>();
+  const raw = (body.token ?? '').trim();
   if (!raw) return c.json({ error: 'Token required' }, 400);
 
-  const hash  = hashToken(raw);
-  const rows  = await db.select().from(magicTokens).where(eq(magicTokens.tokenHash, hash)).limit(1);
+  const hash = hashToken(raw);
+  const rows = await db.select().from(magicTokens).where(eq(magicTokens.tokenHash, hash)).limit(1);
   const token = rows[0];
 
-  if (!token)          return c.json({ error: 'Invalid token' }, 401);
-  if (token.usedAt)    return c.json({ error: 'Token already used' }, 401);
+  if (!token) return c.json({ error: 'Invalid token' }, 401);
+  if (token.usedAt) return c.json({ error: 'Token already used' }, 401);
   if (new Date(token.expiresAt) < new Date()) return c.json({ error: 'Token expired' }, 401);
 
   // Mark used before creating session (prevents race on double-click)
-  await db.update(magicTokens)
-    .set({ usedAt: new Date().toISOString() })
-    .where(eq(magicTokens.id, token.id));
+  await db.update(magicTokens).set({ usedAt: new Date().toISOString() }).where(eq(magicTokens.id, token.id));
 
   const sessionId = generateToken();
   await db.insert(sessions).values({
     sessionId,
-    userId:    token.userId,
+    userId: token.userId,
     expiresAt: sessionExpiresAt(30),
   });
 
@@ -105,10 +102,10 @@ router.post('/auth/verify', async (c) => {
   // the osann.github.io origin still in the CORS allowlist) keep working.
   setCookie(c, 'session', sessionId, {
     httpOnly: true,
-    secure:   true,
+    secure: true,
     sameSite: 'None',
-    maxAge:   30 * 24 * 60 * 60,
-    path:     '/',
+    maxAge: 30 * 24 * 60 * 60,
+    path: '/',
   });
 
   return c.json({ ok: true });
@@ -117,8 +114,8 @@ router.post('/auth/verify', async (c) => {
 // ── POST /auth/logout ─────────────────────────────────────────────────────────
 router.post('/auth/logout', async (c) => {
   const cookieHeader = c.req.header('cookie') ?? '';
-  const match        = cookieHeader.match(/(?:^|;\s*)session=([^;]+)/);
-  const sessionId    = match?.[1] ?? null;
+  const match = cookieHeader.match(/(?:^|;\s*)session=([^;]+)/);
+  const sessionId = match?.[1] ?? null;
 
   if (sessionId) {
     await db.delete(sessions).where(eq(sessions.sessionId, sessionId));
@@ -147,7 +144,9 @@ router.get('/sync', sessionMiddleware, async (c) => {
   const rows = await db.select().from(userData).where(eq(userData.userId, userId));
   const result: Record<string, unknown> = {};
   for (const row of rows) {
-    try { result[row.key] = JSON.parse(row.valueJson); } catch {}
+    try {
+      result[row.key] = JSON.parse(row.valueJson);
+    } catch {}
   }
   return c.json(result);
 });
@@ -160,15 +159,16 @@ router.post('/sync/:key', sessionMiddleware, async (c) => {
   const key = c.req.param('key') ?? '';
   if (!ALLOWED_KEYS.includes(key)) return c.json({ error: 'Unknown key' }, 400);
 
-  const value     = await c.req.json();
+  const value = await c.req.json();
   const valueJson = JSON.stringify(value);
   const updatedAt = new Date().toISOString();
 
-  await db.insert(userData)
+  await db
+    .insert(userData)
     .values({ userId, key, valueJson, updatedAt })
     .onConflictDoUpdate({
       target: [userData.userId, userData.key],
-      set:    { valueJson, updatedAt },
+      set: { valueJson, updatedAt },
     });
 
   return c.json({ ok: true });

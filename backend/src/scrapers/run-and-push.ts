@@ -40,7 +40,7 @@ async function main() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SCRAPE_SECRET}`,
+      Authorization: `Bearer ${SCRAPE_SECRET}`,
     },
     body: JSON.stringify(results),
   });
@@ -50,8 +50,11 @@ async function main() {
     throw new Error(`POST /api/prices failed: HTTP ${res.status} — ${text}`);
   }
 
-  const data = await res.json() as { inserted: number; skipped: number };
+  const data = (await res.json()) as { inserted: number; skipped: number };
   console.log(`Done. ${data.inserted} observations stored, ${data.skipped} skipped.`);
 }
 
-main().catch((err) => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -3,12 +3,7 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
-import {
-  sendDirectEmail,
-  getOwnerEmail,
-  getOwnerNotificationSettings,
-  getOwnerAlertThresholds,
-} from '../lib/email.js';
+import { sendDirectEmail, getOwnerEmail, getOwnerNotificationSettings, getOwnerAlertThresholds } from '../lib/email.js';
 import { createTickTickTask } from '../lib/ticktick.js';
 
 const router = new Hono();
@@ -77,11 +72,13 @@ router.post('/prices', async (c) => {
     const avgRows = await db
       .select({ avg: sql<number>`AVG(price_cents)` })
       .from(priceHistory)
-      .where(and(
-        eq(priceHistory.productId, productId),
-        eq(priceHistory.retailer, retailer as RetailerEnum),
-        gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
-      ));
+      .where(
+        and(
+          eq(priceHistory.productId, productId),
+          eq(priceHistory.retailer, retailer as RetailerEnum),
+          gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
+        ),
+      );
     const rollingAvg = avgRows[0]?.avg ?? null;
 
     const onSale = isOnSale(priceCents, compareAtCents, rollingAvg);
@@ -96,21 +93,19 @@ router.post('/prices', async (c) => {
     const threshold = alertThresholds[slug];
     const thresholdBreached = threshold?.thresholdCents != null && priceCents <= threshold.thresholdCents;
 
-    const anySaleChannel      = notifSettings.saleAlerts      && (notifSettings.ticktickAlerts || notifSettings.emailAlerts);
-    const anyThresholdChannel = notifSettings.thresholdAlerts && (notifSettings.ticktickAlerts || notifSettings.emailAlerts);
+    const anySaleChannel = notifSettings.saleAlerts && (notifSettings.ticktickAlerts || notifSettings.emailAlerts);
+    const anyThresholdChannel =
+      notifSettings.thresholdAlerts && (notifSettings.ticktickAlerts || notifSettings.emailAlerts);
 
     if ((onSale && anySaleChannel) || (thresholdBreached && anyThresholdChannel)) {
       const recent = await db
         .select({ onSale: priceHistory.onSale, priceCents: priceHistory.priceCents })
         .from(priceHistory)
-        .where(and(
-          eq(priceHistory.productId, productId),
-          eq(priceHistory.retailer, retailer as RetailerEnum),
-        ))
+        .where(and(eq(priceHistory.productId, productId), eq(priceHistory.retailer, retailer as RetailerEnum)))
         .orderBy(desc(priceHistory.observedAt))
         .limit(2);
 
-      const productName  = productRows[0].name;
+      const productName = productRows[0].name;
       const currentPrice = `$${(priceCents / 100).toFixed(2)}`;
       const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
 
@@ -119,9 +114,9 @@ router.post('/prices', async (c) => {
         const previouslyOnSale = recent[1]?.onSale ?? false;
         if (!previouslyOnSale) {
           const prevCents = recent[1]?.priceCents;
-          const prevLine  = prevCents ? `Previous price: $${(prevCents / 100).toFixed(2)}\n` : '';
+          const prevLine = prevCents ? `Previous price: $${(prevCents / 100).toFixed(2)}\n` : '';
           const baseSubject = `🔥 ${productName} on sale at ${retailerName} — ${currentPrice}`;
-          const bodyText    = `Current price: ${currentPrice}\n${prevLine}`;
+          const bodyText = `Current price: ${currentPrice}\n${prevLine}`;
           sendViaChannel('global', notifSettings, ownerEmail, baseSubject, bodyText);
         }
       }
@@ -129,11 +124,11 @@ router.post('/prices', async (c) => {
       // Threshold alert (transition only — prev price was above threshold)
       if (thresholdBreached && anyThresholdChannel) {
         const prevPriceCents = recent[1]?.priceCents;
-        const prevWasAbove   = prevPriceCents == null || prevPriceCents > threshold.thresholdCents;
+        const prevWasAbove = prevPriceCents == null || prevPriceCents > threshold.thresholdCents;
         if (prevWasAbove) {
           const thresholdDollar = `$${(threshold.thresholdCents / 100).toFixed(2)}`;
           const baseSubject = `⬇️ ${productName} below ${thresholdDollar} at ${retailerName} — ${currentPrice}`;
-          const bodyText    = `Your alert threshold: ${thresholdDollar}\nCurrent price: ${currentPrice}`;
+          const bodyText = `Your alert threshold: ${thresholdDollar}\nCurrent price: ${currentPrice}`;
           const channel = threshold.channel === 'global' ? 'global' : threshold.channel;
           sendViaChannel(channel, notifSettings, ownerEmail, baseSubject, bodyText);
         }
@@ -148,24 +143,29 @@ router.post('/prices', async (c) => {
 
 function sendViaChannel(
   channel: 'global' | 'ticktick' | 'email',
-  notifSettings: { ticktickConnected: boolean; ticktickAlerts: boolean; ticktickProjectId: string | null; ticktickTags: string[]; ticktickPriority: number; emailAlerts: boolean },
+  notifSettings: {
+    ticktickConnected: boolean;
+    ticktickAlerts: boolean;
+    ticktickProjectId: string | null;
+    ticktickTags: string[];
+    ticktickPriority: number;
+    emailAlerts: boolean;
+  },
   ownerEmail: string,
   baseSubject: string,
   body: string,
 ): void {
-  const sendTT = notifSettings.ticktickAlerts &&
-    (channel === 'ticktick' || channel === 'global') &&
-    notifSettings.ticktickConnected;
-  const sendEmail = notifSettings.emailAlerts &&
-    (channel === 'email' || channel === 'global');
+  const sendTT =
+    notifSettings.ticktickAlerts && (channel === 'ticktick' || channel === 'global') && notifSettings.ticktickConnected;
+  const sendEmail = notifSettings.emailAlerts && (channel === 'email' || channel === 'global');
 
   if (sendTT) {
     createTickTickTask(ownerEmail, {
-      title:     baseSubject,
-      content:   body,
+      title: baseSubject,
+      content: body,
       projectId: notifSettings.ticktickProjectId ?? '',
-      tags:      notifSettings.ticktickTags ?? [],
-      priority:  notifSettings.ticktickPriority as 0 | 1 | 3 | 5,
+      tags: notifSettings.ticktickTags ?? [],
+      priority: notifSettings.ticktickPriority as 0 | 1 | 3 | 5,
     }).catch(console.error);
   }
   if (sendEmail) {
