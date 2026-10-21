@@ -25,16 +25,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Only the frontend files are published — uploading the repo root would also serve
+      # backend source, docs, and local config files publicly.
+      - name: Assemble site
+        run: |
+          mkdir _site
+          cp index.html app.js styles.css CNAME _site/
+
       - name: Inject backend URL and build date
         run: |
-          sed -i "s|__BACKEND_URL__|${{ secrets.BACKEND_URL }}|g" app.js
-          sed -i "s|__BUILD_DATE__|$(date +'%-d %B %Y')|g" app.js
+          sed -i "s|__BACKEND_URL__|${{ secrets.BACKEND_URL }}|g" _site/app.js
+          sed -i "s|__BUILD_DATE__|$(date +'%-d %B %Y')|g" _site/app.js
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
       - uses: actions/deploy-pages@v4
         id: deployment
