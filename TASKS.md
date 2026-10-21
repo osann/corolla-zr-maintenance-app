@@ -1,184 +1,44 @@
 # Tasks
 
-Backlog items ranked by usefulness × feasibility. Work top-to-bottom — each item is independently shippable.
+Backlog ranked by usefulness × feasibility. Each item is independently shippable. Background on finished work is in [docs/decisions.md](docs/decisions.md) and the git history.
 
----
+## Open
 
-## 1. Price tracking + alerts + notifications ✅
+### Follow-ups from the 2026-10 cleanup
+- ☐ **Backup export is incomplete.** `exportData()` exports only checklist, wash log and settings. It misses routines, maintenance items and log, inventory, categories and price alerts, and there's no import.
+- ☐ **Data management copy is wrong when signed in.** Settings → Data management says "All data is stored in this browser only — nothing is sent anywhere", which isn't true with sync on.
+- ☐ Rename `fetchBomForecast()`; it hasn't called BOM since the Nominatim/Open-Meteo switch.
+- ☐ Split `app.js` (~5,800 lines) into ES modules by tab. See *Architecture* below.
 
-Know when products drop in price at Australian retailers.
-
-- ✅ Add retailer URLs to each kit item (Supercheap Auto, Repco, Auto Barn, Autopro)
-- ✅ Build scraper for Supercheap Auto (Playwright, SFCC selectors)
-- ✅ Build scraper for Repco (Playwright, Hybris `og:price:amount` meta)
-- ✅ Build scraper for Auto Barn (plain fetch, same-platform as Autopro)
-- ✅ Build scraper for Autopro (plain fetch, shares SKUs with Auto Barn)
-- ✅ Store price observations: `price_history(product_id, retailer, price_cents, observed_at, on_sale)`
-- ✅ Detect "on sale": compare-at price in DOM, or >15% drop below 30-day rolling average
-- ✅ API endpoints: `GET /api/products`, `GET /api/products/:id/prices`, `GET /api/alerts`
-- ✅ Spend tab UI: sparkline per item, flame icon for on-sale items, sale badge in price list
-- ✅ Per-item alert thresholds (e.g. "notify me when Nanolicious 5L drops below $55")
-- ✅ Email digest notifications — at most once per day
-- ✅ Full product lifecycle from the Prices tab: add a product (backend-only, no `CATALOG` entry needed), rename it, add/remove individual retailers, delete it entirely — `PATCH/DELETE /api/products/:id`, `DELETE /api/products/:id/url/:retailer`
-- ✅ Per-product category reassignment from the Prices tab, on top of a fully user-editable category system (rename/restructure/delete any category or section, built-in or custom) managed from Settings → Categories
-
-**Notes:**
-- Bowden's Own cannot be scraped from any cloud environment — Cloudflare JS challenge on GitHub Actions, hard 403 on Render. All Bowden's products have Repco/Supercheap fallback URLs.
-- Scrapers respect robots.txt: Auto Barn and Autopro run via Render cron at 05:00 UTC only (04:00–08:45 UTC crawl window); Supercheap and Repco run via GitHub Actions daily.
-
----
-
-## 2. Routines overhaul ✅
-
-Fully customisable routine objects replacing static HTML tables.
-
-- ✅ New data model (`corolla-routines-v1`): name, subtext, types (exterior/interior/maintenance), product+action steps, severity-based alerts
-- ✅ Routines tab split into "Routines" (read-only view) and "Configure" (editor) sub-tabs
-- ✅ `PRODUCT_ACTIONS` map: 34 catalog slug → default action strings; auto-fills action when product matches catalog
-- ✅ Drag-to-reorder routine cards in Configure sub-tab
-- ✅ CSV export and import (append mode, fresh IDs); UTF-8 BOM for Excel compatibility
-- ✅ Claude prompt template (downloadable from Configure tab) for generating routines via AI
-- ✅ Wash frequency and routine step chip config moved from Settings into Configure sub-tab
-- ✅ Wash frequency decoupled from Maintenance routine display (`applySchedule()` retained for future Schedule page)
-
----
-
-## 3. Wash session reminders ✅
-
-Per-routine reminder cards in the wash log, backed by a custom interval scheduler and schedule-aware backend cron.
-
-- ✅ `settings.schedules` array: per-routine intervals (`{ routineId, intervalValue, intervalUnit }`) stored in `corolla-settings-v1`
-- ✅ Schedules sub-tab in the Routines tab (between Routines and Configure) — select routine + set interval (days/weeks/months/years)
-- ✅ Reminder cards at the top of the log tab — one per scheduled routine, always showing next due date or overdue status; overdue cards use accent border
-- ✅ Rain forecast replaces displayed due date when rain is forecast within 2 days of due (best wash day shown)
-- ✅ "View routine" button on each card — switches to Routines tab and scrolls to the correct routine
-- ✅ "Send to TickTick" button per card — `POST /api/notify/wash-reminder` (session-protected); shown only when TickTick is configured
-- ✅ Log tab split into History (default) and New Session sub-tabs; adding a session auto-switches to History
-- ✅ Backend cron (07:00 UTC) updated to schedule-aware path: iterates `settings.schedules`, type-maps routine types to log entry types, sends per-routine notification when overdue; falls back to legacy 14-day interval if no schedules configured
-
----
-
-## 4. Photo log per session ✅
-
-Attach before/after photos to wash log entries.
-
-- ✅ `photos` table (`user_id, log_entry_id, r2_key, thumb_key, mime_type, size_bytes`)
-- ✅ Cloudflare R2 storage via `@aws-sdk/client-s3`; public bucket, immutable Cache-Control
-- ✅ `POST /photos/upload` — sharp thumbnail (400px), EXIF stripped, original + thumb uploaded
-- ✅ `GET /photos?logEntryIds=` / `DELETE /photos/:id` (session-protected)
-- ✅ Local preview (createObjectURL) with spinner while upload is in flight
-- ✅ Horizontal snap-scroll carousel in log cards; lightbox with arrows, counter, keyboard nav
-- ✅ Photo remove button only visible in edit mode; 180ms scale-fade before server delete
-- ✅ Preloads all originals on lightbox open to avoid per-arrow-click R2 fetch
-- ✅ Re-fetches photos after edit save to handle async upload race condition
-
----
-
-## 4a. Log UX + routine-driven form ✅
-
-Ellipsis-menu log card actions, in-card confirmations, and a log form driven by routines.
-
-- ✅ Ellipsis menu (···) per log card with Edit and Delete
-- ✅ In-card delete confirmation row — no browser `confirm()`
-- ✅ Edit past log entries — Edit Session sub-tab, form pre-fill, cancel button
-- ✅ Inline delete confirmation for routines (same pattern, no browser `confirm()`)
-- ✅ Log form routine dropdown driven by `routines[]`; step chips from selected routine's steps
-- ✅ Notes field renamed to Status
-- ✅ `entry.type` stores routine ID for new entries; `entryMatchesSchedule()` handles backward compat with legacy type strings
-- ✅ `saveRoutines()` / `deleteRoutine()` propagate to log form and schedules UI immediately
-
----
-
-## 5. Multi-device sync ✅
-
-Access data from phone + desktop after moving storage to the backend.
-
-- ✅ Magic link email auth (no passwords) — use Lucia or Auth.js
-- ✅ Migrate all storage keys to user-scoped database rows
-- ✅ "Migrate from local" button: reads existing `localStorage` and POSTs to backend on first sign-in
-
----
-
-## 6. Inventory tracking with depletion forecast ✅
-
-Know when you're running low on a product before you run out.
-
-- ✅ `corolla-inventory-v1` storage: `{ [slug|compositeKey]: { purchaseDate, volumeMl, remainingMl, manualOverride }, _order: string[] }`
-- ✅ `INVENTORY_DEFAULTS`: default `volumeMl` values per slug seeded from Bowden's product pages
-- ✅ `BUNDLE_COMPONENTS`: bundles expanded to individual components; each component routed to the correct inventory category via `sectionPath` or `comp.slug`
-- ✅ `SLUG_FAMILIES` + `resolveInventoryKey()`: size-variant fallback so a routine step for a 500ml product can deplete a 5L bottle if that's what the user owns
-- ✅ Stock auto-initialised when item is checked in Kit Checklist (`initInventoryStock()`)
-- ✅ Wash session depletion via `decrementInventoryForSession()` — walks log entry steps → matches routine step by name → iterates `step.products[].{name, ml}` → resolves inventory key → decrements `remainingMl`
-- ✅ `DEFAULT_ROUTINES` steps include `products: [{name, ml}]` arrays for all consumable products
-- ✅ "Running low" indicator: progress bar colour-coded (green ≥50%, amber 20–50%, red <20%); red card border at ≤20%
-- ✅ Sessions remaining estimate derived from `getRoutineUsageMl()` (sums ml per wash across all enabled routine steps)
-- ✅ Responsive grid layout (`auto-fill, minmax(190px, 1fr)`) with standalone bordered cards
-- ✅ Drag-to-reorder inventory categories; order persisted in `inventoryState._order` (synced automatically as part of `corolla-inventory-v1`)
-- ✅ Inventory, Checklist, Prices consolidated as sub-tabs within a single Inventory tab (standalone Spend, Summary, and Prices tabs removed)
-- ✅ "+ Add product" directly on the Inventory sub-tab — marks a product owned and initialises stock without visiting the Checklist sub-tab first; picker includes backend-only products added via the Prices tab
-- ✅ Category system unified: built-in categories (previously hardcoded, override-only) are now just as editable as user-added ones — rename, restructure, or delete any of them from Settings → Categories, synced as `corolla-categories-v1`
-- ✅ "Other" fallback card for any owned item not currently in any category/section, so products can't end up fully tracked but invisible
-
----
-
-## 7. Weather-aware wash recommendations ✅
-
-Don't recommend a wash when rain is forecast; surface protection reminders before hot weather.
-
-- ✅ Store user postcode in settings (Vehicle details section)
-- ✅ Integrate weather forecast API — Nominatim (postcode → lat/lon) + Open-Meteo (daily forecast); proxied through backend to avoid CORS
-- ✅ If rain forecast in next 24h, show "wait until [day]" hint on wash-due card
-- ✅ If 35°C+ forecast for the week, surface Bead Machine reapplication banner if due soon
-
-**Notes:**
-- BOM (`api.weather.bom.gov.au`) was attempted but blocks both browser requests (CORS) and Render's datacenter IPs. Open-Meteo geocoding also doesn't support postcode lookups. Final stack: Nominatim for AU postcode → lat/lon, Open-Meteo for 7-day forecast. Backend caches results for 3 hours.
-- Weather cards are in the log tab below the streak bar. Section stays hidden if no postcode is set or the API is unreachable.
-
----
-
-## 8. Product comparison + alternative suggestions
-
+### 8. Product comparison + alternative suggestions
 When a Bowden's product is unavailable, suggest an equivalent.
+- ☐ Static mapping, e.g. `{ "Bead Machine": ["Gyeon Wet Coat", "P&S Bead Maker"] }`
+- ☐ Surface alternatives in the technique guide
+- ☐ (Later) cross-brand price tracking
 
-- ☐ Define static mapping: `{ "Bead Machine": ["Gyeon Wet Coat", "P&S Bead Maker"], ... }`
-- ☐ Surface alternatives on each product page in the technique guide
-- ☐ (Later) Cross-brand price tracking: "Bead Machine is $50, Gyeon Wet Coat is $35 today"
+### 10. Community sharing
+Only worth it if the app sees use beyond one person; it's a significant rewrite.
+- ☐ Extract static product/technique data from HTML into JSON
+- ☐ Car model + starting kit templating, "use as template" fork flow, shared library
 
----
+### Scraping
+- ☐ Periodically check whether Repco's Cloudflare challenge has lifted (`npm run scrape` locally).
 
-## 9. Maintenance log + Schedule page ✅
+### Architecture
+- ✅ Database, `/api/health`, four-retailer scraper pipeline
+- ✅ CI type-check on every push / PR (`.github/workflows/ci.yml`)
+- ✅ Backend smoke tests (Vitest) for seeding and price ingestion
+- ✅ ESLint + Prettier config
+- ☐ Split `app.js` into ES modules (no build step: `<script type="module">`, handlers exposed on `window` for inline `onclick`). `deploy.yml` must copy the new files and keep the `__BACKEND_URL__` substitution.
 
-Dedicated tab for mechanical maintenance tracking — recurring time and odometer-based reminders for tyre pressure, oil level, service intervals, etc.
+## Done
 
-- ✅ New "Maintenance" tab with four sub-tabs: Upcoming, Schedule, History, Configuration
-- ✅ Items support time-based intervals (days/weeks/months/years) or odometer-based intervals (km)
-- ✅ Upcoming sub-tab: shows overdue, never-done, and due-soon items only; "Mark Complete" inline form with date + odometer; accent border on overdue cards
-- ✅ Schedule sub-tab: full read-only table of all enabled items with interval, last done, and next due columns
-- ✅ History sub-tab: completion log newest-first; inline delete confirm; deleting an entry recalculates item's last-completed from remaining log entries
-- ✅ Configuration sub-tab: editable item cards with name, notes, interval type/value, enabled toggle, drag-to-reorder, inline delete confirm
-- ✅ CSV export and import (append mode, fresh IDs); Claude prompt template for generating AU-specific maintenance schedules for the ZR Hybrid
-- ✅ `corolla-maintenance-v1` (items) and `corolla-maintenance-log-v1` (completion history) — both synced to backend via `ALLOWED_KEYS`
-- ✅ `settings.car.currentOdometer` — new field in `corolla-settings-v1`; set from Vehicle Details, wash log New Session form, and Maintenance Mark Complete form
-- ✅ Reset routines and Reset maintenance buttons added to Settings → Data management
-
----
-
-## 10. Community sharing
-
-Let other Australian car owners use this as a starting template.
-
-- ☐ Extract static product/technique data from hardcoded HTML into JSON
-- ☐ Templating: user picks car model and starting kit
-- ☐ "Use as template" fork flow
-- ☐ Shared library of car/product combos
-
-**Note:** Significant rewrite — only worth pursuing if the app sees real adoption beyond personal use.
-
----
-
-## Architecture milestones (prerequisite work)
-
-- ✅ Stand up database and `/api/health` endpoint
-- ✅ Ship scraper pipeline end-to-end across four retailers
-- ☐ Reorganise into proper structure: split CSS, JS, HTML; add Vite build step
-- ☐ Add tooling: ESLint, Prettier, TypeScript config, Husky pre-commit hook
+1. **Price tracking + alerts.** Scrapers for Supercheap, Auto Barn and Autopro (Repco disabled 2026-08), sale detection, sparklines, per-product thresholds, a daily digest, and full product lifecycle from the UI.
+2. **Routines overhaul.** Fully customisable `corolla-routines-v1`, CSV import/export, an AI prompt template, drag reorder.
+3. **Wash reminders.** Per-routine schedules, reminder cards, rain-aware best wash day, TickTick/email cron.
+4. **Photo log.** R2 storage, thumbnails, carousel and lightbox.
+4a. **Log UX.** Ellipsis menu, inline confirms, editing past entries, a routine-driven form.
+5. **Multi-device sync.** Magic-link auth, all storage keys synced per user.
+6. **Inventory.** Depletion forecast from routine usage, packs (backend-configured), size-variant fallback, editable categories with an "Other" fallback.
+7. **Weather-aware recommendations.** Rain delay, Bead Machine heat banner (Nominatim + Open-Meteo).
+9. **Maintenance tracker.** Time/odometer intervals, history-derived last-completed, CSV import/export.
