@@ -30,12 +30,26 @@ jobs:
       - name: Assemble site
         run: |
           mkdir _site
-          cp index.html app.js styles.css CNAME _site/
+          cp -r index.html styles.css CNAME js _site/
 
       - name: Inject backend URL and build date
         run: |
-          sed -i "s|__BACKEND_URL__|${{ secrets.BACKEND_URL }}|g" _site/app.js
-          sed -i "s|__BUILD_DATE__|$(date +'%-d %B %Y')|g" _site/app.js
+          sed -i "s|__BACKEND_URL__|${{ secrets.BACKEND_URL }}|g" _site/js/config.js
+          sed -i "s|__BUILD_DATE__|$(date +'%-d %B %Y')|g" _site/js/config.js
+          # Fail the deploy rather than ship an unsubstituted placeholder.
+          if grep -q "__BACKEND_URL__\|__BUILD_DATE__" _site/js/config.js; then
+            echo "::error::placeholder not substituted in js/config.js"; exit 1
+          fi
+
+      # Stamp every module URL with the commit so a deploy is atomic: without it, a browser could
+      # combine cached old modules with new ones. Every specifier is rewritten identically, so
+      # each module (notably js/state.js) still loads exactly once.
+      - name: Version module URLs
+        run: |
+          v="${GITHUB_SHA::8}"
+          sed -i "s|from '\./\([a-z]*\)\.js'|from './\1.js?v=$v'|g" _site/js/*.js
+          sed -i "s|src=\"js/main\.js\"|src=\"js/main.js?v=$v\"|" _site/index.html
+          grep -q "js/main.js?v=$v" _site/index.html
 
       - uses: actions/configure-pages@v5
 
