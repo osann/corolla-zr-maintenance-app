@@ -470,11 +470,6 @@ Output only the CSV starting with the header row.`;
   let checklistState = { phases: DEFAULT_PHASES.map(p => ({ ...p, items: [...p.items] })), nextId: 5, checked: {} };
   const editingPhases = new Set();
 
-  function getPhaseName(id) {
-    const p = checklistState.phases.find(p => p.id === id);
-    return p ? p.title : `Phase ${id}`;
-  }
-
   function escHtml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
@@ -887,16 +882,10 @@ Output only the CSV starting with the header row.`;
     });
   }
 
-  function resetAll() {
-    if (!confirm('Reset all purchases?')) return;
-    checklistState.checked = {};
-    itemData.forEach(item => { item.input.checked = false; });
-    recompute(); saveChecklist();
-  }
-
-  // ─── Spend panel ─────────────────────────────────
+  // ─── Prices ──────────────────────────────────────
+  // The budget feature was removed; the key is only kept so sign-out and "Reset everything"
+  // still clear any value left over from it.
   const BUDGET_KEY = 'corolla-budget-v1';
-  let budgetTarget = 0;
   let liveProducts = [];
   let slugToBest = {};
   let priceHistories = {}; // productId → [{ retailer, priceCents, onSale, observedAt }, ...]
@@ -904,26 +893,6 @@ Output only the CSV starting with the header row.`;
                                 // after a newer one (e.g. deleting several products in quick
                                 // succession each trigger their own refetch) and clobbering
                                 // liveProducts with stale data
-
-  async function loadBudget() {
-    const b = await storageGet(BUDGET_KEY);
-    if (b && b.target) {
-      budgetTarget = b.target;
-      const el = document.getElementById('budget-target');
-      if (el) el.value = budgetTarget;
-    }
-  }
-
-  async function saveBudget() {
-    const val = parseInt(document.getElementById('budget-target').value, 10);
-    if (isNaN(val) || val < 0) return;
-    budgetTarget = val;
-    await storageSet(BUDGET_KEY, { target: val });
-    syncPush(BUDGET_KEY, { target: val });
-    recompute();
-    document.getElementById('budget-status').textContent = 'Saved ✓';
-    setTimeout(() => { document.getElementById('budget-status').textContent = ''; }, 2000);
-  }
 
   // Pure read-only price display — category-grouped price rows, sparklines, sale badges, buy
   // links, and the price-alert bell. Product identity/management (rename, slug, retailer URLs,
@@ -3344,44 +3313,6 @@ Output only the CSV starting with the header row.`;
     'Every 4 months': 120, 'Every 6 months': 180,
   };
 
-  // Default routine steps
-  const DEFAULT_STEPS = {
-    exterior: [
-      { name: 'Plain water rinse', enabled: true },
-      { name: 'Wheely Clean V2 — wheels', enabled: true },
-      { name: 'Snow Job pre-wash foam', enabled: true },
-      { name: 'Nanolicious contact wash', enabled: true },
-      { name: 'Final free-flow rinse', enabled: true },
-      { name: 'Wet Dreams sealant', enabled: true },
-      { name: 'Happy Ending finishing foam', enabled: true },
-      { name: 'Big Green Sucker dry', enabled: true },
-      { name: 'Naked Glass + Inta-Mitt', enabled: true },
-      { name: 'Boss Gloss quick detail', enabled: false }
-    ],
-    interior: [
-      { name: 'Vacuum all surfaces + mats', enabled: true },
-      { name: 'Fabra Cadabra — Ultrasuede seats', enabled: true },
-      { name: 'Leather Love V2 — leather seats', enabled: true },
-      { name: 'Leather Guard — leather protection', enabled: true },
-      { name: 'Plush Daddy — hard plastics wipe', enabled: true },
-      { name: 'Naked Glass — interior windows', enabled: true },
-      { name: '303 Aerospace — plastics + rubber mats', enabled: true },
-      { name: 'Fabratection — Ultrasuede (annually)', enabled: false }
-    ],
-    log: [
-      { name: 'Snow Job pre-wash', enabled: true },
-      { name: 'Wheely Clean wheels', enabled: true },
-      { name: 'Nanolicious wash', enabled: true },
-      { name: 'Wet Dreams sealant', enabled: true },
-      { name: 'Happy Ending foam', enabled: true },
-      { name: 'Naked Glass', enabled: true },
-      { name: 'Fabra Cadabra seats', enabled: true },
-      { name: 'Leather Love + Guard', enabled: true },
-      { name: '303 Aerospace', enabled: true },
-      { name: 'Bead Machine', enabled: true }
-    ]
-  };
-
   const DEFAULT_PREFS = {
     showPrices: true,
     showBadges: true,
@@ -3409,119 +3340,11 @@ Output only the CSV starting with the header row.`;
 
   let settings = {
     freq: { ...FREQ_DEFAULTS },
-    routines: JSON.parse(JSON.stringify(DEFAULT_STEPS)),
     prefs: { ...DEFAULT_PREFS },
     car: { model: '', year: '', colour: '', rego: '', displayName: '' },
     notifications: { ...DEFAULT_NOTIFICATIONS },
     schedules: [],
   };
-
-  // Frequency stepper
-  function adjustFreq(key, delta) {
-    const opts = FREQ_OPTIONS[key];
-    let idx = settings.freq[key] ?? FREQ_DEFAULTS[key];
-    idx = Math.max(0, Math.min(opts.length - 1, idx + delta));
-    settings.freq[key] = idx;
-    document.getElementById(`${key}-display`).textContent = opts[idx];
-  }
-
-  function renderFreqDisplays() {
-    Object.keys(FREQ_OPTIONS).forEach(key => {
-      const idx = settings.freq[key] ?? FREQ_DEFAULTS[key];
-      const el = document.getElementById(`${key}-display`);
-      if (el) el.textContent = FREQ_OPTIONS[key][idx];
-    });
-  }
-
-  // Routine step editor
-  let currentRoutineTab = 'exterior';
-  let dragSrc = null;
-
-  function switchRoutineTab(tab, btn) {
-    currentRoutineTab = tab;
-    document.querySelectorAll('.routine-tab').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.routine-editor').forEach(e => e.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(`routine-editor-${tab}`).classList.add('active');
-  }
-
-  function renderRoutineEditor(routineKey) {
-    const list = document.getElementById(`steps-${routineKey}`);
-    if (!list) return;
-    list.innerHTML = '';
-    const steps = settings.routines[routineKey] || [];
-    steps.forEach((step, idx) => {
-      const item = document.createElement('div');
-      item.className = 'routine-step-item' + (step.enabled ? '' : ' opacity-50');
-      item.draggable = true;
-      item.dataset.idx = idx;
-      item.style.opacity = step.enabled ? '1' : '0.5';
-      item.innerHTML = `
-        <span class="drag-handle">⠿</span>
-        <span class="step-name-display" id="snd-${routineKey}-${idx}">${step.name}</span>
-        <input class="step-chip-name-input" id="sni-${routineKey}-${idx}" value="${step.name}" onblur="finishEditStep('${routineKey}',${idx})" onkeydown="if(event.key==='Enter')this.blur()">
-        <button class="step-edit-btn" onclick="startEditStep('${routineKey}',${idx})" title="Rename">✎</button>
-        <label class="toggle-wrap step-toggle" title="${step.enabled ? 'Enabled' : 'Disabled'}">
-          <input type="checkbox" ${step.enabled ? 'checked' : ''} onchange="toggleStep('${routineKey}',${idx},this.checked)">
-          <span class="toggle-track" style="border-radius:100px;"></span>
-        </label>
-        <button class="step-remove-btn" onclick="removeStep('${routineKey}',${idx})" title="Remove">✕</button>
-      `;
-      // Drag events
-      item.addEventListener('dragstart', e => { dragSrc = idx; item.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
-      item.addEventListener('dragend', () => { item.classList.remove('dragging'); list.querySelectorAll('.routine-step-item').forEach(i => i.classList.remove('drag-over')); });
-      item.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; item.classList.add('drag-over'); });
-      item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
-      item.addEventListener('drop', e => {
-        e.preventDefault();
-        if (dragSrc === null || dragSrc === idx) return;
-        const arr = settings.routines[routineKey];
-        const moved = arr.splice(dragSrc, 1)[0];
-        arr.splice(idx, 0, moved);
-        renderRoutineEditor(routineKey);
-      });
-      list.appendChild(item);
-    });
-  }
-
-  function renderAllRoutineEditors() {
-    ['exterior','interior','log'].forEach(renderRoutineEditor);
-  }
-
-  function startEditStep(routineKey, idx) {
-    document.getElementById(`snd-${routineKey}-${idx}`).style.display = 'none';
-    const inp = document.getElementById(`sni-${routineKey}-${idx}`);
-    inp.style.display = 'block';
-    inp.focus();
-    inp.select();
-  }
-
-  function finishEditStep(routineKey, idx) {
-    const inp = document.getElementById(`sni-${routineKey}-${idx}`);
-    const val = inp.value.trim();
-    if (val) settings.routines[routineKey][idx].name = val;
-    renderRoutineEditor(routineKey);
-  }
-
-  function toggleStep(routineKey, idx, checked) {
-    settings.routines[routineKey][idx].enabled = checked;
-    const item = document.querySelector(`#steps-${routineKey} .routine-step-item[data-idx="${idx}"]`);
-    if (item) item.style.opacity = checked ? '1' : '0.5';
-  }
-
-  function removeStep(routineKey, idx) {
-    settings.routines[routineKey].splice(idx, 1);
-    renderRoutineEditor(routineKey);
-  }
-
-  function addStep(routineKey) {
-    const inp = document.getElementById(`add-step-${routineKey}`);
-    const val = inp.value.trim();
-    if (!val) return;
-    settings.routines[routineKey].push({ name: val, enabled: true });
-    inp.value = '';
-    renderRoutineEditor(routineKey);
-  }
 
   // ─── Full routine objects (corolla-routines-v1) ───
 
@@ -3743,7 +3566,6 @@ Output only the CSV starting with the header row.`;
         return step;
       }),
     }));
-    buildCatalogDatalist();
     renderRoutinesView();
     renderRoutineConfigCards();
     renderSchedulesUI();
@@ -3790,13 +3612,6 @@ Output only the CSV starting with the header row.`;
       if (names.length) groups.push({ label: g.label, names });
     }
     return groups;
-  }
-
-  function buildCatalogDatalist() {
-    // Kept for any legacy consumers; no input uses list= any more
-    const dl = document.getElementById('catalog-datalist');
-    if (!dl) return;
-    dl.innerHTML = _buildCatalogGroups().flatMap(g => g.names.map(n => `<option value="${n}">`)).join('');
   }
 
   function openCatalogDropdown(event, rIdx, sIdx, pIdx) {
@@ -4803,16 +4618,6 @@ Output only the CSV starting with the header row.`;
 
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyCarInfo());
 
-  // Rebuild log step chips from settings
-  function applySchedule() {
-    document.querySelectorAll('[data-sched]').forEach(cell => {
-      const key = cell.dataset.sched;
-      const idx = settings.freq[key] ?? FREQ_DEFAULTS[key];
-      const opts = FREQ_OPTIONS[key];
-      if (opts) cell.textContent = opts[idx];
-    });
-  }
-
   // Rebuild log step chips — delegates to the routine-based chip renderer
   function applyLogStepChips() {
     const sel = document.getElementById('log-type');
@@ -4821,11 +4626,7 @@ Output only the CSV starting with the header row.`;
 
   // Save / load settings
   async function saveSettings(section) {
-    if (section === 'freq') {
-      // freq already updated via adjustFreq
-    } else if (section === 'routines') {
-      // routines already updated in-place
-    } else if (section === 'prefs') {
+    if (section === 'prefs') {
       settings.prefs.showPrices = document.getElementById('pref-show-prices').checked;
       settings.prefs.showBadges = document.getElementById('pref-show-badges').checked;
       settings.prefs.showDesc = document.getElementById('pref-show-desc').checked;
@@ -4860,7 +4661,6 @@ Output only the CSV starting with the header row.`;
     if (section === 'prefs') renderPricesTab();
     applyCarInfo();
     applyLogStepChips();
-    applySchedule();
     // Show saved message(s)
     const msgIds = section === 'car' ? ['car-saved', 'sync-name-saved'] : [`${section}-saved`];
     msgIds.forEach(id => {
@@ -4876,20 +4676,11 @@ Output only the CSV starting with the header row.`;
     if (saved) {
       // Merge carefully to preserve defaults for any missing keys
       if (saved.freq) settings.freq = { ...FREQ_DEFAULTS, ...saved.freq };
-      if (saved.routines) {
-        settings.routines = {
-          exterior: saved.routines.exterior || JSON.parse(JSON.stringify(DEFAULT_STEPS.exterior)),
-          interior: saved.routines.interior || JSON.parse(JSON.stringify(DEFAULT_STEPS.interior)),
-          log:      saved.routines.log      || JSON.parse(JSON.stringify(DEFAULT_STEPS.log))
-        };
-      }
       if (saved.prefs) settings.prefs = { ...DEFAULT_PREFS, ...saved.prefs };
       if (saved.car)           settings.car           = { model:'', year:'', colour:'', displayName:'', postcode:'', ...saved.car };
       if (saved.notifications) settings.notifications = { ...DEFAULT_NOTIFICATIONS, ...saved.notifications };
       if (Array.isArray(saved.schedules)) settings.schedules = saved.schedules;
     }
-    renderFreqDisplays();
-    renderAllRoutineEditors();
     loadPrefsUI();
     loadCarUI();
     loadNotificationsUI();
@@ -4898,30 +4689,9 @@ Output only the CSV starting with the header row.`;
     applyPrefs();
     applyCarInfo();
     applyLogStepChips();
-    applySchedule();
   }
 
   // Reset helpers
-  async function resetFreq() {
-    if (!confirm('Reset frequency settings to defaults?')) return;
-    settings.freq = { ...FREQ_DEFAULTS };
-    renderFreqDisplays();
-    await storageSet(SETTINGS_KEY, settings);
-    syncPush(SETTINGS_KEY, settings);
-    applySchedule();
-    showSaved('freq-saved');
-  }
-
-  async function resetRoutines() {
-    if (!confirm('Reset all routine steps to defaults? Your customisations will be lost.')) return;
-    settings.routines = JSON.parse(JSON.stringify(DEFAULT_STEPS));
-    renderAllRoutineEditors();
-    applyLogStepChips();
-    await storageSet(SETTINGS_KEY, settings);
-    syncPush(SETTINGS_KEY, settings);
-    showSaved('routines-saved');
-  }
-
   async function resetPrefs() {
     if (!confirm('Reset display preferences to defaults?')) return;
     settings.prefs = { ...DEFAULT_PREFS };
@@ -5236,13 +5006,11 @@ Output only the CSV starting with the header row.`;
   async function exportData() {
     const checklistData = await storageGet(CHECKLIST_V3_KEY) || {};
     const logData = await storageGet(LOG_KEY) || [];
-    const budgetData = await storageGet(BUDGET_KEY) || {};
     const exportObj = {
       exported: new Date().toISOString(),
       app: 'Corolla ZR Detailing Guide',
       checklist: checklistData,
       washLog: logData,
-      budget: budgetData,
       settings
     };
     const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
@@ -5657,7 +5425,6 @@ Output only the CSV starting with the header row.`;
       await loadCategories();
       await loadInventory();
       await loadLog();
-      await loadBudget();
       await loadSettings();
       await loadAlerts();
       renderWashReminderCards(); // loadLog fires before loadSettings, so re-render once both are done
@@ -6011,7 +5778,6 @@ Output only the CSV starting with the header row.`;
     bundleComponents = (await storageGet(BUNDLE_COMPONENTS_CACHE_KEY)) ?? {};
     await loadInventory();
     await loadLog();
-    await loadBudget();
     await loadRoutines();
     await loadMaintenance();
     await loadSettings();

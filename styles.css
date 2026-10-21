@@ -1303,63 +1303,7 @@
     .field-card .url-form-row { flex-wrap: wrap; }
   }
 
-  /* ─── Spend Panel ───────────────────────────────── */
-  .spend-summary {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    margin-bottom: 24px;
-  }
-  @media (max-width: 600px) { .spend-summary { grid-template-columns: 1fr 1fr; } }
-  .spend-card {
-    background: var(--bg-elev);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-lg);
-    padding: 20px;
-    box-shadow: var(--shadow);
-  }
-  .spend-card.accent { border-color: var(--accent); background: var(--accent-tint); }
-  .spend-card .stat-label { margin-bottom: 8px; }
-  .budget-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 16px;
-    flex-wrap: wrap;
-  }
-  .budget-input-wrap {
-    display: flex;
-    align-items: center;
-    border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: var(--bg-muted);
-  }
-  .budget-prefix { padding: 9px 10px 9px 12px; font-size: 14px; color: var(--ink-low); background: var(--bg-muted); line-height: 1; }
-  .budget-field {
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    border: none;
-    background: transparent;
-    padding: 9px 12px 9px 2px;
-    color: var(--ink);
-    outline: none;
-    width: 80px;
-  }
-  .budget-save {
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    padding: 9px 16px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: var(--radius);
-    cursor: pointer;
-    transition: background 160ms ease;
-  }
-  .budget-save:hover { background: var(--accent-dark); }
-  .budget-label { font-size: 13px; color: var(--ink-mid); }
+  /* ─── Checklist phase spend ─────────────────────── */
   .phase-spend-card {
     background: var(--bg-elev);
     border: 1px solid var(--rule);
@@ -1482,85 +1426,12 @@
   .toggle-wrap input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
   .toggle-wrap input:checked + .toggle-track::after { transform: translateX(18px); }
 
-  /* Frequency stepper */
-  .freq-stepper { display: flex; align-items: center; gap: 0; border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
-  .freq-btn {
-    font-family: 'Inter', sans-serif;
-    font-size: 18px;
-    font-weight: 400;
-    width: 36px; height: 36px;
-    background: var(--bg-muted);
-    border: none;
-    color: var(--ink-mid);
-    cursor: pointer;
-    transition: background 140ms ease, color 140ms ease;
-    display: flex; align-items: center; justify-content: center;
-    line-height: 1;
-  }
-  .freq-btn:hover { background: var(--bg-muted); color: var(--ink); }
-  .freq-display {
-    min-width: 80px;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--ink);
-    background: var(--bg-elev);
-    padding: 0 8px;
-    height: 36px;
-    display: flex; align-items: center; justify-content: center;
-    border-left: 1px solid var(--rule-strong);
-    border-right: 1px solid var(--rule-strong);
-  }
-
-  /* Routine step editor */
-  .routine-step-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-  .routine-step-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    background: var(--bg-muted);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius);
-    font-size: 13.5px;
-    color: var(--ink);
-    cursor: grab;
-    user-select: none;
-    transition: background 120ms ease, box-shadow 120ms ease;
-  }
-  .routine-step-item:active { cursor: grabbing; box-shadow: 0 4px 12px rgba(0,0,0,0.12); background: var(--bg-elev); }
-  .routine-step-item.dragging { opacity: 0.4; }
-  .routine-step-item.drag-over { border-color: var(--accent); background: var(--accent-tint); }
+  /* Routine config card controls */
   .drag-handle { color: var(--ink-low); font-size: 15px; flex-shrink: 0; cursor: grab; }
   .routine-card-handle { margin-right: 10px; font-size: 17px; vertical-align: middle; }
   .routine-config-card.dragging { opacity: 0.4; }
   .routine-config-card.drag-over { outline: 2px solid var(--accent); }
 
-  .step-name-display { flex: 1; line-height: 1.4; }
-  .step-chip-name-input {
-    flex: 1;
-    font-family: 'Inter', sans-serif;
-    font-size: 13.5px;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--accent);
-    color: var(--ink);
-    outline: none;
-    padding: 2px 0;
-    display: none;
-  }
-  .step-edit-btn {
-    background: transparent;
-    border: none;
-    color: var(--ink-low);
-    cursor: pointer;
-    font-size: 13px;
-    padding: 4px 6px;
-    border-radius: 6px;
-    transition: all 140ms ease;
-    flex-shrink: 0;
-  }
-  .step-edit-btn:hover { background: var(--bg-muted); color: var(--ink); }
   .step-remove-btn {
     background: transparent;
     border: none;
@@ -1573,24 +1444,6 @@
     flex-shrink: 0;
   }
   .step-remove-btn:hover { background: var(--danger-tint); color: var(--danger); }
-  .add-step-row {
-    display: flex;
-    gap: 8px;
-    margin-top: 4px;
-  }
-  .add-step-input {
-    flex: 1;
-    font-family: 'Inter', sans-serif;
-    font-size: 13.5px;
-    background: var(--bg-muted);
-    border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
-    padding: 9px 12px;
-    color: var(--ink);
-    outline: none;
-    transition: border-color 160ms ease;
-  }
-  .add-step-input:focus { border-color: var(--accent); background: var(--bg-elev); }
   .add-step-btn {
     font-family: 'Inter', sans-serif;
     font-size: 13px;
@@ -1605,25 +1458,6 @@
     white-space: nowrap;
   }
   .add-step-btn:hover { background: var(--accent-dark); }
-
-  /* Routine tabs within settings */
-  .routine-tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
-  .routine-tab {
-    font-family: 'Inter', sans-serif;
-    font-size: 12.5px;
-    font-weight: 500;
-    padding: 6px 14px;
-    border-radius: 100px;
-    border: 1px solid var(--rule-strong);
-    background: transparent;
-    color: var(--ink-mid);
-    cursor: pointer;
-    transition: all 160ms ease;
-  }
-  .routine-tab:hover { background: var(--bg-muted); color: var(--ink); }
-  .routine-tab.active { background: var(--ink); color: var(--bg-elev); border-color: var(--ink); }
-  .routine-editor { display: none; }
-  .routine-editor.active { display: block; }
 
   /* Inventory sub-tabs */
   .inv-sub-tabs { display: flex; gap: 4px; margin-bottom: 24px; flex-wrap: wrap; }
