@@ -8,7 +8,6 @@ Backlog ranked by usefulness × feasibility. Each item is independently shippabl
 - ☐ **Backup export is incomplete.** `exportData()` exports only checklist, wash log and settings. It misses routines, maintenance items and log, inventory, categories and price alerts, and there's no import.
 - ☐ **Data management copy is wrong when signed in.** Settings → Data management says "All data is stored in this browser only — nothing is sent anywhere", which isn't true with sync on.
 - ☐ Rename `fetchBomForecast()`; it hasn't called BOM since the Nominatim/Open-Meteo switch.
-- ☐ Split `app.js` (~5,800 lines) into ES modules by tab. See *Architecture* below.
 
 ### 8. Product comparison + alternative suggestions
 When a Bowden's product is unavailable, suggest an equivalent.
@@ -29,7 +28,8 @@ Only worth it if the app sees use beyond one person; it's a significant rewrite.
 - ✅ CI type-check on every push / PR (`.github/workflows/ci.yml`)
 - ✅ Backend smoke tests (Vitest) for seeding and price ingestion
 - ✅ ESLint + Prettier config
-- ☐ Split `app.js` into ES modules (no build step: `<script type="module">`, handlers exposed on `window` for inline `onclick`). `deploy.yml` must copy the new files and keep the `__BACKEND_URL__` substitution.
+- ✅ Frontend split into ES modules under `js/` (no build step)
+- ☐ Optional: replace inline `on*=` handlers with delegated listeners, removing the `window` exposure list in `main.js`
 
 ## Done
 

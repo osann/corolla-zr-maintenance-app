@@ -24,7 +24,7 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 **Category system unified (2026-07).** Built-in categories were originally hardcoded with a per-product override layer (`corolla-category-overrides-v1`), and user categories were stored separately (`corolla-custom-categories-v1`). Both were folded into one editable `corolla-categories-v1`, migrated once on first load. The "Other" fallback card exists because uncategorised products became invisible, twice.
 
-**Packs moved to the backend.** Multi-buy bundles were a hardcoded `BUNDLE_COMPONENTS` map in `app.js`. They're now `pack_components` rows configured from the Products tab, cached client-side for offline expansion.
+**Packs moved to the backend.** Multi-buy bundles were a hardcoded `BUNDLE_COMPONENTS` map in the frontend. They're now `pack_components` rows configured from the Products tab, cached client-side for offline expansion.
 
 ## Scraping
 
@@ -41,6 +41,14 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 BOM (`api.weather.bom.gov.au`) blocks browser CORS and Render's IPs. Open-Meteo's geocoder can't look up Australian postcodes. The working stack is Nominatim (postcode → lat/lon) plus the Open-Meteo forecast, proxied and cached for 3 hours on the backend.
 
 ## Frontend
+
+**ES modules, no bundler (2026-10).** The ~6,800-line `app.js` was split into `js/` modules mechanically, using scope analysis rather than hand edits. Vite was considered and rejected: one person maintains this app, and native modules keep deploys a file copy.
+
+The constraints that shaped the result:
+- Imported bindings are read-only, so all 35 reassigned top-level variables moved onto one `state` object.
+- Inline `on*=` handlers resolve against `window`, so `main.js` exposes the 118 functions they call.
+- Feature modules import each other in cycles, which is safe only because nothing but leaf-module constants runs at import time.
+- `deploy.yml` stamps module URLs with the commit SHA, because separately cached modules could otherwise mix versions after a deploy.
 
 **`BACKEND_URL.startsWith('__')`, not equality.** `deploy.yml` runs a global `sed` on `__BACKEND_URL__`, which would also rewrite the string in an `=== '__BACKEND_URL__'` comparison and break the guard.
 

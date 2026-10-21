@@ -18,7 +18,7 @@ Tabs (`index.html`):
 ## Layout
 
 ```
-index.html, app.js, styles.css, CNAME   # frontend — the only files deployed to GitHub Pages
+index.html, styles.css, CNAME, js/     # frontend — the only files deployed to GitHub Pages (js/ = ES modules)
 cloudflare/api-proxy-worker.js          # reference copy of the /api proxy Worker (NOT auto-deployed)
 backend/src/
   index.ts            # Hono server + node-cron (05:00 Autopro scrape, 07:00 wash reminder, 08:00 digest — UTC)
@@ -29,7 +29,7 @@ backend/src/
 backend/test/          # Vitest smoke tests (seed, price ingestion, product routes)
 .github/workflows/
   ci.yml                         # typecheck, lint, format check, tests
-  deploy.yml                     # Pages deploy; injects BACKEND_URL + build date into app.js
+  deploy.yml                     # Pages deploy; injects BACKEND_URL + build date into js/config.js, versions module URLs
   scrape.yml                     # daily Supercheap → run-and-push.ts
   scrape-supercheap-tuesday.yml  # Super Saver Tuesday sale window → run-and-push.ts
   scrape-autobarn.yml            # daily 05:00 UTC, self-hosted runner → run-autobarn.ts
@@ -54,7 +54,7 @@ Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.y
 
 ## Hosting
 
-- **Frontend:** GitHub Pages at `https://corolla.jhosan.top`. `deploy.yml` copies only `index.html`, `app.js`, `styles.css`, `CNAME` into `_site/` — add any new frontend file to that list or it won't ship.
+- **Frontend:** GitHub Pages at `https://corolla.jhosan.top`. `deploy.yml` copies only `index.html`, `styles.css`, `CNAME` and `js/` into `_site/` — add any new top-level frontend file to that list or it won't ship. It then stamps every module import with `?v=<sha>` so a deploy is atomic for cached browsers; keep imports in the form `from './name.js'` so that `sed` matches them.
 - **API proxy:** a Cloudflare Worker routed at `corolla.jhosan.top/api/*` forwards to Render, making the session cookie first-party. The deployed Worker is a plain dashboard-created Worker; editing `cloudflare/api-proxy-worker.js` does **not** redeploy it — re-paste into the dashboard. **Never** use Cloudflare's "Import a repository" flow for it (see decisions). Health check: `curl -s https://corolla.jhosan.top/api/health` should return Render's JSON with an `X-Render-Origin-Server: Render` header.
 - **Backend:** Render free tier, `npm start` (init → seed → server). A cron-job.org monitor pings `/api/health` every 10 min so node-cron keeps firing; if reminders/scrapes stop, check that first.
 - **Database:** Turso (libSQL). Render needs `TURSO_URL` + `TURSO_TOKEN` or price history is wiped on restart.
@@ -85,7 +85,7 @@ Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 Rules:
 - **Deletes are explicit.** `foreign_keys` is never enabled on libSQL, so `ON DELETE CASCADE` isn't relied on: handlers delete `pack_components` → `price_history` → `retailer_urls` → `products` themselves. Do the same in any new delete path.
 - **`seed()` must stay crash-proof.** It looks up by slug, then by name, then inserts, and skips tombstoned slugs. Startup runs it on every Render boot.
-- To add a catalogue product: add it to `CATALOG` in `app.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work.
+- To add a catalogue product: add it to `CATALOG` in `js/data.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work.
 - Deleting a built-in product removes backend price tracking only; it stays in the static `CATALOG`, default phases, and routines.
 
 ## Scrapers
@@ -102,9 +102,23 @@ Rules:
 - Ingestion matches observations to products by **slug**.
 - Playwright: no named functions inside `page.evaluate()`; use `waitUntil: 'domcontentloaded'`; never select `[itemprop="price"]`. More in SCRAPER-LEARNING.md.
 
-## Frontend (`app.js`)
+## Frontend (`js/`)
 
-Vanilla JS, no framework, no build step. Handlers are called from inline `onclick=` attributes in HTML strings, so functions must stay globally reachable.
+Vanilla JS as native ES modules: no framework, no bundler, no build step. `index.html` loads `js/main.js` with `<script type="module">`. Because of that, the page must be served over HTTP; opening it as `file://` won't work.
+
+Modules:
+- **Leaf modules** (`config.js`, `data.js`, `state.js`) import nothing from feature modules.
+  - `config.js` holds the backend URL, build date and storage keys.
+  - `data.js` holds `CATALOG`, defaults, templates, `INV_CATEGORIES`, `SLUG_FAMILIES` and so on.
+  - `state.js` holds all mutable shared state.
+- **Shared modules:** `storage.js`, `util.js`, `catalog.js` (product lookups and the category model).
+- **One module per feature:** `checklist`, `inventory`, `prices`, `products`, `categories` (Settings editor), `log`, `photos`, `routines`, `schedules`, `weather`, `maintenance`, `settings`, `auth`, `nav`.
+- **Entry point:** `main.js`.
+
+Rules:
+- **Shared state lives on `state` (`js/state.js`)**, accessed as `state.routines`, `state.settings` and so on. Importers can't reassign an imported binding, so any module-level variable that gets reassigned belongs on `state`. Constants stay as plain exports.
+- **Nothing runs at import time** except constant initialisers that read only `config`/`data`/`state`. DOM wiring goes in a `setup*()` function called from `main.js` before `init()`. Feature modules import each other in cycles, which is only safe because of this rule.
+- **Inline handlers need `window`.** Rendered HTML uses `onclick="fn(...)"`, which resolves against `window`, not module scope. Any function called from an `on*=` attribute (in `index.html` or a template string) must be added to the `Object.assign(window, { … })` list in `main.js`. A missing entry fails silently until the button is clicked; ESLint can't catch it.
 
 Conventions:
 - All persistence via `storageGet(key)` / `storageSet(key, val)`; signed-in writes also `syncPush(key, val)`.
