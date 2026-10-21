@@ -42,13 +42,13 @@ jobs:
 
       - name: Initialise local database
         working-directory: backend
-        run: |
-          node --import tsx/esm src/db/init.ts
-          node --import tsx/esm src/db/seed.ts
+        # Schema only, no seed — run-and-push.ts fetches the live product/URL list from the
+        # backend (see fetch-backend-rows.ts), same as the daily scrape.yml run.
+        run: node --import tsx/esm src/db/init.ts
 
       - name: Scrape Supercheap and push to Render
         working-directory: backend
         env:
           BACKEND_URL: ${{ secrets.BACKEND_URL }}
           SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
-        run: node --import tsx/esm src/scrapers/run-supercheap.ts
+        run: node --import tsx/esm src/scrapers/run-and-push.ts

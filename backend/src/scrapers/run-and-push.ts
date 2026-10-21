@@ -1,6 +1,6 @@
-// GitHub Actions entry point.
-// Runs the Supercheap scraper (Playwright-based, needs a GitHub Actions runner),
-// collects observations, then POSTs them to the Render backend.
+// GitHub Actions entry point, used by both scrape.yml (daily) and scrape-supercheap-tuesday.yml
+// (Super Saver Tuesday sale window). Runs the Supercheap scraper (Playwright-based, needs a
+// GitHub Actions runner), collects observations, then POSTs them to the Render backend.
 //
 // Repco is NOT scraped here — as of ~2026-08-16 their product pages return HTTP 403 with a
 // Cloudflare bot-management challenge (`Cf-Mitigated: challenge`) on every request, including
@@ -11,12 +11,12 @@
 // product tracked via Repco also has a Supercheap/Auto Barn/Autopro URL, so this doesn't drop
 // any product to zero price coverage.
 //
-// Bowden's Own is scraped by the Render backend's internal cron job (cloud IPs blocked by Bowden's).
-// Auto Barn is scraped by a separate workflow (scrape-autobarn.yml) timed to its crawl window.
+// Bowden's Own is not scraped anywhere (blocks all datacenter IPs). Autopro is scraped by the
+// Render backend's in-process cron; Auto Barn by scrape-autobarn.yml on the self-hosted runner.
 //
 // Product/retailer-URL rows come from the live backend (fetchRowsFromBackend), not the local
-// DB — this runner's local SQLite is freshly re-seeded from the static seed.ts catalogue on
-// every run, so it never sees products or retailer URLs added later via the Products tab.
+// DB — this runner's local SQLite is a throwaway schema-only file with no access to products
+// or retailer URLs added via the Products tab.
 
 import { scrapeToArray as scrapeSupercheap } from './supercheap.js';
 import { fetchRowsFromBackend } from './fetch-backend-rows.js';
