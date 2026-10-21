@@ -1,6 +1,6 @@
 # Tasks
 
-Backlog ranked by usefulness × feasibility. Each item is independently shippable. Background on finished work is in [docs/decisions.md](docs/decisions.md) and the git history.
+Backlog ranked by usefulness × feasibility. Each item is independently shippable. Background on finished work is in [decisions.md](decisions.md) and the git history.
 
 ## Open
 
@@ -21,7 +21,7 @@ Only worth it if the app sees use beyond one person; it's a significant rewrite.
 - ☐ Car model + starting kit templating, "use as template" fork flow, shared library
 
 ### Scraping
-- ☐ Occasionally check whether Repco, Autopro or Bowden's Own have lifted their bot blocks (commands in docs/blocked-retailers.md).
+- ☐ Occasionally check whether Repco, Autopro or Bowden's Own have lifted their bot blocks (commands in [blocked-retailers.md](blocked-retailers.md)).
 
 ### Architecture
 - ✅ Database, `/api/health`, four-retailer scraper pipeline

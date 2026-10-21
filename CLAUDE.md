@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working in this repository. Why things are the way they are lives in [docs/decisions.md](docs/decisions.md); scraper lessons in [SCRAPER-LEARNING.md](SCRAPER-LEARNING.md) — read that before touching any scraper.
+Guidance for Claude Code when working in this repository. Why things are the way they are lives in [docs/decisions.md](docs/decisions.md); scraper lessons in [docs/scraper-learnings.md](docs/scraper-learnings.md), the backlog in [docs/tasks.md](docs/tasks.md) — read that before touching any scraper.
 
 ## What this app is
 
@@ -58,7 +58,7 @@ Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.y
 - **API proxy:** a Cloudflare Worker routed at `corolla.jhosan.top/api/*` forwards to Render, making the session cookie first-party. The deployed Worker is a plain dashboard-created Worker; editing `cloudflare/api-proxy-worker.js` does **not** redeploy it — re-paste into the dashboard. **Never** use Cloudflare's "Import a repository" flow for it (see decisions). Health check: `curl -s https://corolla.jhosan.top/api/health` should return Render's JSON with an `X-Render-Origin-Server: Render` header.
 - **Backend:** Render free tier, `npm start` (init → seed → server). A cron-job.org monitor pings `/api/health` every 10 min so node-cron keeps firing; if reminders or the digest stop, check that first.
 - **Database:** Turso (libSQL). Render needs `TURSO_URL` + `TURSO_TOKEN` or price history is wiped on restart.
-- **Self-hosted runner:** `debian-server` (home machine, user `jhadmin`) runs the Auto Barn scrape from a residential IP. Playwright system libs must be installed there once (see SCRAPER-LEARNING.md).
+- **Self-hosted runner:** `debian-server` (home machine, user `jhadmin`) runs the Auto Barn scrape from a residential IP. Playwright system libs must be installed there once (see docs/scraper-learnings.md).
 
 ### CORS
 
@@ -99,7 +99,7 @@ Rules:
 - The accepted retailers live in one list, `RETAILERS` in `backend/src/db/schema.ts`. The frontend mirrors it in `SCRAPED_RETAILERS`/`RETAILER_NAMES` (`js/data.js`).
 - The ephemeral runners (Actions + self-hosted) have no Turso credentials. They get the product/URL list from the live API via `fetchRowsFromBackend()` and POST results to `POST /api/prices` (Bearer `SCRAPE_SECRET`). Their local SQLite is schema-only, so the workflows run `db/init.ts` and **no seed**.
 - Ingestion matches observations to products by **slug**.
-- Playwright: no named functions inside `page.evaluate()`; use `waitUntil: 'domcontentloaded'`; never select `[itemprop="price"]`. More in SCRAPER-LEARNING.md.
+- Playwright: no named functions inside `page.evaluate()`; use `waitUntil: 'domcontentloaded'`; never select `[itemprop="price"]`. More in docs/scraper-learnings.md.
 
 ## Frontend (`js/`)
 

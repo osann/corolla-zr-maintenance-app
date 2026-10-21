@@ -2,7 +2,7 @@
 
 Hard-won notes from building the price scrapers. Read this before touching any scraper code.
 
-> **Active scrapers: Supercheap and Auto Barn only.** Repco, Autopro and Bowden's Own were retired on 2026-10-21 because they block bots. Their sections below are kept as reference for if a block ever lifts; see [docs/blocked-retailers.md](docs/blocked-retailers.md) for the current state and restore steps.
+> **Active scrapers: Supercheap and Auto Barn only.** Repco, Autopro and Bowden's Own were retired on 2026-10-21 because they block bots. Their sections below are kept as reference for if a block ever lifts; see [blocked-retailers.md](blocked-retailers.md) for the current state and restore steps.
 
 ---
 
@@ -157,7 +157,7 @@ sudo apt-get install -y libgbm1 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 
   libxrandr2 libxext6 libx11-xcb1 libpango-1.0-0 libasound2
 ```
 
-Autopro (same platform, same SKUs) used to cover the gaps; it was retired on 2026-10-21 when it started blocking bots (see docs/blocked-retailers.md).
+Autopro (same platform, same SKUs) used to cover the gaps; it was retired on 2026-10-21 when it started blocking bots (see [blocked-retailers.md](blocked-retailers.md)).
 
 **Do not attempt to re-add Auto Barn scraping from any cloud environment.** The block is IP-level and is not affected by user-agent, headers, or request timing.
 

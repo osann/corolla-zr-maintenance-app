@@ -50,5 +50,5 @@ Environment variables are listed in [CLAUDE.md](CLAUDE.md#environment-variables)
 
 - [CLAUDE.md](CLAUDE.md): architecture, conventions and gotchas.
 - [docs/decisions.md](docs/decisions.md): why things are the way they are.
-- [SCRAPER-LEARNING.md](SCRAPER-LEARNING.md): retailer scraping lessons.
-- [TASKS.md](TASKS.md): backlog.
+- [docs/scraper-learnings.md](docs/scraper-learnings.md): retailer scraping lessons.
+- [docs/tasks.md](docs/tasks.md): backlog.

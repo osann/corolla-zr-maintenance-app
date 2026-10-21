@@ -1,6 +1,6 @@
 # Decisions and incidents
 
-Why the non-obvious parts of this app are the way they are. Rules derived from these live in [CLAUDE.md](../CLAUDE.md); scraper-specific lessons live in [SCRAPER-LEARNING.md](../SCRAPER-LEARNING.md). Newest first within each section.
+Why the non-obvious parts of this app are the way they are. Rules derived from these live in [CLAUDE.md](../CLAUDE.md); scraper-specific lessons live in [scraper-learnings.md](scraper-learnings.md). Newest first within each section.
 
 ## Hosting and auth
 
