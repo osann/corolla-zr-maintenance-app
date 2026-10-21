@@ -153,7 +153,13 @@ Auth:
 | `corolla-pack-components-v1` | cache of `bundleComponents` for offline pack expansion |
 | `corolla-budget-v1`, `corolla-category-overrides-v1`, `corolla-custom-categories-v1` | legacy — read once for migration or only cleared; never written |
 
-Bump the version suffix on breaking shape changes; `load*()` functions migrate forward from older keys. `settings.freq` has no UI any more but `calcNextDue('beadMachine')` still reads it (with defaults) for the heat banner.
+Bump the version suffix on breaking shape changes; `load*()` functions migrate forward from older keys.
+
+**Adding a new synced store** means updating all of these:
+- `ALLOWED_KEYS` in `backend/src/routes/auth.ts`;
+- the pull list in `checkAuthAndSync()`;
+- the clear lists in `signOut()` and `resetEverything()`;
+- `BACKUP_KEYS` in `js/settings.js`. That's the Settings → Data management export/import, which restores to the server before touching local storage, because on reload the server copy wins. `settings.freq` has no UI any more but `calcNextDue('beadMachine')` still reads it (with defaults) for the heat banner.
 
 ### Categories
 
@@ -208,7 +214,7 @@ Testing:
 
 ## Weather
 
-The frontend calls `GET /api/weather?postcode=`. The backend geocodes with Nominatim (AU postcode), fetches a 7-day forecast from Open-Meteo, and caches it for 3 hours. It drives the rain-delay card, the Bead Machine heat banner (≥35 °C and due within 14 days), streak holds and best-wash-day. `fetchBomForecast()` is misnamed; it calls this endpoint. BOM can't be used (see decisions).
+The frontend calls `GET /api/weather?postcode=`. The backend geocodes with Nominatim (AU postcode), fetches a 7-day forecast from Open-Meteo, and caches it for 3 hours. It drives the rain-delay card, the Bead Machine heat banner (≥35 °C and due within 14 days), streak holds and best-wash-day. BOM can't be used (see decisions).
 
 ## CSS
 

@@ -3,7 +3,7 @@ import { BACKEND_URL } from './config.js';
 import { calcNextDue } from './log.js';
 import { state } from './state.js';
 
-export async function fetchBomForecast(postcode) {
+export async function fetchWeatherForecast(postcode) {
   if (!/^\d{4}$/.test(postcode)) return null;
   if (!BACKEND_URL || BACKEND_URL.startsWith('__')) return null;
   try {
@@ -95,7 +95,7 @@ export async function loadWeather() {
     if (section) section.style.display = 'none';
     return;
   }
-  const forecast = await fetchBomForecast(postcode);
+  const forecast = await fetchWeatherForecast(postcode);
   if (!forecast) {
     section.style.display = 'none';
     return;

@@ -5,9 +5,9 @@ Backlog ranked by usefulness × feasibility. Each item is independently shippabl
 ## Open
 
 ### Follow-ups from the 2026-10 cleanup
-- ☐ **Backup export is incomplete.** `exportData()` exports only checklist, wash log and settings. It misses routines, maintenance items and log, inventory, categories and price alerts, and there's no import.
-- ☐ **Data management copy is wrong when signed in.** Settings → Data management says "All data is stored in this browser only — nothing is sent anywhere", which isn't true with sync on.
-- ☐ Rename `fetchBomForecast()`; it hasn't called BOM since the Nominatim/Open-Meteo switch.
+- ✅ **Backup export/import.** Export now covers every synced store (checklist, wash log, settings, price alerts, routines, maintenance items and log, inventory, categories). Settings → Data management has an "Import JSON" restore, which also accepts the original backup format.
+- ✅ **Data management copy** now says data is synced to the account and that restore/clear/reset apply on every device. The section only appears when signed in.
+- ✅ Renamed `fetchBomForecast()` to `fetchWeatherForecast()`.
 
 ### 8. Product comparison + alternative suggestions
 When a Bowden's product is unavailable, suggest an equivalent.

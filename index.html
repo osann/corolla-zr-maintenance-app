@@ -1318,15 +1318,26 @@
     <!-- ── Data management ── -->
     <div class="settings-section" id="settings-data">
       <div class="settings-section-title">Data management</div>
-      <div class="settings-section-desc">All data is stored in this browser only — nothing is sent anywhere. Export a backup or clear individual data stores.</div>
+      <div class="settings-section-desc">Your data is saved to your account and synced to every device you're signed in on. Restoring, clearing and resetting apply on all of them.</div>
 
       <div class="settings-row">
         <div class="settings-row-label">
           <strong>Export all data</strong>
-          <span>Download a JSON backup of checklist, log, and settings</span>
+          <span>Download a JSON backup of your checklist, wash log, routines, maintenance, inventory, categories, price alerts and settings. Photos aren't included.</span>
         </div>
         <div class="settings-control">
           <button class="settings-save-btn" onclick="exportData()">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">
+          <strong>Restore from backup</strong>
+          <span>Replace your data with an exported JSON backup. Anything not in the backup is left as it is.</span>
+        </div>
+        <div class="settings-control">
+          <button class="settings-reset-btn" onclick="importData()">Import JSON</button>
+          <input type="file" id="backup-import-input" accept=".json,application/json" style="display:none;">
         </div>
       </div>
 

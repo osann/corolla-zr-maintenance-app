@@ -22,7 +22,7 @@ import { loadRoutines } from './routines.js';
 import { renderSchedulesUI, renderWashReminderCards } from './schedules.js';
 import { state } from './state.js';
 import { storageGet, storageSet, syncPush } from './storage.js';
-import { showSaved } from './util.js';
+import { showSaved, triggerDownload } from './util.js';
 import { loadWeather } from './weather.js';
 
 // Preferences
@@ -306,23 +306,102 @@ export async function resetNotifications() {
 }
 
 // Data management
+// ─── Backup export / import ──────────────────────
+// Every synced store that's still written to. The legacy budget and category-override keys
+// are deliberately left out. Photos live in R2 and aren't part of a backup; log entries keep
+// their ids, so photos stay attached when restoring into the same account.
+const BACKUP_APP = 'Corolla ZR Detailing Guide';
+const BACKUP_FORMAT = 2;
+const BACKUP_KEYS = {
+  [CHECKLIST_V3_KEY]: 'object',
+  [LOG_KEY]: 'array',
+  [SETTINGS_KEY]: 'object',
+  [ALERTS_KEY]: 'object',
+  [ROUTINES_KEY]: 'array',
+  [MAINTENANCE_KEY]: 'array',
+  [MAINTENANCE_LOG_KEY]: 'array',
+  [INVENTORY_KEY]: 'object',
+  [CATEGORIES_KEY]: 'array',
+};
+
 export async function exportData() {
-  const checklistData = (await storageGet(CHECKLIST_V3_KEY)) || {};
-  const logData = (await storageGet(LOG_KEY)) || [];
-  const exportObj = {
-    exported: new Date().toISOString(),
-    app: 'Corolla ZR Detailing Guide',
-    checklist: checklistData,
-    washLog: logData,
-    settings: state.settings,
+  const data = {};
+  for (const key of Object.keys(BACKUP_KEYS)) {
+    const value = await storageGet(key);
+    if (value != null) data[key] = value;
+  }
+  const backup = { app: BACKUP_APP, format: BACKUP_FORMAT, exported: new Date().toISOString(), data };
+  const date = new Date().toISOString().split('T')[0];
+  triggerDownload(JSON.stringify(backup, null, 2), `corolla-detailing-backup-${date}.json`, 'application/json');
+}
+
+// Returns { [storageKey]: value } from a backup file, or throws with a user-facing reason.
+// Also accepts the original format (checklist + washLog + settings at the top level).
+function parseBackup(json) {
+  if (!json || typeof json !== 'object' || json.app !== BACKUP_APP) {
+    throw new Error("this isn't a backup exported from this app");
+  }
+  const data =
+    json.format === BACKUP_FORMAT
+      ? json.data
+      : { [CHECKLIST_V3_KEY]: json.checklist, [LOG_KEY]: json.washLog, [SETTINGS_KEY]: json.settings };
+  const out = {};
+  for (const [key, value] of Object.entries(data ?? {})) {
+    if (value == null) continue;
+    const expected = BACKUP_KEYS[key];
+    if (!expected) continue; // unknown or retired store — ignore rather than restore
+    const actual = Array.isArray(value) ? 'array' : typeof value;
+    if (actual !== expected) throw new Error(`${key} should be an ${expected}, not ${actual}`);
+    out[key] = value;
+  }
+  if (!Object.keys(out).length) throw new Error('it contains no data');
+  return out;
+}
+
+export function importData() {
+  const input = document.getElementById('backup-import-input');
+  if (!input) return;
+  input.value = '';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    let data;
+    try {
+      data = parseBackup(JSON.parse(await file.text()));
+    } catch (e) {
+      alert(`Couldn't restore that file: ${e instanceof SyntaxError ? 'it isn’t valid JSON' : e.message}.`);
+      return;
+    }
+    const keys = Object.keys(data);
+    const where = state.syncEnabled ? 'on every signed-in device' : 'in this browser';
+    if (!confirm(`Restore ${keys.length} data store(s) from this backup? Your current data will be replaced ${where}.`))
+      return;
+
+    // Server first, checking every response: on reload the server copy overwrites local storage,
+    // so a restore that only reached this browser would silently revert.
+    if (state.syncEnabled) {
+      const failed = [];
+      for (const key of keys) {
+        const res = await fetch(`${BACKEND_URL}/api/sync/${encodeURIComponent(key)}`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data[key]),
+          signal: AbortSignal.timeout(15000),
+        }).catch(() => null);
+        if (!res?.ok) failed.push(key);
+      }
+      if (failed.length) {
+        alert(
+          `Restore incomplete: ${failed.length} of ${keys.length} store(s) couldn't be saved to your account. Nothing was changed in this browser — try again.`,
+        );
+        return;
+      }
+    }
+    for (const key of keys) await storageSet(key, data[key]);
+    location.reload();
   };
-  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `corolla-detailing-backup-${new Date().toISOString().split('T')[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  input.click();
 }
 
 export async function clearLog() {
