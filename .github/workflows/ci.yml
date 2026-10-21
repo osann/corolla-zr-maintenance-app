@@ -1,0 +1,41 @@
+name: CI
+
+# Checks only — deploys are handled by deploy.yml (Pages) and Render.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (backend, app.js, Worker)
+        run: npm run lint
+
+      - name: Formatting
+        run: npm run format:check
+
+      - name: Tests
+        run: npm test
