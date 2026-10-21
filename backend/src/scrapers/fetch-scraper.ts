@@ -1,5 +1,5 @@
-// Shared factory for plain-fetch scrapers (Auto Barn, Autopro).
-// Both sites share the same platform, URL structure, price HTML, and robots.txt constraints.
+// Shared factory for plain-fetch scrapers on the Auto Barn platform (Auto Barn today; Autopro,
+// now retired, used the same platform — see docs/blocked-retailers.md).
 // Pass retailer-specific config; get back scrapeToArray + scrapeAll.
 
 import https from 'node:https';
@@ -130,15 +130,14 @@ function sleepJitter(ms: number) {
   return sleep(Math.max(1000, Math.round(ms + jitter)));
 }
 
-// Some Auto Barn / Autopro SKUs only respond to the full canonical URL; others only to the short
+// Some Auto Barn SKUs only respond to the full canonical URL; others only to the short
 // /p/{SKU} form. Both URLs are fired simultaneously via Promise.any — whichever responds first
 // with a valid price wins. Products that fail both still only cost one 60s timeout (not two).
 function shortUrlAlternative(url: string): string | null {
-  if (url.includes('/ab/p/') || url.includes('/ap/p/')) return null;
+  if (url.includes('/ab/p/')) return null;
   const m = url.match(/\/p\/([^/?#]+)/);
   if (!m) return null;
   if (url.includes('autobarn.com.au')) return `https://www.autobarn.com.au/ab/p/${m[1]}`;
-  if (url.includes('autopro.com.au')) return `https://www.autopro.com.au/ap/p/${m[1]}`;
   return null;
 }
 
@@ -159,7 +158,7 @@ async function fetchBest(primaryUrl: string, altUrl: string | null, opts: GetOpt
   return Promise.any([attempt(primaryUrl), attempt(altUrl)]).catch(() => null);
 }
 
-type FetchRetailer = 'autobarn' | 'autopro';
+type FetchRetailer = 'autobarn';
 
 interface CrawlWindow {
   startHour: number; // UTC, inclusive

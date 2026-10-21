@@ -2,17 +2,8 @@
 // (Super Saver Tuesday sale window). Runs the Supercheap scraper (Playwright-based, needs a
 // GitHub Actions runner), collects observations, then POSTs them to the Render backend.
 //
-// Repco is NOT scraped here — as of ~2026-08-16 their product pages return HTTP 403 with a
-// Cloudflare bot-management challenge (`Cf-Mitigated: challenge`) on every request, including
-// from a plain curl and from residential IPs, not just GitHub Actions' cloud IPs. Confirmed
-// 2026-08-27. Same class of block as Bowden's Own (see below) — not something a Playwright
-// stealth context can talk its way past. repco.ts is left in place (not deleted) in case
-// Repco's WAF config changes again, but is no longer called from this automated path. Every
-// product tracked via Repco also has a Supercheap/Auto Barn/Autopro URL, so this doesn't drop
-// any product to zero price coverage.
-//
-// Bowden's Own is not scraped anywhere (blocks all datacenter IPs). Autopro is scraped by the
-// Render backend's in-process cron; Auto Barn by scrape-autobarn.yml on the self-hosted runner.
+// Auto Barn is scraped separately by scrape-autobarn.yml on the self-hosted runner. Repco,
+// Autopro and Bowden's Own are retired (bot-blocked); see docs/blocked-retailers.md.
 //
 // Product/retailer-URL rows come from the live backend (fetchRowsFromBackend), not the local
 // DB — this runner's local SQLite is a throwaway schema-only file with no access to products

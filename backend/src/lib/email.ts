@@ -56,11 +56,8 @@ export interface DigestThresholdItem {
 }
 
 const RETAILER_DISPLAY: Record<string, string> = {
-  bowdens: "Bowden's Own",
   autobarn: 'Auto Barn',
-  repco: 'Repco',
   supercheap: 'Supercheap Auto',
-  autopro: 'Autopro',
 };
 
 export interface AlertThreshold {

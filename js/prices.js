@@ -25,7 +25,7 @@ export function renderPricesTab() {
     for (const slug of slugs) {
       const product = productBySlug[slug];
       if (!product) continue;
-      const RETAILER_ORDER = ['supercheap', 'repco', 'autobarn', 'autopro', 'bowdens'];
+      const RETAILER_ORDER = ['supercheap', 'autobarn'];
       const retailers = Object.entries(product.latestPrice ?? {}).sort(([a], [b]) => {
         const ai = RETAILER_ORDER.indexOf(a),
           bi = RETAILER_ORDER.indexOf(b);

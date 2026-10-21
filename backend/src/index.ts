@@ -9,7 +9,6 @@ import authRouter from './routes/auth.js';
 import weatherRouter from './routes/weather.js';
 import photosRouter from './routes/photos.js';
 import ticktickRouter from './routes/ticktick.js';
-import { scrapeAutopro } from './scrapers/autopro.js';
 import { createTickTickTask } from './lib/ticktick.js';
 import { initDb } from './db/init.js';
 import { seed, seedPacks } from './db/seed.js';
@@ -61,16 +60,10 @@ app.route('/api', weatherRouter);
 app.route('/api', photosRouter);
 app.route('/api', ticktickRouter);
 
-// Autopro: daily at 05:00 UTC — within robots.txt crawl window (04:00–08:45 UTC).
-// Render node-cron fires punctually; GitHub Actions scheduled runs can be delayed.
-// Auto Barn uses the same platform/SKUs as Autopro but blocks Render IPs (HTTP 403).
-// Repco and Supercheap use Playwright (not installed at runtime) — handled by GitHub Actions.
-cron.schedule('0 5 * * *', () => {
-  console.log('Running scheduled Autopro scrape...');
-  scrapeAutopro().catch(console.error);
-});
+// No scraping runs on Render: Supercheap and Auto Barn are scraped from GitHub Actions and the
+// self-hosted runner. See docs/blocked-retailers.md for the retired Autopro cron.
 
-// Wash reminder: daily at 07:00 UTC (after Autopro scrape window closes).
+// Wash reminder: daily at 07:00 UTC.
 // Iterates settings.schedules; falls back to legacy fullWash check if no schedules configured.
 cron.schedule('0 7 * * *', async () => {
   const ownerEmail = process.env.OWNER_EMAIL;
@@ -212,7 +205,7 @@ cron.schedule('0 7 * * *', async () => {
   }
 });
 
-// Daily price digest: 08:00 UTC (after Autopro scrape + wash reminder).
+// Daily price digest: 08:00 UTC (after the wash reminder).
 // Sends only when there are on-sale items or threshold breaches. At most once per day via cron.
 cron.schedule('0 8 * * *', async () => {
   const ownerEmail = process.env.OWNER_EMAIL;

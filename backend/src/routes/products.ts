@@ -1,7 +1,15 @@
 import { Hono } from 'hono';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
-import { products, priceHistory, retailerUrls, packComponents, deletedProducts } from '../db/schema.js';
+import {
+  products,
+  priceHistory,
+  retailerUrls,
+  packComponents,
+  deletedProducts,
+  isRetailer,
+  type Retailer,
+} from '../db/schema.js';
 import { sessionMiddleware, type AppEnv } from '../lib/auth.js';
 
 const router = new Hono<AppEnv>();
@@ -146,8 +154,7 @@ router.post('/products', sessionMiddleware, async (c) => {
     return c.json({ error: 'Slug must contain only lowercase letters, numbers and hyphens' }, 400);
   }
 
-  const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'] as const;
-  if (retailer && !SCRAPED_RETAILERS.includes(retailer as (typeof SCRAPED_RETAILERS)[number])) {
+  if (retailer && !isRetailer(retailer)) {
     return c.json({ error: 'Invalid retailer' }, 400);
   }
   if (retailer && (!url || !url.startsWith('http'))) {
@@ -167,7 +174,7 @@ router.post('/products', sessionMiddleware, async (c) => {
   if (retailer && url) {
     await db.insert(retailerUrls).values({
       productId: newProduct.id,
-      retailer: retailer as (typeof SCRAPED_RETAILERS)[number],
+      retailer: retailer as Retailer,
       url,
     });
   }
@@ -183,11 +190,10 @@ router.put('/products/:id/url', sessionMiddleware, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
-  const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'] as const;
   const body = await c.req.json<{ retailer?: string; url?: string }>();
   const { retailer, url } = body;
 
-  if (!retailer || !SCRAPED_RETAILERS.includes(retailer as (typeof SCRAPED_RETAILERS)[number])) {
+  if (!retailer || !isRetailer(retailer)) {
     return c.json({ error: 'Invalid retailer' }, 400);
   }
   if (!url || typeof url !== 'string' || !url.startsWith('http')) {
@@ -199,7 +205,7 @@ router.put('/products/:id/url', sessionMiddleware, async (c) => {
 
   await db
     .insert(retailerUrls)
-    .values({ productId: id, retailer: retailer as (typeof SCRAPED_RETAILERS)[number], url })
+    .values({ productId: id, retailer: retailer as Retailer, url })
     .onConflictDoUpdate({
       target: [retailerUrls.productId, retailerUrls.retailer],
       set: { url },
@@ -370,12 +376,11 @@ router.delete('/products/:id/url/:retailer', sessionMiddleware, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
-  const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'] as const;
   const retailer = c.req.param('retailer');
-  if (!SCRAPED_RETAILERS.includes(retailer as (typeof SCRAPED_RETAILERS)[number])) {
+  if (!isRetailer(retailer)) {
     return c.json({ error: 'Invalid retailer' }, 400);
   }
-  const typedRetailer = retailer as (typeof SCRAPED_RETAILERS)[number];
+  const typedRetailer = retailer as Retailer;
 
   await db.delete(priceHistory).where(and(eq(priceHistory.productId, id), eq(priceHistory.retailer, typedRetailer)));
   await db.delete(retailerUrls).where(and(eq(retailerUrls.productId, id), eq(retailerUrls.retailer, typedRetailer)));

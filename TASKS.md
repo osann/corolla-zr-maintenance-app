@@ -21,7 +21,7 @@ Only worth it if the app sees use beyond one person; it's a significant rewrite.
 - ☐ Car model + starting kit templating, "use as template" fork flow, shared library
 
 ### Scraping
-- ☐ Periodically check whether Repco's Cloudflare challenge has lifted (`npm run scrape` locally).
+- ☐ Occasionally check whether Repco, Autopro or Bowden's Own have lifted their bot blocks (commands in docs/blocked-retailers.md).
 
 ### Architecture
 - ✅ Database, `/api/health`, four-retailer scraper pipeline
@@ -33,7 +33,7 @@ Only worth it if the app sees use beyond one person; it's a significant rewrite.
 
 ## Done
 
-1. **Price tracking + alerts.** Scrapers for Supercheap, Auto Barn and Autopro (Repco disabled 2026-08), sale detection, sparklines, per-product thresholds, a daily digest, and full product lifecycle from the UI.
+1. **Price tracking + alerts.** Scrapers for Supercheap and Auto Barn (Repco, Autopro and Bowden's retired as bot-blocked, 2026-10), sale detection, sparklines, per-product thresholds, a daily digest, and full product lifecycle from the UI.
 2. **Routines overhaul.** Fully customisable `corolla-routines-v1`, CSV import/export, an AI prompt template, drag reorder.
 3. **Wash reminders.** Per-routine schedules, reminder cards, rain-aware best wash day, TickTick/email cron.
 4. **Photo log.** R2 storage, thumbnails, carousel and lightbox.

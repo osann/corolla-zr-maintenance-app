@@ -1,24 +1,16 @@
 import { fileURLToPath } from 'node:url';
 import { scrapeAutobarn } from './autobarn.js';
-import { scrapeAutopro } from './autopro.js';
-import { scrapeRepco } from './repco.js';
 import { scrapeSupercheap } from './supercheap.js';
 
-// Runs all scrapers sequentially and writes results to the local DB.
-// Used by the in-process cron job and `npm run scrape`.
-// Bowden's Own is excluded — their site blocks all datacenter IPs.
+// Runs every active scraper sequentially and writes results to the local DB (`npm run scrape`).
+// Local use only — production runs via run-and-push.ts (Supercheap) and run-autobarn.ts.
+// Repco, Autopro and Bowden's Own are retired; see docs/blocked-retailers.md.
 export async function scrapeAllRetailers(): Promise<void> {
   console.log('=== Auto Barn ===');
   await scrapeAutobarn();
 
-  console.log('=== Autopro ===');
-  await scrapeAutopro();
-
   console.log('=== Supercheap Auto ===');
   await scrapeSupercheap();
-
-  console.log('=== Repco ===');
-  await scrapeRepco();
 }
 
 // Allow running directly: npm run scrape

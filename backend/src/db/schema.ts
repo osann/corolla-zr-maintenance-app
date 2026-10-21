@@ -1,6 +1,12 @@
 import { integer, text, sqliteTable, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
+// Retailers that are scraped. Repco, Autopro and Bowden's Own were retired (bot-blocked) —
+// see docs/blocked-retailers.md; the DB CHECK constraint in init.ts still permits them.
+export const RETAILERS = ['supercheap', 'autobarn'] as const;
+export type Retailer = (typeof RETAILERS)[number];
+export const isRetailer = (r: unknown): r is Retailer => RETAILERS.includes(r as Retailer);
+
 export const products = sqliteTable('products', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull().unique(),
@@ -25,7 +31,7 @@ export const retailerUrls = sqliteTable(
     productId: integer('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
-    retailer: text('retailer', { enum: ['bowdens', 'supercheap', 'repco', 'autopro', 'autobarn'] }).notNull(),
+    retailer: text('retailer', { enum: RETAILERS }).notNull(),
     url: text('url').notNull(),
   },
   (t) => [uniqueIndex('idx_product_retailer_unique').on(t.productId, t.retailer)],
@@ -38,7 +44,7 @@ export const priceHistory = sqliteTable(
     productId: integer('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
-    retailer: text('retailer', { enum: ['bowdens', 'supercheap', 'repco', 'autopro', 'autobarn'] }).notNull(),
+    retailer: text('retailer', { enum: RETAILERS }).notNull(),
     priceCents: integer('price_cents').notNull(),
     onSale: integer('on_sale', { mode: 'boolean' }).notNull().default(false),
     observedAt: text('observed_at')

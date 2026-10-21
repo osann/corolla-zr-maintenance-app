@@ -792,7 +792,8 @@ export const DEFAULT_PHASES = [
   },
 ].map(({ tag2, ...p }) => p); // strip the dummy tag2 field (alignment hack)
 
-export const SCRAPED_RETAILERS = ['supercheap', 'repco', 'autobarn', 'autopro'];
+// Repco, Autopro and Bowden's Own are retired (bot-blocked) — see docs/blocked-retailers.md.
+export const SCRAPED_RETAILERS = ['supercheap', 'autobarn'];
 
 export const INV_CATEGORIES = [
   {
@@ -987,9 +988,6 @@ Generate [DESCRIBE THE ROUTINE(S) — e.g. "a quick post-rain rinse routine" or 
 Output only the CSV starting with the header row.`;
 
 export const RETAILER_NAMES = {
-  bowdens: "Bowden's Own",
   autobarn: 'Auto Barn',
-  repco: 'Repco',
   supercheap: 'Supercheap Auto',
-  autopro: 'Autopro',
 };

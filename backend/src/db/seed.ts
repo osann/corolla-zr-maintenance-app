@@ -2,15 +2,14 @@ import { eq } from 'drizzle-orm';
 import { db } from './connection.js';
 import { products, retailerUrls, packComponents, deletedProducts } from './schema.js';
 
-// autobarnSku:    SKU code on autobarn.com.au — used to derive Autopro URLs (/ap/p/{sku})
+// autobarnSku:    SKU code on autobarn.com.au — fallback short URL (/ab/p/{sku}) when no autobarnUrl
 // autobarnUrl:    Full canonical Auto Barn URL — used in preference to the short /ab/p/{sku} form.
 //                 Short URLs hang at the server level for ~half of products; full URLs are reliable.
 //                 Strip ?queryID=...&indexUsed=... tracking params before storing.
-// repcoUrl:       Full product URL on repco.com.au (path varies per product, can't be templated)
 // supercheapUrl:  Full product URL on supercheapauto.com.au (slug varies, can't be templated)
 //
-// Bowden's Own is not scraped — their site blocks all datacenter IPs (GitHub Actions gets a
-// Cloudflare JS challenge; Render gets HTTP 403). All products have Repco/Supercheap fallbacks.
+// Only Supercheap and Auto Barn are scraped. Repco, Autopro and Bowden's Own block bots and
+// were retired; their URLs are archived in docs/archive/blocked-retailer-urls.csv.
 //
 // null = not stocked at that retailer (or URL not yet researched)
 // phase 0 = tracked for pricing but not part of the kit checklist
@@ -21,7 +20,6 @@ type Item = {
   phase: number;
   autobarnSku: string | null;
   autobarnUrl?: string; // full canonical URL; preferred over short /ab/p/{sku} for autobarn
-  repcoUrl: string | null;
   supercheapUrl: string | null;
 };
 
@@ -34,7 +32,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC06713',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Nanolicious-Wash-Pack-Ultimate/p/CC06713',
-    repcoUrl: null,
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-nanolicious-shag-pack/SPO6388657.html',
   },
   {
@@ -44,8 +41,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC07521',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Wet-Dreams-Pack/p/CC07521',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-wax-sealants/bowden-s-own-wet-dreams-pack-bodreamsp/p/A5531425',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-wet-dreams-pack/SPO8290954.html',
   },
   {
@@ -55,7 +50,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC06722',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-2-Bucket-Wash-Kit/p/CC06722',
-    repcoUrl: null,
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-2-bucket-pack-bobwash-bobrinse2x-bogbt-boblid/SPO6388639.html',
   },
@@ -66,8 +60,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC06384',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Boss-Gloss-Slick-Detailing-Spray-770ml/p/CC06384',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-wax-sealants/bowden-s-own-boss-gloss-detailing-spray-770ml-boboss/p/A9708063',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-boss-gloss-770ml/526272.html',
   },
   {
@@ -77,8 +69,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC04058',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Naked-Glass-Spray-Solution-500ml/p/CC04058',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/windscreen-glass-cleaner/bowden-s-own-naked-glass-cleaner-500ml-bong/p/A9708062',
     supercheapUrl: null,
   },
   {
@@ -88,8 +78,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC08069',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-The-Inta-Mitt/p/CC08069',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/glass-windscreen-accessories/bowden-s-own-the-inta-mitt-glass-cleaning-mitt-bointa/p/A5570049',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-the-inta-mitt/608451.html',
   },
   {
@@ -97,8 +85,6 @@ const KIT_ITEMS: Item[] = [
     slug: 'karcher-k2',
     phase: 1,
     autobarnSku: null,
-    repcoUrl:
-      'https://www.repco.com.au/tools-equipment/pressure-washers/pressure-washers/karcher-k2-pressure-washer-vps-1750psi-1-602-521-0/p/A5733011',
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/karcher-k%C3%A4rcher-k2-premium-pressure-washer---1750-psi/704265.html',
   },
@@ -109,8 +95,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC06484',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Snow-Blow-Cannon-Pre-wash-System-Pressure-Washer/p/CC06484',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/foam-cannons/bowden-s-own-snow-blow-foam-cannon-bocannon/p/A9815923',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-snow-blow-cannon-kit/531515.html',
   },
   // Supercheap stocks "Snow Job V2" without a size qualifier — assumed 1L (standard retail size)
@@ -121,8 +105,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: '141807',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Snow-Job-1L/p/141807',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-snow-job-pre-wash-snow-foam-concentrate-v2-1l-bosnowv21l/p/A5635293',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-snow-job-v2/SPO9481182.html',
   },
   // Supercheap only stocks Happy Ending in 1L — tracked separately as happy-ending-1l
@@ -136,8 +118,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC04777',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Wheely-Clean-Wheel-Spray-Solution-500ml/p/CC04777',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/wheel-cleaner/bowden-s-own-wheely-clean-wheel-cleaner-500ml-bowhc2/p/A9708046',
     supercheapUrl: null,
   },
   {
@@ -147,8 +127,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: '298647',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Car-Care-%26-Accessories/Cleaning-Aids-%26-Applicators/Brushes/Bowden%27s-Own-The-Little-Stiffy-Tyre-Underbody-Brush/p/298647',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/car-cleaning-brushes/bowden-s-own-little-stiffy-tyre-underbody-brush-bostiffy/p/A5749278',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-little-stiffy-brush/695480.html',
   },
   {
@@ -158,8 +136,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC07664',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Flat-Head-Wheel-Brush-AKA-Flatty/p/CC07664',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/car-cleaning-brushes/bowden-s-own-flat-head-wheel-cleaning-brush-bofhead/p/A5497585',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-the-flat-head-brush/615655.html',
   },
   {
@@ -169,8 +145,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: '157495',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Fabra-Cadabra-500ml/p/157495',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-interior-cleaning/bowden-s-own-fabra-cadabra-v2-fabric-cleaner-500ml-bofab2/p/A5641961',
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-fabra-cadabra-fabric-cleaner-500ml/345712.html',
   },
@@ -181,8 +155,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC02275',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Leather-Care-Pack/p/CC02275',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/leather-cleaner/bowden-s-own-leather-clean-protect-pack-bolp/p/A5388050',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-leather-pack/SPO3537750.html',
   },
   {
@@ -192,8 +164,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC07353',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Pro-grade-Super-Hydrophobic-Fabric-Protectant-500ml/p/CC07353',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-interior-cleaning/bowden-s-own-fabratection-fabric-protectant-500ml-boftect/p/A5430071',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-fabratection-500ml/SPO7089159.html',
   },
   {
@@ -201,7 +171,6 @@ const KIT_ITEMS: Item[] = [
     slug: '303-aerospace',
     phase: 2,
     autobarnSku: null,
-    repcoUrl: null,
     supercheapUrl: null,
   },
 
@@ -213,8 +182,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC06740',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Pumpy-Pump-5-Litre-Bottle/p/CC06740',
-    repcoUrl:
-      'https://www.repco.com.au/tools-equipment/garage-cleaning/general-cleaning/bowden-s-own-pumpy-pump-5-litre-bottle-bopump5l/p/A5388067',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-pumpy-pump---5-litre-bottle/SPO6388649.html',
   },
   {
@@ -224,8 +191,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC06504',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Nanolicious-Wash-5L/p/CC06504',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-nanolicious-car-wash-5l-bonano5l/p/A5388059',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-nanolicious-wash-v2-5l/SPO10567751.html',
   },
   {
@@ -235,7 +200,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC06220',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Microfibre-Wash-Deep-Cleaning-1L/p/CC06220',
-    repcoUrl: null,
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-microfibre-wash-1-litre/415557.html',
   },
 
@@ -247,8 +211,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC07387',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Plush-Brush-Deep-Soft-Bristle/p/CC07387',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/car-cleaning-brushes/bowden-s-own-plush-detailing-brush-bopb/p/A5430043',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-plush-brush/SPO7541270.html',
   },
   {
@@ -258,8 +220,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC07796',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Flash-Prep-Pro-Grade-Formula-500ml/p/CC07796',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-wax-sealants/bowden-s-own-flash-prep-surface-spray-500ml-bofprep/p/A5516653',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-flash-prep-spray-500ml/599354.html',
   },
   {
@@ -269,8 +229,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC07797',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Bead-Machine-Hydrophobic-Beading-Protective-500ml/p/CC07797',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-wax-sealants/bowden-s-own-bead-machine-paint-sealant-500ml-bomachine/p/A5527501',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-bead-machine-sealant-500ml/599353.html',
   },
   {
@@ -280,8 +238,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: 'CC02906',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Big-Softie-Blue-Piping-Feather-Soft-Microfibre/p/CC02906',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/microfibre-and-polishing-cloths/bowden-s-own-big-softie-blue-microfibre-cloth-bobcp/p/A9815910',
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-big-softie-microfibre-cloth-400-x-500mm/415549.html',
   },
@@ -292,8 +248,6 @@ const KIT_ITEMS: Item[] = [
     autobarnSku: '152323',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Snow-Job-V2-5L/p/152323',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-snow-job-pre-wash-snow-foam-concentrate-v2-5l-bosnowv25l/p/A5640384',
     supercheapUrl: null,
   },
   {
@@ -301,7 +255,6 @@ const KIT_ITEMS: Item[] = [
     slug: 'wheely-clean-v2-5l',
     phase: 4,
     autobarnSku: null,
-    repcoUrl: null,
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-wheely-clean-v2-5l/SPO7219102.html?cgid=SCA01010404',
   },
@@ -316,8 +269,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC06685',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Shagtastic-Wash-Pad-Scratch-free-210mm-X-150mm/p/CC06685',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/car-wash-sponge-mitts/bowden-s-own-shagtastic-car-wash-pad-boshag/p/A5388070',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-shagtastic-wash-pad/559556.html',
   },
   {
@@ -327,8 +278,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07500',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Happy-Ending-Cannon-Bottle-Finishing-Foam/p/CC07500',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/foam-cannons/bowden-s-own-happy-ending-cannon-bottle-bohcb/p/A5497904',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-happy-ending-cannon-bottle/SPO7303811.html',
   },
   {
@@ -338,8 +287,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: '283256',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-The-Chubby-Wheel-Brush-V2/p/283256',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/car-cleaning-brushes/bowden-s-own-the-chubby-wheel-brush-v2-bochubby2/p/A5744203',
     supercheapUrl: null,
   },
   {
@@ -349,8 +296,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: '204189',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Naked-and-Inta-Mitt-Pack/p/204189',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/windscreen-glass-cleaner/bowden-s-own-naked-inta-mitt-glass-cleaning-pack-bonip/p/A5570048',
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-naked-and-inta-mitt-pack/SPO9481181.html',
   },
@@ -361,8 +306,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: '210329',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Twisted-Pro-Sucker/p/210329',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/chamois-drying-towels/bowden-s-own-twisted-pro-sucker-drying-towel-botps/p/A5696154',
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-twisted-pro-sucker-drying-towel-700-x-500mm/677470.html',
   },
@@ -373,8 +316,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: '149084',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Leather-Love-500ml/p/149084',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/leather-cleaner/bowden-s-own-leather-love-leather-cleaner-v2-500ml-boll2/p/A5639700',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-leather-love-500ml/323489.html',
   },
   {
@@ -384,8 +325,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC06154',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Car-Care-%26-Accessories/Cleaning-Aids-%26-Applicators/Sponges-%26-Mitts/Bowden%27s-Own-The-Square-Bear-Microfibre-Weave/p/CC06154',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/applicators/bowden-s-own-the-square-bear-interior-applicator-bosbear/p/A9815919',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-square-bear-applicator-pad/415540.html',
   },
   {
@@ -395,8 +334,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC06483',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-The-Big-Green-Sucker-Luxurious-Plush-Drying-Towel/p/CC06483',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/chamois-drying-towels/bowden-s-own-the-big-green-sucker-drying-towel-bosucker/p/A9815921',
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-big-green-sucker-drying-towel-700-x-400mm/559555.html',
   },
@@ -407,8 +344,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC01827',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Leather-Guard-Protectant-500ml/p/CC01827',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/leather-cleaner/bowden-s-own-leather-guard-interior-leather-protectant-500ml-bolg/p/A9708053',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-leather-guard-500ml/323490.html',
   },
   {
@@ -418,8 +353,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC06155',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Plush-Daddy-Ultra-Microfibre/p/CC06155',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care-accessories/microfibre-and-polishing-cloths/bowden-s-own-plush-daddy-interior-microfibre-cloth-bodaddy/p/A9815913',
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-plush-daddy-microfibre-cloth-400-x-400mm/415542.html',
   },
@@ -430,8 +363,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07473',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Wet-Dreams-Car-Care-770ml/p/CC07473',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-wax-sealants/bowden-s-own-wet-dreams-sealant-770ml-bodreams2/p/A5781787',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-wet-dreams-sealant-770ml/591964.html',
   },
   {
@@ -441,8 +372,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07474',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Happy-Ending-Spray-On-1L/p/CC07474',
-    repcoUrl:
-      'https://www.repco.com.au/car-care-panel/car-care/car-washes/bowden-s-own-happy-ending-snow-foam-after-wash-sealant-1l-bohappy/p/A5465060',
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-happy-ending-finishing-foam-1l/591963.html',
   },
@@ -452,7 +381,6 @@ const EXTRA_ITEMS: Item[] = [
     slug: 'wheely-clean-770ml',
     phase: 0,
     autobarnSku: null,
-    repcoUrl: null,
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-wheely-clean-770ml/588684.html',
   },
   {
@@ -460,7 +388,6 @@ const EXTRA_ITEMS: Item[] = [
     slug: 'naked-glass-770ml',
     phase: 0,
     autobarnSku: null,
-    repcoUrl: null,
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-naked-glass-cleaner-770ml/588682.html',
   },
   {
@@ -468,7 +395,6 @@ const EXTRA_ITEMS: Item[] = [
     slug: 'little-chubby-v2',
     phase: 0,
     autobarnSku: null,
-    repcoUrl: null,
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-little-chubby-brush-v2/700985.html',
   },
   {
@@ -476,7 +402,6 @@ const EXTRA_ITEMS: Item[] = [
     slug: 'nanolicious-shag-pack',
     phase: 0,
     autobarnSku: null,
-    repcoUrl: null,
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-nanolicious-shag-pack/SPO6388657.html',
   },
   {
@@ -484,7 +409,6 @@ const EXTRA_ITEMS: Item[] = [
     slug: 'the-essentials-starters-kit',
     phase: 0,
     autobarnSku: null,
-    repcoUrl: null,
     supercheapUrl:
       'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-the-essentials-starters-kit/SPO10203079.html',
   },
@@ -496,7 +420,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07388',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Microfiber-Bucket-With-Lid---BOBMICRO/p/CC07388',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -506,7 +429,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'DI05894',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Orange-Agent-Degreaser-All-Purpose-Cleaner/p/DI05894',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -516,7 +438,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC06153',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Debugger-Cloth-Bug-Splatter/p/CC06153',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -526,7 +447,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07502',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Bodreams-Wet-Dreams-5L/p/CC07502',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -536,7 +456,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC06563',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Boss-Gloss-5L/p/CC06563',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -544,7 +463,6 @@ const EXTRA_ITEMS: Item[] = [
     slug: 'boss-gloss-pack',
     phase: 0,
     autobarnSku: 'CC06449',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -554,7 +472,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07501',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Happy-Ending-5L/p/CC07501',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   // New products from Auto Barn URL export
@@ -565,7 +482,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC02907',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Big-Softie-Gulf-Colours-Microfiber-Cloth/p/CC02907',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -575,7 +491,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07891',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-All-Sorts-Applicator-Tyre-Sheen-2PK/p/CC07891',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -585,7 +500,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC01420',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Vinyl-Care-Interior-Cleaner-And-Protectant-500ml/p/CC01420',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -595,7 +509,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07845',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Far-Cough-Antibacterial-Surface-Spray-770ml/p/CC07845',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -605,7 +518,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07670',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-TA-TA-TAR-Citrus-Based-Formula-500ml/p/CC07670',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -615,7 +527,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07340',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Wipe-Out-Windscreen-Washer-Additive-1L/p/CC07340',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -625,7 +536,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC07299',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Foursome-Brush-Set-4-Round-Detailing-Brushes/p/CC07299',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -635,7 +545,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC06446',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Bugger-Off-Pack/p/CC06446',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -645,7 +554,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC06211',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Bugger-Off-Bug-Splatter-Citrus-Formula-500ml/p/CC06211',
-    repcoUrl: null,
     supercheapUrl: null,
   },
   {
@@ -655,7 +563,6 @@ const EXTRA_ITEMS: Item[] = [
     autobarnSku: 'CC04056',
     autobarnUrl:
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Tyre-Long-lasting-Sheen-Easy-To-Use-500ml/p/CC04056',
-    repcoUrl: null,
     supercheapUrl: null,
   },
 ];
@@ -705,29 +612,12 @@ export async function seed() {
 
     // Auto Barn — prefer full canonical URL (autobarnUrl) over short /ab/p/{sku} form.
     // Short URLs hang server-side for ~half of all products; full URLs are reliable.
-    // Autopro shares the same SKU codes — always uses short /ap/p/{sku} form (no issues there).
     if (item.autobarnUrl || item.autobarnSku) {
       const abUrl = item.autobarnUrl ?? `https://www.autobarn.com.au/ab/p/${item.autobarnSku}`;
       await db
         .insert(retailerUrls)
         .values({ productId, retailer: 'autobarn', url: abUrl })
         .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url: abUrl } });
-    }
-
-    if (item.autobarnSku) {
-      const apUrl = `https://www.autopro.com.au/ap/p/${item.autobarnSku}`;
-      await db
-        .insert(retailerUrls)
-        .values({ productId, retailer: 'autopro', url: apUrl })
-        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url: apUrl } });
-    }
-
-    // Repco URL — full URL stored directly (path varies per product, can't be templated)
-    if (item.repcoUrl) {
-      await db
-        .insert(retailerUrls)
-        .values({ productId, retailer: 'repco', url: item.repcoUrl })
-        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url: item.repcoUrl } });
     }
 
     // Supercheap Auto URL — full URL stored directly (slug varies per product, can't be templated)
@@ -743,14 +633,10 @@ export async function seed() {
   }
 
   const autobarnCount = ALL_ITEMS.filter((i) => i.autobarnUrl || i.autobarnSku).length;
-  const autoproCount = ALL_ITEMS.filter((i) => i.autobarnSku).length;
-  const repcoCount = ALL_ITEMS.filter((i) => i.repcoUrl).length;
   const supercheapCount = ALL_ITEMS.filter((i) => i.supercheapUrl).length;
 
   console.log(`Done. ${inserted} products inserted, ${skipped} already existed.`);
-  console.log(
-    `Retailer URLs: ${autobarnCount} Auto Barn, ${autoproCount} Autopro, ${repcoCount} Repco, ${supercheapCount} Supercheap`,
-  );
+  console.log(`Retailer URLs: ${autobarnCount} Auto Barn, ${supercheapCount} Supercheap`);
 }
 
 // One-time migration of the app's formerly-hardcoded BUNDLE_COMPONENTS constant (app.js) into

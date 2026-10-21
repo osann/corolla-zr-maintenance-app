@@ -1,5 +1,7 @@
 import { createClient } from '@libsql/client';
 
+export const RETIRED_RETAILERS = ['repco', 'autopro', 'bowdens'] as const;
+
 const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS products (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,6 +115,18 @@ export async function initDb() {
     if (!existingCols.has(name)) {
       await client.execute(`ALTER TABLE products ADD COLUMN ${name} ${ddl}`);
     }
+  }
+
+  // Retired retailers (bot-blocked; see docs/blocked-retailers.md): remove their URLs and price
+  // history on every boot, so stale or re-added rows can't come back. The CHECK constraints
+  // above still allow them, so re-enabling one only means removing it from this list.
+  const placeholders = RETIRED_RETAILERS.map(() => '?').join(', ');
+  for (const table of ['price_history', 'retailer_urls']) {
+    const res = await client.execute({
+      sql: `DELETE FROM ${table} WHERE retailer IN (${placeholders})`,
+      args: [...RETIRED_RETAILERS],
+    });
+    if (res.rowsAffected) console.log(`Removed ${res.rowsAffected} ${table} rows for retired retailers.`);
   }
 
   await client.close();

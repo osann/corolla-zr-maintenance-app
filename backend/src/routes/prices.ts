@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
-import { products, priceHistory } from '../db/schema.js';
+import { products, priceHistory, isRetailer } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
 import { sendDirectEmail, getOwnerEmail, getOwnerNotificationSettings, getOwnerAlertThresholds } from '../lib/email.js';
 import { createTickTickTask } from '../lib/ticktick.js';
@@ -14,8 +14,6 @@ export interface PriceObservation {
   priceCents: number;
   compareAtCents: number | null;
 }
-
-type RetailerEnum = 'bowdens' | 'supercheap' | 'repco' | 'autopro' | 'autobarn';
 
 // POST /api/prices — ingest scraper results from GitHub Actions
 // Requires: Authorization: Bearer <SCRAPE_SECRET>
@@ -51,7 +49,8 @@ router.post('/prices', async (c) => {
   for (const obs of body) {
     const { slug, retailer, priceCents, compareAtCents } = obs;
 
-    if (!slug || !retailer || typeof priceCents !== 'number') {
+    // Unknown or retired retailers (see docs/blocked-retailers.md) are skipped, not stored.
+    if (!slug || !isRetailer(retailer) || typeof priceCents !== 'number') {
       skipped++;
       continue;
     }
@@ -75,7 +74,7 @@ router.post('/prices', async (c) => {
       .where(
         and(
           eq(priceHistory.productId, productId),
-          eq(priceHistory.retailer, retailer as RetailerEnum),
+          eq(priceHistory.retailer, retailer),
           gt(priceHistory.observedAt, sql`datetime('now', '-30 days')`),
         ),
       );
@@ -85,7 +84,7 @@ router.post('/prices', async (c) => {
 
     await db.insert(priceHistory).values({
       productId,
-      retailer: retailer as RetailerEnum,
+      retailer: retailer,
       priceCents,
       onSale,
     });
@@ -101,7 +100,7 @@ router.post('/prices', async (c) => {
       const recent = await db
         .select({ onSale: priceHistory.onSale, priceCents: priceHistory.priceCents })
         .from(priceHistory)
-        .where(and(eq(priceHistory.productId, productId), eq(priceHistory.retailer, retailer as RetailerEnum)))
+        .where(and(eq(priceHistory.productId, productId), eq(priceHistory.retailer, retailer)))
         .orderBy(desc(priceHistory.observedAt))
         .limit(2);
 

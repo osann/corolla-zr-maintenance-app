@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository. Why things are the way
 
 ## What this app is
 
-A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus a few exceptions (303 Aerospace Protectant, Kärcher pressure washer). Retailers are Australian (Supercheap Auto, Repco, Auto Barn, Autopro); prices are AUD. One user, one owner account.
+A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus a few exceptions (303 Aerospace Protectant, Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto and Auto Barn) in AUD. One user, one owner account.
 
 Tabs (`index.html`):
 - **log** — wash sessions, streaks, reminder cards, weather hints. Sub-tabs: History, New Session, Edit Session (only while editing).
@@ -21,10 +21,10 @@ Tabs (`index.html`):
 index.html, styles.css, CNAME, js/     # frontend — the only files deployed to GitHub Pages (js/ = ES modules)
 cloudflare/api-proxy-worker.js          # reference copy of the /api proxy Worker (NOT auto-deployed)
 backend/src/
-  index.ts            # Hono server + node-cron (05:00 Autopro scrape, 07:00 wash reminder, 08:00 digest — UTC)
+  index.ts            # Hono server + node-cron (07:00 wash reminder, 08:00 digest — UTC)
   db/                 # schema.ts, init.ts (tables + migration-safe ALTERs), seed.ts (catalogue), connection.ts
   routes/             # products, prices, alerts, auth (+ sync), weather, photos, ticktick
-  scrapers/           # supercheap, repco, autobarn, autopro, fetch-scraper (shared), entry points below
+  scrapers/           # supercheap, autobarn, fetch-scraper (shared), entry points below
   lib/                # auth (sessions), email (Resend + getOwnerEmail), ticktick, r2, browser, sale-detector
 backend/test/          # Vitest smoke tests (seed, price ingestion, product routes)
 .github/workflows/
@@ -41,7 +41,7 @@ backend/test/          # Vitest smoke tests (seed, price ingestion, product rout
 npm run dev          # tsx watch
 npm run db:init      # create tables (idempotent)
 npm run seed         # upsert catalogue + retailer URLs
-npm run scrape       # all scrapers → local DB (local only; also how to check if Repco unblocked)
+npm run scrape       # Supercheap + Auto Barn → local DB (local only)
 npm run scrape:push  # Supercheap → POST to backend (what GitHub Actions runs)
 
 npm run typecheck    # tsc --noEmit
@@ -56,7 +56,7 @@ Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.y
 
 - **Frontend:** GitHub Pages at `https://corolla.jhosan.top`. `deploy.yml` copies only `index.html`, `styles.css`, `CNAME` and `js/` into `_site/` — add any new top-level frontend file to that list or it won't ship. It then stamps every module import with `?v=<sha>` so a deploy is atomic for cached browsers; keep imports in the form `from './name.js'` so that `sed` matches them.
 - **API proxy:** a Cloudflare Worker routed at `corolla.jhosan.top/api/*` forwards to Render, making the session cookie first-party. The deployed Worker is a plain dashboard-created Worker; editing `cloudflare/api-proxy-worker.js` does **not** redeploy it — re-paste into the dashboard. **Never** use Cloudflare's "Import a repository" flow for it (see decisions). Health check: `curl -s https://corolla.jhosan.top/api/health` should return Render's JSON with an `X-Render-Origin-Server: Render` header.
-- **Backend:** Render free tier, `npm start` (init → seed → server). A cron-job.org monitor pings `/api/health` every 10 min so node-cron keeps firing; if reminders/scrapes stop, check that first.
+- **Backend:** Render free tier, `npm start` (init → seed → server). A cron-job.org monitor pings `/api/health` every 10 min so node-cron keeps firing; if reminders or the digest stop, check that first.
 - **Database:** Turso (libSQL). Render needs `TURSO_URL` + `TURSO_TOKEN` or price history is wiped on restart.
 - **Self-hosted runner:** `debian-server` (home machine, user `jhadmin`) runs the Auto Barn scrape from a residential IP. Playwright system libs must be installed there once (see SCRAPER-LEARNING.md).
 
@@ -93,11 +93,10 @@ Rules:
 | Retailer | Where it runs | Entry point | Notes |
 |---|---|---|---|
 | Supercheap | GitHub Actions (hosted) | `run-and-push.ts` | Playwright. Daily + Tuesday sale window. |
-| Auto Barn | Self-hosted runner | `run-autobarn.ts` | Blocks all cloud IPs. HTTP-only, ~16–18/40 succeed; pushes in batches of 10. Don't re-enable `playwrightFallback`. |
-| Autopro | Render node-cron 05:00 UTC | `autopro.ts` | Writes to Turso directly; robots.txt window 04:00–08:45 UTC. |
-| Repco | **disabled** since 2026-08 | `repco.ts` kept | Cloudflare bot challenge on every request. Check with `npm run scrape`. |
-| Bowden's Own | **never** | — | Blocks datacenter IPs. Don't add a `bowdens` retailer URL. |
+| Auto Barn | Self-hosted runner | `run-autobarn.ts` | Blocks all cloud IPs. Pushes in batches of 10. Don't re-enable `playwrightFallback`. If its runs show "cancelled", the runner on `debian-server` is offline (GitHub cancels jobs no runner picks up within 24 h). |
 
+- **Repco, Autopro and Bowden's Own are retired**: they're bot-blocked, and their code, URLs and price history were removed on 2026-10-21. [docs/blocked-retailers.md](docs/blocked-retailers.md) has the selectors, how to check whether a block has lifted, an archive of every URL, and restore steps. `initDb()` deletes any rows for `RETIRED_RETAILERS` on every boot, and `POST /api/prices` skips them. Don't add URLs for them.
+- The accepted retailers live in one list, `RETAILERS` in `backend/src/db/schema.ts`. The frontend mirrors it in `SCRAPED_RETAILERS`/`RETAILER_NAMES` (`js/data.js`).
 - The ephemeral runners (Actions + self-hosted) have no Turso credentials. They get the product/URL list from the live API via `fetchRowsFromBackend()` and POST results to `POST /api/prices` (Bearer `SCRAPE_SECRET`). Their local SQLite is schema-only, so the workflows run `db/init.ts` and **no seed**.
 - Ingestion matches observations to products by **slug**.
 - Playwright: no named functions inside `page.evaluate()`; use `waitUntil: 'domcontentloaded'`; never select `[itemprop="price"]`. More in SCRAPER-LEARNING.md.

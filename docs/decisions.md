@@ -28,13 +28,15 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 ## Scraping
 
-**Repco disabled (2026-08-27).** From about 2026-08-16, every Repco product page returns 403 with `Cf-Mitigated: challenge`. The same response comes back from a plain curl and from a residential IP using the stealth Playwright context, so it can't be fixed client-side. `repco.ts` is kept for manually checking whether the block lifts. Every Repco product also has another retailer's URL.
+**Blocked retailers removed (2026-10-21).** Repco (Cloudflare, since about 2026-08-16), Autopro (Imperva, since about 2026-09-25) and Bowden's Own (never scrapeable) all block bots, so their scrapers, retailer URLs and price history were deleted rather than left half-working. Supercheap and Auto Barn are the remaining sources. The knowledge and a CSV of every URL are kept in [blocked-retailers.md](blocked-retailers.md). The cleanup runs in `initDb()` on every boot instead of as a one-off script for two reasons: there are no local Turso credentials, and it also catches any rows re-added later. The DB `CHECK` constraint was left permissive so a retailer can come back without a table rebuild.
+
+**Repco disabled (2026-08-27).** From about 2026-08-16, every Repco product page returns 403 with `Cf-Mitigated: challenge`. The same response comes back from a plain curl and from a residential IP using the stealth Playwright context, so it can't be fixed client-side. Removed entirely on 2026-10-21 (see above).
 
 **Ephemeral scrapers read the live catalogue (2026-07).** GitHub Actions and the self-hosted runner have no Turso credentials and used to scrape a list re-seeded from `seed.ts`. Anything added through the Products tab was invisible to them indefinitely. They now call `GET /api/products` via `fetchRowsFromBackend()`. The Tuesday Supercheap workflow was missed in that change and was fixed in 2026-10.
 
-**Auto Barn via a home runner.** Auto Barn returns 403 to all cloud IPs (GitHub-hosted runners and Render alike), so it runs on `debian-server` from a residential IP. About half its product URLs hang server-side whatever the client; Playwright was tried and didn't help. It pushes in batches of 10 so a crash loses at most one batch. Autopro (same platform) covers the gaps.
+**Auto Barn via a home runner.** Auto Barn returns 403 to all cloud IPs (GitHub-hosted runners and Render alike), so it runs on `debian-server` from a residential IP. About half its product URLs hang server-side whatever the client; Playwright was tried and didn't help. It pushes in batches of 10 so a crash loses at most one batch. If its workflow runs show "cancelled", the runner is offline: GitHub cancels jobs no runner picks up within 24 hours. That happened from 2026-09-19 to 2026-10-21, when the runner service hadn't been restarted.
 
-**Bowden's Own is never scraped.** GitHub Actions gets a Cloudflare JS challenge and Render gets a hard 403. An OzBargain-RSS sale detector was tried briefly in May 2026 and removed.
+**Bowden's Own is never scraped.** GitHub Actions gets a Cloudflare JS challenge and Render gets a hard 403. An OzBargain-RSS sale detector was tried briefly in May 2026 and removed. Production still had 20 leftover `bowdens` URLs (never scraped, origin unknown); they were deleted with the other blocked retailers in 2026-10.
 
 ## Weather
 

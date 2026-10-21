@@ -1,6 +1,8 @@
 # Scraper Learnings
 
-Hard-won notes from building the Playwright-based price scrapers. Read this before touching any scraper code.
+Hard-won notes from building the price scrapers. Read this before touching any scraper code.
+
+> **Active scrapers: Supercheap and Auto Barn only.** Repco, Autopro and Bowden's Own were retired on 2026-10-21 because they block bots. Their sections below are kept as reference for if a block ever lifts; see [docs/blocked-retailers.md](docs/blocked-retailers.md) for the current state and restore steps.
 
 ---
 
@@ -103,7 +105,7 @@ The wait anchor is `#product-content .product-price` — always present once the
 
 Initial assumption: URLs could be constructed from a product code template. All three are wrong.
 
-- **Auto Barn:** Short `/ab/p/{SKU}` URLs exist but hang at the server level for roughly half of all products. Always store the full canonical URL (e.g. `/ab/Autobarn-Category/.../p/CC04058`). The `autobarnSku` field is kept only to derive Autopro URLs — Autopro's short `/ap/p/{SKU}` form works fine.
+- **Auto Barn:** Short `/ab/p/{SKU}` URLs exist but hang at the server level for roughly half of all products. Always store the full canonical URL (e.g. `/ab/Autobarn-Category/.../p/CC04058`). The `autobarnSku` field is only a fallback when no full URL is known (it also derived Autopro URLs while Autopro was scraped).
 - **Repco:** Paths include full category slugs that vary per product. Store full URLs.
 - **Supercheap:** URL slugs use `bowdens-own-bowdens-own-{name}` or `bowdens-own-{name}` patterns that don't map cleanly to product names, and SPO-prefixed bundle SKUs use a different pattern entirely. Store full URLs.
 
@@ -131,7 +133,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) { ... }
 
 The cache skip only works for:
 - Local runs against a persistent local DB
-- The Render backend's internal cron (`scrapeRepco`/`scrapeSupercheap`)
+- In-process scrapes against a persistent DB (formerly Autopro on Render)
 
 On GitHub Actions, de-duplication happens server-side in the `POST /api/prices` endpoint.
 
@@ -143,7 +145,7 @@ Auto Barn (`autobarn.com.au`) returns HTTP 403 from GitHub Actions hosted runner
 
 Even with a residential IP, short-form URLs (`/ab/p/{SKU}`) hang on plain HTTP (60s timeout) for roughly half of all products. The products that succeed respond in <15s; the failures never respond regardless of timeout length. **The root cause is the short URL routing, not the products themselves** — the Auto Barn backend does not reliably serve `/ab/p/{SKU}` redirects for all SKUs. Switching to full canonical URLs (e.g. `/ab/Autobarn-Category/.../p/CC04058`) fixes the affected products.
 
-Full canonical URLs are now stored in `seed.ts` via the `autobarnUrl` field. The `autobarnSku` field is kept solely to derive Autopro URLs (`/ap/p/{SKU}`), which use short-form URLs without issues. When adding a new Auto Barn product, always store the full canonical URL from the product page — not the short `/ab/p/{SKU}` form.
+Full canonical URLs are now stored in `seed.ts` via the `autobarnUrl` field. The `autobarnSku` field is only a fallback (and derived Autopro's `/ap/p/{SKU}` URLs while Autopro was scraped). When adding a new Auto Barn product, always store the full canonical URL from the product page — not the short `/ab/p/{SKU}` form.
 
 **Playwright fallback was tried and does not work:** the same short-URL requests that hang on plain HTTP also timeout in a Playwright browser session. Three runs of Playwright confirmed zero valid price captures. `playwrightFallback` is disabled on `autobarn.ts`. Do not re-enable it.
 
@@ -155,11 +157,11 @@ sudo apt-get install -y libgbm1 libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 
   libxrandr2 libxext6 libx11-xcb1 libpango-1.0-0 libasound2
 ```
 
-The missing ~22–24 Auto Barn products are covered by Autopro (same platform, same SKU codes, same prices). HTTP-only coverage of ~40% is acceptable.
+Autopro (same platform, same SKUs) used to cover the gaps; it was retired on 2026-10-21 when it started blocking bots (see docs/blocked-retailers.md).
 
 **Do not attempt to re-add Auto Barn scraping from any cloud environment.** The block is IP-level and is not affected by user-agent, headers, or request timing.
 
-Autopro (`autopro.com.au`) shares the same SKU codes and platform but does NOT block Render IPs — Autopro is scraped via the Render cron at 05:00 UTC.
+Autopro (`autopro.com.au`) shares the same SKU codes and platform. It was scraped via a Render cron at 05:00 UTC until it put Imperva bot protection in front of the site (about 2026-09-25); it's now retired.
 
 ---
 
@@ -210,7 +212,7 @@ Bowden's Own blocks all datacenter IPs at two levels:
 
 Multi-size products (e.g. Snow Job) use the Maropost/Neto `/ajax/ajax_template` endpoint to load variant prices client-side. That endpoint also returns 403 from both GitHub Actions and Render IPs, even when session cookies are forwarded from a prior page request.
 
-**Do not attempt to scrape bowdensown.com.au from any cloud environment.** All Bowden's products in the catalogue have Repco or Supercheap fallback URLs. The `seed.ts` `Item` type has no `bowdensHandle` field — do not add one.
+**Do not attempt to scrape bowdensown.com.au from any cloud environment.** Bowden's products are priced via Supercheap and Auto Barn. The `seed.ts` `Item` type has no `bowdensHandle` field — do not add one.
 
 ---
 
@@ -229,7 +231,7 @@ Autopro (`autopro.com.au`) and Auto Barn (`autobarn.com.au`) run on the same pla
 - Auto Barn: `https://www.autobarn.com.au/ab/p/{SKU}`
 - Autopro:   `https://www.autopro.com.au/ap/p/{SKU}`
 
-Both also share the same robots.txt restrictions: 10s crawl delay, 04:00–08:45 UTC crawl window. The seed derives Autopro URLs directly from the `autobarnSku` field — no separate `autoproSku` field is needed.
+Both also share the same robots.txt restrictions: 10s crawl delay, 04:00–08:45 UTC crawl window. The seed derived Autopro URLs directly from the `autobarnSku` field, so no separate `autoproSku` field was needed.
 
 ---
 

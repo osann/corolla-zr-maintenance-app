@@ -217,9 +217,7 @@ export function renderProductsPage() {
           <select class="url-retailer-select" id="add-product-retailer">
             <option value="">No URL yet</option>
             <option value="supercheap">Supercheap Auto</option>
-            <option value="repco">Repco</option>
             <option value="autobarn">Auto Barn</option>
-            <option value="autopro">Autopro</option>
           </select>
           <input type="url" class="url-input" id="add-product-url" placeholder="https://...">
           <button class="alert-set-btn" onclick="saveNewProduct()">Add</button>

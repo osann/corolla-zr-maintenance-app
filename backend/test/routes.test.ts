@@ -59,9 +59,14 @@ describe('POST /api/prices', () => {
     expect(await res.json()).toEqual({ inserted: 1, skipped: 1 });
   });
 
+  it('skips observations for retired retailers', async () => {
+    const res = await postPrices([{ slug, retailer: 'repco', priceCents: 1500, compareAtCents: null }]);
+    expect(await res.json()).toEqual({ inserted: 0, skipped: 1 });
+  });
+
   it('flags a sale when the compare-at price is higher', async () => {
-    await postPrices([{ slug, retailer: 'autopro', priceCents: 1999, compareAtCents: 2999 }]);
-    const rows = await db.select().from(priceHistory).where(eq(priceHistory.retailer, 'autopro'));
+    await postPrices([{ slug, retailer: 'autobarn', priceCents: 1999, compareAtCents: 2999 }]);
+    const rows = await db.select().from(priceHistory).where(eq(priceHistory.retailer, 'autobarn'));
     expect(rows).toHaveLength(1);
     expect(rows[0].onSale).toBe(true);
   });

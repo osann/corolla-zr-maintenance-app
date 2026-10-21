@@ -19,7 +19,7 @@ It covers:
 | Backend (`backend/`) | Node 22, Hono, Drizzle, node-cron | Render |
 | Database | Turso (libSQL) | Turso |
 | Photos | Cloudflare R2 | Cloudflare |
-| Price scrapers | Playwright / fetch | GitHub Actions + a self-hosted runner + Render cron |
+| Price scrapers (Supercheap, Auto Barn) | Playwright / fetch | GitHub Actions + a self-hosted runner |
 
 The frontend works without the backend. Signing in adds sync across devices, live prices, photos, weather and notifications.
 
