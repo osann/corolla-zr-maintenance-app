@@ -5356,6 +5356,7 @@ Output only the CSV starting with the header row.`;
       storageSet(ALERTS_KEY, {}),
       storageSet(ROUTINES_KEY, null),
       storageSet(MAINTENANCE_KEY, null),
+      storageSet(MAINTENANCE_LOG_KEY, null),
       storageSet(INVENTORY_KEY, {}),
       storageSet(CATEGORY_OVERRIDES_KEY, {}),
       storageSet(CUSTOM_CATEGORIES_KEY, []),
