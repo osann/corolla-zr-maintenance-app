@@ -10,3 +10,4 @@ dist/
 backend/dist/
 Next Prompts
 PLAN-FixAutobarn.md
+.claude/settings.local.json
