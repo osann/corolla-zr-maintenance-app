@@ -2799,7 +2799,7 @@ Output only the CSV starting with the header row.`;
         sessionsHtml = `<div class="inv-sessions-left">${sessionsLeft} wash${sessionsLeft !== 1 ? 'es' : ''} remaining</div>`;
       }
 
-      const volVal = meta.volumeMl ?? defaults.volumeMl ?? '';
+      const volVal = volumeMl ?? '';
       const remVal = meta.remainingMl ?? '';
 
       return `
@@ -2897,7 +2897,7 @@ Output only the CSV starting with the header row.`;
         sessionsHtml = `<div class="inv-sessions-left">${sessionsLeft} wash${sessionsLeft !== 1 ? 'es' : ''} remaining</div>`;
       }
 
-      const volVal = meta.volumeMl ?? comp.volumeMl ?? defaults.volumeMl ?? '';
+      const volVal = volumeMl ?? '';
       const remVal = meta.remainingMl ?? '';
 
       return `
@@ -5753,7 +5753,7 @@ Output only the CSV starting with the header row.`;
     const ttParam = new URLSearchParams(location.search).get('ticktick');
     if (ttParam === 'connected' || ttParam === 'error') {
       history.replaceState({}, '', location.pathname);
-      if (ttParam === 'connected') showTab('settings');
+      if (ttParam === 'connected') document.querySelector('.tab[data-tab="settings"]')?.click();
     }
 
     setupChecklist();
