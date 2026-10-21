@@ -16,14 +16,13 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
 
-  // Frontend: a classic script whose top-level functions are called from inline onclick=
-  // handlers, so "unused" top-level declarations are expected.
+  // Frontend ES modules (functions called from inline on*= handlers are exposed in js/main.js)
   {
-    files: ['app.js'],
+    files: ['js/**/*.js'],
     extends: [js.configs.recommended],
-    languageOptions: { sourceType: 'script', globals: globals.browser },
+    languageOptions: { sourceType: 'module', globals: globals.browser },
     rules: {
-      'no-unused-vars': ['error', { vars: 'local', args: 'none', caughtErrors: 'none' }],
+      'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
     },
   },
 

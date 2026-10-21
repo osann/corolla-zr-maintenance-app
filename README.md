@@ -14,7 +14,7 @@ It covers:
 
 | Part | Tech | Hosted on |
 |---|---|---|
-| Frontend (`index.html`, `app.js`, `styles.css`) | Vanilla JS, no build step | GitHub Pages |
+| Frontend (`index.html`, `js/`, `styles.css`) | Vanilla JS ES modules, no build step | GitHub Pages |
 | API proxy (`cloudflare/`) | Cloudflare Worker on `/api/*` | Cloudflare (pasted manually) |
 | Backend (`backend/`) | Node 22, Hono, Drizzle, node-cron | Render |
 | Database | Turso (libSQL) | Turso |
@@ -25,7 +25,7 @@ The frontend works without the backend. Signing in adds sync across devices, liv
 
 ## Running locally
 
-Frontend: open `index.html` directly or serve the folder statically. With the `__BACKEND_URL__` placeholder unreplaced, it runs in standalone mode.
+Frontend: serve the repo root over HTTP, e.g. `npx serve .` or `python -m http.server`. It uses ES modules, so opening `index.html` as a file won't work. With the `__BACKEND_URL__` placeholder in `js/config.js` unreplaced, it runs in standalone mode.
 
 Backend:
 
@@ -42,7 +42,7 @@ Environment variables are listed in [CLAUDE.md](CLAUDE.md#environment-variables)
 
 ## Deploying
 
-- **Frontend:** pushing to `main` publishes `index.html`, `app.js`, `styles.css` and `CNAME` to GitHub Pages.
+- **Frontend:** pushing to `main` publishes `index.html`, `js/`, `styles.css` and `CNAME` to GitHub Pages.
 - **Backend:** Render deploys from `main`.
 - **Worker:** the Cloudflare Worker is updated by hand in the dashboard.
 
