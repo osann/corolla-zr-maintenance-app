@@ -6,6 +6,10 @@ export const BUILD_DATE = '__BUILD_DATE__';
 
 export const AUTH_CACHE_KEY = 'corolla-auth-v1';
 
+// Email of the account whose data this browser last held. Unlike AUTH_CACHE_KEY it survives an
+// expired session, so a different account signing in next can't inherit the local copies.
+export const LAST_USER_KEY = 'corolla-last-user-v1';
+
 export const CHECKLIST_KEY = 'corolla-detailing-app-v4'; // v4: legacy positional IDs
 
 export const CHECKLIST_V2_KEY = 'corolla-checklist-v2'; // v2: slug-keyed, used for migration only
@@ -25,6 +29,10 @@ export const INVENTORY_KEY = 'corolla-inventory-v1';
 // [{ label, sections: [{ label, slugs: string[] }] }]. A product's category is
 // simply whichever section's slugs array it's listed in.
 export const CATEGORIES_KEY = 'corolla-categories-v1';
+
+// Synced stores every account shares and only the admin can change. The backend keeps them out of
+// the per-user data (SHARED_KEYS in backend/src/routes/auth.ts) and rejects anyone else's writes.
+export const SHARED_KEYS = [CATEGORIES_KEY];
 
 // Legacy keys, read once during migration into CATEGORIES_KEY then no longer
 // written to. Kept only so existing synced data isn't stranded on old devices.

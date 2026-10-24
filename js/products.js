@@ -301,7 +301,9 @@ export async function confirmSlugRename(productId) {
 // Updates every client-side store that keys data by product slug, after a successful
 // PATCH /products/:id slug rename. Bypasses saveChecklist() (which would overwrite
 // checklistState.checked from the still-old-slug itemData snapshot built by the last
-// renderChecklist() call) — persists directly instead, then re-renders.
+// renderChecklist() call) — persists directly instead, then re-renders. The PATCH has already
+// made the same rewrite to every account's stored data (backend/src/lib/rename.ts — keep the two
+// in sync); this keeps the admin's own screen current without a reload.
 export async function renameProductSlugEverywhere(oldSlug, newSlug) {
   for (const cat of state.allCategories) {
     for (const sec of cat.sections) {
@@ -951,6 +953,8 @@ export async function saveProductName(productId) {
 
     // Routine steps store the product name, not its id/slug — keep them in sync
     // so a rename doesn't silently break inventory depletion or auto-fill matching.
+    // The PATCH already did this for every account (backend/src/lib/rename.ts); this updates
+    // the admin's own screen without a reload.
     if (oldName && oldName !== name) {
       let changed = false;
       for (const routine of state.routines) {

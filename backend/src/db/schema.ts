@@ -105,6 +105,9 @@ export const users = sqliteTable('users', {
   createdAt: text('created_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
+  // ISO timestamp of the first successful sign-in. Null means the user was invited but hasn't
+  // signed in yet.
+  joinedAt: text('joined_at'),
 });
 
 export const magicTokens = sqliteTable(
@@ -155,6 +158,16 @@ export const userData = sqliteTable(
   },
   (t) => [uniqueIndex('idx_user_data_key').on(t.userId, t.key)],
 );
+
+// Synced app state that every account shares and only the admin can change (SHARED_KEYS in
+// routes/auth.ts) — currently just the product categories. Same shape as user_data, minus the user.
+export const sharedData = sqliteTable('shared_data', {
+  key: text('key').primaryKey(),
+  valueJson: text('value_json').notNull(),
+  updatedAt: text('updated_at')
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
 
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;

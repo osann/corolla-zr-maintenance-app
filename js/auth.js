@@ -12,6 +12,7 @@ import {
   CHECKLIST_V3_KEY,
   CUSTOM_CATEGORIES_KEY,
   INVENTORY_KEY,
+  LAST_USER_KEY,
   LOG_KEY,
   MAINTENANCE_KEY,
   MAINTENANCE_LOG_KEY,
@@ -26,7 +27,8 @@ import { loadRoutines } from './routines.js';
 import { renderWashReminderCards } from './schedules.js';
 import { loadSettings } from './settings.js';
 import { state } from './state.js';
-import { storageSet, updateFooterSync } from './storage.js';
+import { storageGet, storageSet, updateFooterSync } from './storage.js';
+import { loadUsers } from './users.js';
 
 export function renderAuthUI() {
   const loginForm = document.getElementById('auth-login-form');
@@ -43,7 +45,6 @@ export function renderAuthUI() {
   const notifSec = document.getElementById('settings-notifications');
   const prefsSec = document.getElementById('settings-prefs');
   const dataSec = document.getElementById('settings-data');
-  const categoriesSec = document.getElementById('settings-categories');
   if (state.syncEnabled) {
     loginForm.style.display = 'none';
     logoutSec.style.display = '';
@@ -65,7 +66,6 @@ export function renderAuthUI() {
     if (notifSec) notifSec.style.display = '';
     if (prefsSec) prefsSec.style.display = '';
     if (dataSec) dataSec.style.display = '';
-    if (categoriesSec) categoriesSec.style.display = '';
     document.querySelectorAll('.alert-btn').forEach((b) => (b.style.display = ''));
     const photoField = document.getElementById('log-photo-field');
     if (photoField) photoField.style.display = '';
@@ -94,10 +94,18 @@ export function renderAuthUI() {
     if (notifSec) notifSec.style.display = 'none';
     if (prefsSec) prefsSec.style.display = 'none';
     if (dataSec) dataSec.style.display = 'none';
-    if (categoriesSec) categoriesSec.style.display = 'none';
     document.querySelectorAll('.alert-btn').forEach((b) => (b.style.display = 'none'));
     const photoFieldOff = document.getElementById('log-photo-field');
     if (photoFieldOff) photoFieldOff.style.display = 'none';
+  }
+
+  // Admin-only UI: the Products sub-tab, Settings → Categories and Settings → Users. Hiding it is
+  // only cosmetic; the backend rejects these changes from anyone else.
+  const showAdmin = state.syncEnabled && state.isAdmin;
+  document.querySelectorAll('[data-admin-only]').forEach((el) => (el.hidden = !showAdmin));
+  const productsSubTab = document.querySelector('.inv-sub-tab[data-inv-tab="products"]');
+  if (!showAdmin && productsSubTab?.classList.contains('active')) {
+    document.querySelector('.inv-sub-tab[data-inv-tab="stock"]')?.click();
   }
   updateFooterSync();
 }
@@ -136,13 +144,14 @@ export async function requestMagicLink() {
       if (msgEl) msgEl.textContent = 'Please wait a minute before requesting another link.';
       btn.disabled = false;
     } else {
-      if (msgEl) msgEl.textContent = 'Check your email — link expires in 15 minutes.';
+      // The server answers the same whether or not the address has an account (see /auth/request).
+      const sent = 'If that email has an account, a sign-in link is on its way. It expires in 15 minutes.';
+      if (msgEl) msgEl.textContent = sent;
       btn.style.display = 'none';
       let remaining = 120;
       const interval = setInterval(() => {
         remaining--;
-        if (msgEl)
-          msgEl.textContent = `Check your email — link expires in 15 minutes. Resend available in ${remaining}s.`;
+        if (msgEl) msgEl.textContent = `${sent} Resend available in ${remaining}s.`;
         if (remaining <= 0) {
           clearInterval(interval);
           btn.style.display = '';
@@ -168,9 +177,17 @@ export async function signOut() {
   } catch {}
   state.syncEnabled = false;
   state.syncEmail = null;
+  state.isAdmin = false;
   state.photosByEntryId = {};
   state.pendingPhotos = [];
   state.pendingEntryId = null;
+  await clearLocalSyncedData();
+  location.reload();
+}
+
+// Empties this browser's copy of every synced store, plus the auth, pack and last-user caches.
+// The server copy is untouched. Used on sign-out, and when a different account signs in here.
+export async function clearLocalSyncedData() {
   await Promise.all([
     storageSet(CHECKLIST_V3_KEY, {}),
     storageSet(LOG_KEY, []),
@@ -186,8 +203,8 @@ export async function signOut() {
     storageSet(CATEGORIES_KEY, []),
     storageSet(BUNDLE_COMPONENTS_CACHE_KEY, {}),
     storageSet(AUTH_CACHE_KEY, null),
+    storageSet(LAST_USER_KEY, null),
   ]);
-  location.reload();
 }
 
 export async function checkAuthAndSync() {
@@ -223,6 +240,7 @@ export async function checkAuthAndSync() {
     if (!meRes.ok) {
       state.syncEnabled = false;
       state.syncEmail = null;
+      state.isAdmin = false;
       await storageSet(AUTH_CACHE_KEY, null);
       renderAuthUI();
       return;
@@ -231,16 +249,32 @@ export async function checkAuthAndSync() {
     if (!me.authenticated) {
       state.syncEnabled = false;
       state.syncEmail = null;
+      state.isAdmin = false;
       await storageSet(AUTH_CACHE_KEY, null);
       renderAuthUI();
       return;
     }
 
+    // This browser last held a different account's data (say A's session expired on a shared
+    // device, then B signed in). Clear it first: B's account has nothing yet for some stores, so
+    // A's local copies would otherwise show under B and be pushed into B's account on B's first
+    // save. The reload then comes back through here as B, with a clean slate.
+    const lastUser = await storageGet(LAST_USER_KEY);
+    if (lastUser && lastUser !== me.email) {
+      await clearLocalSyncedData();
+      await storageSet(LAST_USER_KEY, me.email);
+      location.reload();
+      return;
+    }
+    await storageSet(LAST_USER_KEY, me.email);
+
     state.syncEnabled = true;
     state.syncEmail = me.email;
-    await storageSet(AUTH_CACHE_KEY, { email: me.email });
+    state.isAdmin = !!me.isAdmin;
+    await storageSet(AUTH_CACHE_KEY, { email: me.email, isAdmin: state.isAdmin });
     renderAuthUI();
     renderLogTypeSelect();
+    if (state.isAdmin) loadUsers();
 
     // Pull remote data and overwrite local state
     const syncRes = await fetch(`${BACKEND_URL}/api/sync`, {

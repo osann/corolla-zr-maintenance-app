@@ -963,7 +963,7 @@
       <button class="inv-sub-tab active" data-inv-tab="stock">Inventory</button>
       <button class="inv-sub-tab" data-inv-tab="checklist">Checklist</button>
       <button class="inv-sub-tab" data-inv-tab="prices">Prices</button>
-      <button class="inv-sub-tab" data-inv-tab="products">Products</button>
+      <button class="inv-sub-tab" data-inv-tab="products" data-admin-only hidden>Products</button>
     </div>
 
     <!-- ── Inventory sub-panel ── -->
@@ -983,8 +983,8 @@
       <div id="prices-list"></div>
     </div>
 
-    <!-- ── Products sub-panel ── -->
-    <div class="inv-sub-panel" id="inv-sub-products">
+    <!-- ── Products sub-panel (admin only) ── -->
+    <div class="inv-sub-panel" id="inv-sub-products" data-admin-only hidden>
       <div id="products-list"></div>
     </div>
 
@@ -1002,7 +1002,7 @@
         <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
           <div class="settings-row-label">
             <strong>Sign in with your email</strong>
-            <span>A one-time link will be emailed to you. After clicking it, data syncs automatically across devices.</span>
+            <span>Accounts are invite-only. Enter the address you were invited with and a one-time sign-in link will be emailed to it. After that, your data syncs automatically across devices.</span>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <input class="log-input" type="email" id="auth-email-input"
@@ -1038,6 +1038,28 @@
       <div class="settings-save-bar">
         <button class="settings-save-btn" onclick="saveSettings('car')">Save</button>
         <span class="settings-saved-msg" id="sync-name-saved">Saved ✓</span>
+      </div>
+    </div>
+
+    <!-- ── Users (admin only) ── -->
+    <div class="settings-section" id="settings-users" data-admin-only hidden>
+      <div class="settings-section-title">Users</div>
+      <div class="settings-section-desc">Accounts are invite-only. Everyone has their own wash log, routines, maintenance, inventory, settings and photos. The products and categories are shared, and only you can change them.</div>
+
+      <div id="users-list"></div>
+
+      <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
+        <div class="settings-row-label">
+          <strong>Invite someone</strong>
+          <span>They'll get an email with a link to set up their account. It works once and expires in 7 days.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;width:100%;">
+          <input class="log-input" type="email" id="invite-email-input"
+            placeholder="their@email.com" style="flex:1;min-width:200px;"
+            onkeydown="if(event.key==='Enter') sendInvite()">
+          <button class="settings-save-btn" id="invite-send-btn" onclick="sendInvite()">Send invite</button>
+        </div>
+        <div id="invite-result" style="width:100%;font-size:13.5px;color:var(--ink-mid);line-height:1.5;" hidden></div>
       </div>
     </div>
 
@@ -1302,8 +1324,8 @@
       </div>
     </div>
 
-    <!-- ── Categories ── -->
-    <div class="settings-section" id="settings-categories">
+    <!-- ── Categories (admin only; shared by every account) ── -->
+    <div class="settings-section" id="settings-categories" data-admin-only hidden>
       <div class="settings-section-title">Categories</div>
       <div class="settings-section-desc">Rename, restructure, or delete any category used to group products on the Prices and Inventory tabs — including the built-in ones. Which product goes in which section is still set from the Products tab.</div>
 

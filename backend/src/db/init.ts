@@ -33,7 +33,8 @@ const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS users (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     email      TEXT    NOT NULL UNIQUE,
-    created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    joined_at  TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS magic_tokens (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,6 +62,11 @@ const DDL_STATEMENTS = [
     UNIQUE(user_id, key)
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_user_data_key ON user_data(user_id, key)`,
+  `CREATE TABLE IF NOT EXISTS shared_data (
+    key         TEXT PRIMARY KEY,
+    value_json  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS photos (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -101,19 +107,52 @@ export async function initDb() {
   }
 
   // `CREATE TABLE IF NOT EXISTS` is a no-op against an already-existing table, so it won't
-  // retrofit new columns onto a pre-existing products table (e.g. the live Render/Turso DB).
+  // retrofit new columns onto a pre-existing table (e.g. the live Render/Turso DB).
   // SQLite's ALTER TABLE ADD COLUMN has no IF NOT EXISTS clause and errors if run twice, so
-  // check first.
-  const cols = await client.execute(`PRAGMA table_info(products)`);
-  const existingCols = new Set(cols.rows.map((r) => r.name));
-  const columnsToAdd = [
-    { name: 'is_pack', ddl: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'default_volume_ml', ddl: 'INTEGER' },
-    { name: 'default_usage_per_wash_ml', ddl: 'INTEGER' },
+  // check first. `backfill` runs only on the boot that adds the column.
+  const columnsToAdd: { table: string; name: string; ddl: string; backfill?: string }[] = [
+    { table: 'products', name: 'is_pack', ddl: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'products', name: 'default_volume_ml', ddl: 'INTEGER' },
+    { table: 'products', name: 'default_usage_per_wash_ml', ddl: 'INTEGER' },
+    // Every account from before invites existed has already signed in, so it counts as joined.
+    {
+      table: 'users',
+      name: 'joined_at',
+      ddl: 'TEXT',
+      backfill: `UPDATE users SET joined_at = strftime('%Y-%m-%dT%H:%M:%fZ', created_at)`,
+    },
   ];
-  for (const { name, ddl } of columnsToAdd) {
-    if (!existingCols.has(name)) {
-      await client.execute(`ALTER TABLE products ADD COLUMN ${name} ${ddl}`);
+  const existingCols = new Map<string, Set<unknown>>();
+  for (const { table, name, ddl, backfill } of columnsToAdd) {
+    if (!existingCols.has(table)) {
+      const cols = await client.execute(`PRAGMA table_info(${table})`);
+      existingCols.set(table, new Set(cols.rows.map((r) => r.name)));
+    }
+    if (!existingCols.get(table)!.has(name)) {
+      await client.execute(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`);
+      if (backfill) await client.execute(backfill);
+    }
+  }
+
+  // Product categories became shared, admin-edited data. Move the owner's copy from user_data
+  // into shared_data once; after that shared_data already has the row and this does nothing.
+  // The scraper runners have no OWNER_EMAIL, so they skip it.
+  const ownerEmail = (process.env.OWNER_EMAIL ?? '').trim().toLowerCase();
+  if (ownerEmail) {
+    const ownerRow = `SELECT ud.key, ud.value_json, ud.updated_at FROM user_data ud JOIN users u ON u.id = ud.user_id
+      WHERE lower(u.email) = ? AND ud.key = 'corolla-categories-v1'`;
+    const moved = await client.execute({
+      sql: `INSERT INTO shared_data (key, value_json, updated_at) ${ownerRow}
+        AND NOT EXISTS (SELECT 1 FROM shared_data WHERE key = 'corolla-categories-v1')`,
+      args: [ownerEmail],
+    });
+    if (moved.rowsAffected) {
+      await client.execute({
+        sql: `DELETE FROM user_data WHERE key = 'corolla-categories-v1'
+          AND user_id IN (SELECT id FROM users WHERE lower(email) = ?)`,
+        args: [ownerEmail],
+      });
+      console.log("Moved the owner's categories into shared_data.");
     }
   }
 

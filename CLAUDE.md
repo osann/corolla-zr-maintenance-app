@@ -4,16 +4,16 @@ Guidance for Claude Code when working in this repository. Why things are the way
 
 ## What this app is
 
-A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus a few exceptions (303 Aerospace Protectant, Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto and Auto Barn) in AUD. One user, one owner account.
+A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus a few exceptions (303 Aerospace Protectant, Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto and Auto Barn) in AUD. Accounts are invite-only (see Accounts). The admin (`OWNER_EMAIL`) manages the shared product catalogue, categories and users, and everyone else has their own log, routines, settings and photos.
 
 Tabs (`index.html`):
 - **log** — wash sessions, streaks, reminder cards, weather hints. Sub-tabs: History, New Session, Edit Session (only while editing).
 - **routine** — customisable wash routines. Sub-tabs: Routines (read-only), Schedules (reminder intervals), Configure (editor cards, CSV import/export, drag reorder).
 - **maintenance** — mechanical maintenance. Sub-tabs: Upcoming, Schedule, History, Configuration.
-- **inventory** — Sub-tabs: Inventory (stock + depletion), Checklist (kit purchase phases), Prices (read-only price sheet + alerts), Products (product identity, retailer URLs, categories, packs — never shows prices).
+- **inventory** — Sub-tabs: Inventory (stock + depletion), Checklist (kit purchase phases), Prices (read-only price sheet + alerts), Products (admin only: product identity, retailer URLs, categories, packs — never shows prices).
 - **guide** — per-product technique reference (mostly static HTML).
 - **refs** — external links.
-- **settings** — display prefs, vehicle details (postcode, odometer), notifications (TickTick + email), categories, data management. Most sections are hidden when signed out.
+- **settings** — users (admin only), display prefs, vehicle details (postcode, odometer), notifications (TickTick + email), categories (admin only), data management. Most sections are hidden when signed out.
 
 ## Layout
 
@@ -23,10 +23,10 @@ cloudflare/api-proxy-worker.js          # reference copy of the /api proxy Worke
 backend/src/
   index.ts            # Hono server + node-cron (07:00 wash reminder, 08:00 digest — UTC)
   db/                 # schema.ts, init.ts (tables + migration-safe ALTERs), seed.ts (catalogue), connection.ts
-  routes/             # products, prices, alerts, auth (+ sync), weather, photos, ticktick
+  routes/             # products, prices, alerts, auth (+ sync), admin (users + invites), weather, photos, ticktick
   scrapers/           # supercheap, autobarn, fetch-scraper (shared), entry points below
-  lib/                # auth (sessions), email (Resend + getOwnerEmail), ticktick, r2, browser, sale-detector
-backend/test/          # Vitest smoke tests (seed, price ingestion, product routes)
+  lib/                # auth (sessions, admin), email (Resend + notification recipients), notifications (cron jobs), ticktick, r2, browser, sale-detector
+backend/test/          # Vitest smoke tests (seed, price ingestion, product routes, access control, per-user notifications)
 .github/workflows/
   ci.yml                         # typecheck, lint, format check, tests
   deploy.yml                     # Pages deploy; injects BACKEND_URL + build date into js/config.js, versions module URLs
@@ -66,7 +66,7 @@ Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.y
 
 ### Environment variables
 
-Render: `TURSO_URL`, `TURSO_TOKEN`, `SCRAPE_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (verified Resend domain), `OWNER_EMAIL` (required — the only address that can sign in or receive notifications; no fallback), `APP_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (no trailing slash), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` (Render URL, builds the OAuth redirect URI).
+Render: `TURSO_URL`, `TURSO_TOKEN`, `SCRAPE_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (verified Resend domain), `OWNER_EMAIL` (required — the admin account; without it nobody is admin and nobody new can be invited; no fallback), `APP_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (no trailing slash), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` (Render URL, builds the OAuth redirect URI).
 
 GitHub secrets: `BACKEND_URL` (= `https://corolla.jhosan.top`, i.e. through the proxy), `SCRAPE_SECRET` (must match Render).
 
@@ -79,10 +79,12 @@ Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 - `price_history` — append-only `product_id, retailer, price_cents, on_sale, observed_at`.
 - `pack_components` — components of a pack product. `component_product_id` null = free-text component placed by `section_category`/`section_label`. Packs can't contain packs.
 - `deleted_products` — tombstones by slug so `seed()` never resurrects a product deleted in the UI. `POST /api/products` clears a matching tombstone.
-- `users`, `magic_tokens` (15-min single-use), `sessions` (30-day), `photos`.
+- `users` (`joined_at` is set on first sign-in; null means invited but not yet signed in), `magic_tokens` (single-use; 15 min for a sign-in link, 7 days for an invite), `sessions` (30-day), `photos`.
 - `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync. `ticktick-oauth-v1` is deliberately **not** in it — tokens never reach the client.
+- `shared_data` — key/value JSON every account shares and only the admin can change; the keys are listed in `SHARED_KEYS` (`routes/auth.ts`, mirrored in `js/config.js`). Currently only `corolla-categories-v1`. These keys sync through the same endpoints: `GET /api/sync` merges them over the user's rows, and `POST /api/sync/:key` returns 403 to anyone but the admin. `initDb()` moved the owner's categories here once.
 
 Rules:
+- **Catalogue writes are admin-only.** The admin is whoever signs in as `OWNER_EMAIL` (`isAdminEmail()` in `lib/auth.ts`; it isn't stored in the DB). Any route that changes products, retailer URLs or packs goes behind `sessionMiddleware, requireAdmin`. `sessionMiddleware` alone only identifies the caller; it never rejects anyone.
 - **Deletes are explicit.** `foreign_keys` is never enabled on libSQL, so `ON DELETE CASCADE` isn't relied on: handlers delete `pack_components` → `price_history` → `retailer_urls` → `products` themselves. Do the same in any new delete path.
 - **`seed()` must stay crash-proof.** It looks up by slug, then by name, then inserts, and skips tombstoned slugs. Startup runs it on every Render boot.
 - To add a catalogue product: add it to `CATALOG` in `js/data.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work.
@@ -111,7 +113,7 @@ Modules:
   - `data.js` holds `CATALOG`, defaults, templates, `INV_CATEGORIES`, `SLUG_FAMILIES` and so on.
   - `state.js` holds all mutable shared state.
 - **Shared modules:** `storage.js`, `util.js`, `catalog.js` (product lookups and the category model).
-- **One module per feature:** `checklist`, `inventory`, `prices`, `products`, `categories` (Settings editor), `log`, `photos`, `routines`, `schedules`, `weather`, `maintenance`, `settings`, `auth`, `nav`.
+- **One module per feature:** `checklist`, `inventory`, `prices`, `products`, `categories` (Settings editor), `log`, `photos`, `routines`, `schedules`, `weather`, `maintenance`, `settings`, `users` (Settings → Users), `auth`, `nav`.
 - **Entry point:** `main.js`.
 
 Rules:
@@ -129,13 +131,17 @@ Conventions:
 Load order:
 - `init()`: `setupChecklist → loadChecklist → loadCategories → (hydrate bundleComponents from cache) → loadInventory → loadLog → loadRoutines → loadMaintenance → loadSettings → loadAlerts → checkAuthAndSync → loadPriceData + loadWeather` (the last two non-blocking).
 - `checkAuthAndSync()` after pulling remote data: `loadRoutines → loadMaintenance → loadChecklist → loadCategories → loadInventory → loadLog → loadSettings → loadAlerts → renderWashReminderCards`. Routines must load before settings (reminder cards need `routines[]`).
-- On a failed `/api/auth/me`, reset **both** `syncEnabled = false` and `syncEmail = null` before `renderAuthUI()`; any new early return must do the same, or the UI shows signed-in controls that 401.
+- On a failed `/api/auth/me`, reset `syncEnabled = false`, `syncEmail = null` **and** `isAdmin = false` before `renderAuthUI()`; any new early return must do the same, or the UI shows signed-in (or admin) controls that 401.
 - `renderInventory()` runs before `liveProducts` arrives, so `loadPriceData()` re-runs `rebuildBundleComponents()`, `renderInventory()` and `renderProductsPage()` once it lands, then `loadPriceHistories()` → `renderPricesTab()`. `priceDataRequestSeq` discards out-of-order responses.
 
 Auth:
 - `renderAuthUI()` is the single place that shows/hides signed-in UI.
-- `corolla-auth-v1` caches auth for an instant signed-in render on reload.
-- `signOut()` clears every synced key plus the auth and pack caches, then reloads.
+- **Admin-only UI** carries a `data-admin-only` attribute (plus `hidden` in the HTML, so it doesn't flash). `renderAuthUI()` unhides it only when signed in as the admin, and moves off the Products sub-tab if that becomes hidden. Today that's the Products sub-tab and panel, Settings → Categories and Settings → Users. Hiding is cosmetic: the backend enforces it (`requireAdmin`, `SHARED_KEYS`).
+- `corolla-auth-v1` caches auth (`{ email, isAdmin }`) for an instant signed-in render on reload.
+- `state.isAdmin` comes from `/api/auth/me`. `syncPush()` silently skips `SHARED_KEYS` unless it's true, so a regular user's local edits to shared data never reach the server.
+- `signOut()` calls `clearLocalSyncedData()` (every synced key plus the auth, pack and last-user caches), then reloads.
+- **Switching accounts on one device.** `corolla-last-user-v1` remembers whose data this browser holds, and unlike the auth cache it survives an expired session. If `/api/auth/me` returns someone else, `checkAuthAndSync()` clears the local data and reloads before pulling. Otherwise the previous person's local copies of stores the new account doesn't have yet would show under the new account and be pushed into it.
+- Signed in as the admin, `checkAuthAndSync()` also loads Settings → Users (`loadUsers()`).
 
 ### Storage keys
 
@@ -149,21 +155,23 @@ Auth:
 | `corolla-maintenance-v1` | `[{ id, name, notes, intervalType: 'time'\|'odometer', intervalValue, intervalUnit, intervalKm, lastCompletedDate, lastCompletedOdometer, enabled }]` |
 | `corolla-maintenance-log-v1` | `[{ id, itemId, itemName, date, odometer }]`, newest first |
 | `corolla-inventory-v1` | `{ [slug \| 'packSlug:componentName']: {purchaseDate, volumeMl, remainingMl, manualOverride}, _order: categoryLabel[] }` |
-| `corolla-categories-v1` | `[{ label, sections: [{ label, slugs[] }] }]` |
+| `corolla-categories-v1` | `[{ label, sections: [{ label, slugs[] }] }]` — shared by all accounts, admin-edited (`shared_data`) |
 | `corolla-pack-components-v1` | cache of `bundleComponents` for offline pack expansion |
+| `corolla-auth-v1` | `{ email, isAdmin }` — cached auth for an instant signed-in render; not synced |
+| `corolla-last-user-v1` | email of the account whose data this browser holds; not synced (see Auth) |
 | `corolla-budget-v1`, `corolla-category-overrides-v1`, `corolla-custom-categories-v1` | legacy — read once for migration or only cleared; never written |
 
 Bump the version suffix on breaking shape changes; `load*()` functions migrate forward from older keys.
 
-**Adding a new synced store** means updating all of these:
-- `ALLOWED_KEYS` in `backend/src/routes/auth.ts`;
+**Adding a new synced store** means first deciding whether it's personal or shared. A shared store goes in `SHARED_KEYS` (backend `routes/auth.ts` and `js/config.js`), not `ALLOWED_KEYS`, and stays out of `resetEverything()`. Then update all of these:
+- `ALLOWED_KEYS` in `backend/src/routes/auth.ts` (personal stores);
 - the pull list in `checkAuthAndSync()`;
-- the clear lists in `signOut()` and `resetEverything()`;
+- the clear lists in `clearLocalSyncedData()` (`js/auth.js`) and `resetEverything()`;
 - `BACKUP_KEYS` in `js/settings.js`. That's the Settings → Data management export/import, which restores to the server before touching local storage, because on reload the server copy wins. `settings.freq` has no UI any more but `calcNextDue('beadMachine')` still reads it (with defaults) for the heat banner.
 
 ### Categories
 
-`allCategories` (from `corolla-categories-v1`) is the single editable grouping used by Prices, Products, Inventory, the Checklist picker and the routine step picker. A product's category is whichever section's `slugs` contains it. First load seeds from `INV_CATEGORIES` and migrates the two legacy keys; nothing else reads `INV_CATEGORIES`. Helpers: `getCategoryAssignment()`, `changeProductCategory()`, `groupSlugsByCategory()`, `_buildCatalogGroups()` (collapses size variants via `SLUG_FAMILIES` for routine steps, which reference products by name).
+`allCategories` (from `corolla-categories-v1`) is the single editable grouping used by Prices, Products, Inventory, the Checklist picker and the routine step picker. It's shared by every account and only the admin edits it (see `shared_data`); signed-out guests use a local seed. A product's category is whichever section's `slugs` contains it. First load seeds from `INV_CATEGORIES` and migrates the two legacy keys; nothing else reads `INV_CATEGORIES`. Helpers: `getCategoryAssignment()`, `changeProductCategory()`, `groupSlugsByCategory()`, `_buildCatalogGroups()` (collapses size variants via `SLUG_FAMILIES` for routine steps, which reference products by name).
 
 **Prices, Inventory and Products each render a trailing "Other" card** for uncategorised products. Don't remove it from any of the three — without it those products are tracked but invisible (this has regressed twice).
 
@@ -171,7 +179,7 @@ Bump the version suffix on breaking shape changes; `load*()` functions migrate f
 
 - `routines[]` is the source of truth; `saveRoutines()` re-renders the view, config cards, log routine select and schedules.
 - Log step chips come from the selected routine's steps (`renderStepChipsForRoutine`).
-- `entryMatchesSchedule(entry, schedule)` matches by routine id, or by legacy type against the routine's `types`. The backend mirrors this in `routineMatchesLog()`; keep them in sync.
+- `entryMatchesSchedule(entry, schedule)` matches by routine id, or by legacy type against the routine's `types`. The backend mirrors this in `routineMatchesLog()` (`lib/notifications.ts`); keep them in sync.
 - Streaks hold when it's raining today; reminder cards show the best dry day when rain is forecast within 2 days of the due date.
 - CSV format (routines): `row_type` first; `routine` rows followed by their `step`/`alert` rows. Import appends with fresh ids.
 
@@ -190,15 +198,25 @@ Time- or odometer-based items. `lastCompleted*` is derived from the log: deletin
 
 `renderProductsPage()`. Product CRUD functions call both `renderPricesTab()` and `renderProductsPage()`. Retailer URLs and pack contents are edited in modals (`#retailer-editor-modal`, `#pack-editor-modal`); the pack editor keeps unsaved edits in `packDrafts` until "Save pack".
 
-Slug rename (`confirmSlugRename` → `renameProductSlugEverywhere`) rewrites categories, checklist phases + checked map, inventory keys and alert keys, then refetches products. It writes the checklist with a raw `storageSet`/`syncPush`, **not** `saveChecklist()` — that would rebuild `checked` from the stale `itemData` snapshot and undo the rename.
+Renames reach every account. `PATCH /products/:id` rewrites each user's stored data itself (`backend/src/lib/rename.ts`): a slug change updates the checklist, inventory, price alerts and the shared categories, and a name change updates routine steps. The admin's browser then repeats the same rewrite locally so the screen updates without a reload; keep the two in sync. Slug rename (`confirmSlugRename` → `renameProductSlugEverywhere`) rewrites categories, checklist phases + checked map, inventory keys and alert keys, then refetches products. It writes the checklist with a raw `storageSet`/`syncPush`, **not** `saveChecklist()` — that would rebuild `checked` from the stale `itemData` snapshot and undo the rename.
 
 ### Photos
 
 `POST/GET/DELETE /api/photos`, stored in Cloudflare R2 (public bucket, `R2_PUBLIC_URL/photos/{userId}/{logEntryId}/{uuid}.jpg`), with sharp 400px thumbnails and EXIF stripped. The ✕ remove button only renders on the entry being edited. After saving an edit, photos are re-fetched to catch uploads that finished after the click.
 
+## Accounts
+
+Invite-only. The admin is whoever signs in as `OWNER_EMAIL`; everyone else is a regular user with their own data.
+- `POST /api/auth/request` only sends a link to an existing account, plus the admin (whose row is created on first sign-in). Any other address gets the same silent `{ ok: true }`, so it can't be used to find out who has an account.
+- `POST /api/admin/invites { email }` creates a pending user (`joined_at` null) and emails a 7-day magic-link token. The response also carries the link, plus `emailed: false` if Resend rejected the email, so the admin can share it another way. Posting again resends, and the new link replaces the old one. Accepting is an ordinary `?token=` sign-in, and the first sign-in sets `joined_at`.
+- `DELETE /api/admin/users/:id` removes a user and everything they own (R2 photos, then `photos`, `user_data`, `sessions`, `magic_tokens`, `users`). The admin can't be removed.
+- Everything in `routes/admin.ts` sits behind one `router.use('/admin/*', sessionMiddleware, requireAdmin)`, so new admin routes are guarded automatically.
+- The admin's UI is Settings → Users (`js/users.js`): the account list, invite (showing a copyable link), resend, and remove/withdraw through an inline confirm row.
+- Resend's free tier (100 emails a day) covers sign-in links, invites and notifications for a handful of users. Check it before inviting many more.
+
 ## Notifications
 
-Channels are TickTick (OAuth; tokens in `user_data` under `ticktick-oauth-v1`, auto-refreshed) and email (Resend). Settings live in `settings.notifications`, and per-product thresholds in `corolla-price-alerts-v1`.
+Channels are TickTick (OAuth, per user; tokens in that user's `user_data` under `ticktick-oauth-v1`, auto-refreshed) and email (Resend). The TickTick callback lands on Render directly, without the session cookie, so it only accepts a `state` that `/ticktick/auth` issued in the last 10 minutes (held in memory). The state also records which user started the flow, and the tokens are stored for that user. Settings live in `settings.notifications`, and per-product thresholds in `corolla-price-alerts-v1`.
 
 Triggers:
 1. **Sale alert:** the product transitions to on-sale during `POST /api/prices`.
@@ -206,7 +224,7 @@ Triggers:
 3. **Wash reminder:** 07:00 UTC cron, per `settings.schedules`.
 4. **Daily digest:** 08:00 UTC cron, email only, sent only when there's something to report.
 
-All of them resolve the recipient via `OWNER_EMAIL` (`getOwnerEmail()` in routes; the cron jobs return early if it's unset — a throw there would crash Node).
+All of them go to each user separately, using that user's own settings, thresholds and TickTick connection. `getNotificationRecipients()` (`lib/email.ts`) returns every user who has signed in at least once (`joined_at` set); pending invites get nothing. The two cron jobs live in `lib/notifications.ts` (`runWashReminders`, `runDailyDigest`). They catch errors per user, and `index.ts` adds a `.catch` because an unhandled rejection would crash Node.
 
 Testing:
 - **Price alert:** POST a below-average or compare-at price for a product whose previous row wasn't on sale.

@@ -1,5 +1,5 @@
 import { db } from '../db/connection.js';
-import { users, userData } from '../db/schema.js';
+import { userData } from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 
 const TICKTICK_API = 'https://api.ticktick.com/open/v1';
@@ -18,11 +18,6 @@ export interface CreateTaskParams {
   tags?: string[];
   priority?: 0 | 1 | 3 | 5; // None/Low/Medium/High
   dueDate?: string; // ISO 8601, e.g. "2024-01-01T09:00:00+0000"
-}
-
-async function getOwnerUserId(ownerEmail: string): Promise<number | null> {
-  const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, ownerEmail)).limit(1);
-  return rows[0]?.id ?? null;
 }
 
 async function readStoredToken(userId: number): Promise<StoredToken | null> {
@@ -80,10 +75,7 @@ async function refreshAccessToken(userId: number, stored: StoredToken): Promise<
 }
 
 // Returns a valid access token, refreshing if within 24h of expiry. Throws if not connected.
-export async function getValidToken(ownerEmail: string): Promise<string> {
-  const userId = await getOwnerUserId(ownerEmail);
-  if (!userId) throw new Error('Owner user not found');
-
+export async function getValidToken(userId: number): Promise<string> {
   let stored = await readStoredToken(userId);
   if (!stored) throw new Error('TickTick not connected');
 
@@ -94,8 +86,8 @@ export async function getValidToken(ownerEmail: string): Promise<string> {
   return stored.access_token;
 }
 
-export async function createTickTickTask(ownerEmail: string, params: CreateTaskParams): Promise<void> {
-  const token = await getValidToken(ownerEmail);
+export async function createTickTickTask(userId: number, params: CreateTaskParams): Promise<void> {
+  const token = await getValidToken(userId);
   const res = await fetch(`${TICKTICK_API}/task`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -104,8 +96,8 @@ export async function createTickTickTask(ownerEmail: string, params: CreateTaskP
   if (!res.ok) throw new Error(`TickTick task creation failed: ${res.status}`);
 }
 
-export async function fetchTickTickProjects(ownerEmail: string): Promise<{ id: string; name: string }[]> {
-  const token = await getValidToken(ownerEmail);
+export async function fetchTickTickProjects(userId: number): Promise<{ id: string; name: string }[]> {
+  const token = await getValidToken(userId);
   const res = await fetch(`${TICKTICK_API}/project`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -116,13 +108,11 @@ export async function fetchTickTickProjects(ownerEmail: string): Promise<{ id: s
 
 // Called from the OAuth callback to store initial tokens.
 export async function storeOAuthTokens(
-  ownerEmail: string,
+  userId: number,
   accessToken: string,
   refreshToken: string,
   expiresIn: number,
 ): Promise<void> {
-  const userId = await getOwnerUserId(ownerEmail);
-  if (!userId) throw new Error('Owner user not found');
   await writeStoredToken(userId, {
     access_token: accessToken,
     refresh_token: refreshToken,
@@ -130,16 +120,12 @@ export async function storeOAuthTokens(
   });
 }
 
-// Returns whether the owner has stored TickTick tokens.
-export async function isTickTickConnected(ownerEmail: string): Promise<boolean> {
-  const userId = await getOwnerUserId(ownerEmail);
-  if (!userId) return false;
+// Returns whether the user has stored TickTick tokens.
+export async function isTickTickConnected(userId: number): Promise<boolean> {
   const stored = await readStoredToken(userId);
   return stored !== null;
 }
 
-export async function disconnectTickTick(ownerEmail: string): Promise<void> {
-  const userId = await getOwnerUserId(ownerEmail);
-  if (!userId) return;
+export async function disconnectTickTick(userId: number): Promise<void> {
   await db.delete(userData).where(and(eq(userData.userId, userId), eq(userData.key, 'ticktick-oauth-v1')));
 }
