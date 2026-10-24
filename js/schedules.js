@@ -71,7 +71,7 @@ export function calcBestWashDay(dueDate, forecast) {
   if (!triggers.rainTomorrow) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  if (Math.ceil((dueDate - today) / 86400000) > 2) return null;
+  if (Math.round((dueDate - today) / 86400000) > 2) return null;
   return triggers.rainDay;
 }
 
@@ -90,7 +90,9 @@ export function renderWashReminderCards() {
     const routine = state.routines.find((r) => r.id === schedule.routineId);
     if (!routine) return;
     const nextDue = calcRoutineNextDue(schedule);
-    const daysUntil = nextDue ? Math.ceil((nextDue - today) / 86400000) : null;
+    // Both are local midnights, so the difference is whole days give or take a DST hour: round, not
+    // ceil, or a 23-day gap across a DST change comes out as 22.
+    const daysUntil = nextDue ? Math.round((nextDue - today) / 86400000) : null;
     const bestDay = state.weatherCache ? calcBestWashDay(nextDue, state.weatherCache) : null;
     const streak = calcScheduleStreak(schedule, state.weatherCache);
     let statusText,
