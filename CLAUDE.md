@@ -25,8 +25,8 @@ backend/src/
   db/                 # schema.ts, init.ts (tables + migration-safe ALTERs), seed.ts (catalogue), connection.ts
   routes/             # products, prices, alerts, auth (+ sync), weather, photos, ticktick
   scrapers/           # supercheap, autobarn, fetch-scraper (shared), entry points below
-  lib/                # auth (sessions), email (Resend + getOwnerEmail), ticktick, r2, browser, sale-detector
-backend/test/          # Vitest smoke tests (seed, price ingestion, product routes)
+  lib/                # auth (sessions, admin), email (Resend + notification recipients), notifications (cron jobs), ticktick, r2, browser, sale-detector
+backend/test/          # Vitest smoke tests (seed, price ingestion, product routes, access control, per-user notifications)
 .github/workflows/
   ci.yml                         # typecheck, lint, format check, tests
   deploy.yml                     # Pages deploy; injects BACKEND_URL + build date into js/config.js, versions module URLs
@@ -66,7 +66,7 @@ Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.y
 
 ### Environment variables
 
-Render: `TURSO_URL`, `TURSO_TOKEN`, `SCRAPE_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (verified Resend domain), `OWNER_EMAIL` (required — the admin account, and for now the only address that can sign in or receive notifications; no fallback), `APP_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (no trailing slash), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` (Render URL, builds the OAuth redirect URI).
+Render: `TURSO_URL`, `TURSO_TOKEN`, `SCRAPE_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (verified Resend domain), `OWNER_EMAIL` (required — the admin account, and for now the only address that can sign in; no fallback), `APP_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (no trailing slash), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` (Render URL, builds the OAuth redirect URI).
 
 GitHub secrets: `BACKEND_URL` (= `https://corolla.jhosan.top`, i.e. through the proxy), `SCRAPE_SECRET` (must match Render).
 
@@ -83,7 +83,7 @@ Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 - `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync. `ticktick-oauth-v1` is deliberately **not** in it — tokens never reach the client.
 
 Rules:
-- **Catalogue writes are admin-only.** The admin is whoever signs in as `OWNER_EMAIL` (`isAdminEmail()` in `lib/auth.ts`; it isn't stored in the DB). Any route that changes products, retailer URLs or packs, or acts on the owner's TickTick account, goes behind `sessionMiddleware, requireAdmin`. `sessionMiddleware` alone only identifies the caller; it never rejects anyone.
+- **Catalogue writes are admin-only.** The admin is whoever signs in as `OWNER_EMAIL` (`isAdminEmail()` in `lib/auth.ts`; it isn't stored in the DB). Any route that changes products, retailer URLs or packs goes behind `sessionMiddleware, requireAdmin`. `sessionMiddleware` alone only identifies the caller; it never rejects anyone.
 - **Deletes are explicit.** `foreign_keys` is never enabled on libSQL, so `ON DELETE CASCADE` isn't relied on: handlers delete `pack_components` → `price_history` → `retailer_urls` → `products` themselves. Do the same in any new delete path.
 - **`seed()` must stay crash-proof.** It looks up by slug, then by name, then inserts, and skips tombstoned slugs. Startup runs it on every Render boot.
 - To add a catalogue product: add it to `CATALOG` in `js/data.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work.
@@ -172,7 +172,7 @@ Bump the version suffix on breaking shape changes; `load*()` functions migrate f
 
 - `routines[]` is the source of truth; `saveRoutines()` re-renders the view, config cards, log routine select and schedules.
 - Log step chips come from the selected routine's steps (`renderStepChipsForRoutine`).
-- `entryMatchesSchedule(entry, schedule)` matches by routine id, or by legacy type against the routine's `types`. The backend mirrors this in `routineMatchesLog()`; keep them in sync.
+- `entryMatchesSchedule(entry, schedule)` matches by routine id, or by legacy type against the routine's `types`. The backend mirrors this in `routineMatchesLog()` (`lib/notifications.ts`); keep them in sync.
 - Streaks hold when it's raining today; reminder cards show the best dry day when rain is forecast within 2 days of the due date.
 - CSV format (routines): `row_type` first; `routine` rows followed by their `step`/`alert` rows. Import appends with fresh ids.
 
@@ -199,7 +199,7 @@ Slug rename (`confirmSlugRename` → `renameProductSlugEverywhere`) rewrites cat
 
 ## Notifications
 
-Channels are TickTick (OAuth; tokens in `user_data` under `ticktick-oauth-v1`, auto-refreshed) and email (Resend). The TickTick callback lands on Render directly, without the session cookie, so it only accepts a `state` that `/ticktick/auth` issued in the last 10 minutes (held in memory). Settings live in `settings.notifications`, and per-product thresholds in `corolla-price-alerts-v1`.
+Channels are TickTick (OAuth, per user; tokens in that user's `user_data` under `ticktick-oauth-v1`, auto-refreshed) and email (Resend). The TickTick callback lands on Render directly, without the session cookie, so it only accepts a `state` that `/ticktick/auth` issued in the last 10 minutes (held in memory). The state also records which user started the flow, and the tokens are stored for that user. Settings live in `settings.notifications`, and per-product thresholds in `corolla-price-alerts-v1`.
 
 Triggers:
 1. **Sale alert:** the product transitions to on-sale during `POST /api/prices`.
@@ -207,7 +207,7 @@ Triggers:
 3. **Wash reminder:** 07:00 UTC cron, per `settings.schedules`.
 4. **Daily digest:** 08:00 UTC cron, email only, sent only when there's something to report.
 
-All of them resolve the recipient via `OWNER_EMAIL` (`getOwnerEmail()` in routes; the cron jobs return early if it's unset — a throw there would crash Node).
+All of them go to each user separately, using that user's own settings, thresholds and TickTick connection. `getNotificationRecipients()` (`lib/email.ts`) returns every user who has signed in at least once (`joined_at` set); pending invites get nothing. The two cron jobs live in `lib/notifications.ts` (`runWashReminders`, `runDailyDigest`). They catch errors per user, and `index.ts` adds a `.catch` because an unhandled rejection would crash Node.
 
 Testing:
 - **Price alert:** POST a below-average or compare-at price for a product whose previous row wasn't on sale.

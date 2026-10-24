@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { eq, desc, and, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
-import { sessionMiddleware, requireAdmin, type AppEnv } from '../lib/auth.js';
-import { getOwnerEmail, getOwnerNotificationSettings } from '../lib/email.js';
+import { sessionMiddleware, type AppEnv } from '../lib/auth.js';
+import { getNotificationSettings } from '../lib/email.js';
 import { createTickTickTask } from '../lib/ticktick.js';
 
 const router = new Hono<AppEnv>();
@@ -43,21 +43,23 @@ router.get('/alerts', async (c) => {
   return c.json(alerts);
 });
 
-// POST /notify/wash-reminder — send a TickTick task for a specific routine from the frontend button.
-// Admin only, since it goes to the owner's TickTick account.
-router.post('/notify/wash-reminder', sessionMiddleware, requireAdmin, async (c) => {
+// POST /notify/wash-reminder — send a TickTick task for a specific routine from the frontend button,
+// to the signed-in user's own TickTick.
+router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
   const { routineName, dueDate } = await c.req.json<{ routineName: string; dueDate?: string }>();
-  const ownerEmail = getOwnerEmail();
-  const notif = await getOwnerNotificationSettings(ownerEmail);
+  const notif = await getNotificationSettings(userId);
 
   if (!notif.washReminders || !notif.ticktickConnected) return c.json({ ok: true });
 
-  await createTickTickTask(ownerEmail, {
+  await createTickTickTask(userId, {
     title: `🚗 ${routineName} due`,
     content: 'Wash reminder sent from the Corolla app.',
     projectId: notif.ticktickProjectId ?? '',
     tags: notif.ticktickTags ?? [],
-    priority: notif.ticktickPriority as 0 | 1 | 3 | 5,
+    priority: notif.ticktickPriority,
     dueDate: dueDate ? new Date(dueDate).toISOString().replace(/\.\d{3}Z$/, '+0000') : undefined,
   });
   return c.json({ ok: true });

@@ -3,7 +3,7 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory, isRetailer } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
-import { sendDirectEmail, getOwnerEmail, getOwnerNotificationSettings, getOwnerAlertThresholds } from '../lib/email.js';
+import { sendDirectEmail, getNotificationRecipients, type NotificationRecipient } from '../lib/email.js';
 import { createTickTickTask } from '../lib/ticktick.js';
 
 const router = new Hono();
@@ -13,6 +13,16 @@ export interface PriceObservation {
   retailer: string;
   priceCents: number;
   compareAtCents: number | null;
+}
+
+const wantsSaleAlerts = ({ settings: s }: NotificationRecipient) => s.saleAlerts && (s.ticktickAlerts || s.emailAlerts);
+const wantsThresholdAlerts = ({ settings: s }: NotificationRecipient) =>
+  s.thresholdAlerts && (s.ticktickAlerts || s.emailAlerts);
+
+// The recipient's threshold for this slug, if the price is at or below it.
+function breachedThreshold(recipient: NotificationRecipient, slug: string, priceCents: number) {
+  const threshold = recipient.thresholds[slug];
+  return threshold?.thresholdCents != null && priceCents <= threshold.thresholdCents ? threshold : null;
 }
 
 // POST /api/prices — ingest scraper results from GitHub Actions
@@ -37,11 +47,7 @@ router.post('/prices', async (c) => {
     return c.json({ error: 'Expected non-empty array of observations' }, 400);
   }
 
-  const ownerEmail = getOwnerEmail();
-  const [notifSettings, alertThresholds] = await Promise.all([
-    getOwnerNotificationSettings(ownerEmail),
-    getOwnerAlertThresholds(ownerEmail),
-  ]);
+  const recipients = await getNotificationRecipients();
 
   let inserted = 0;
   let skipped = 0;
@@ -88,53 +94,50 @@ router.post('/prices', async (c) => {
       priceCents,
       onSale,
     });
+    inserted++;
 
-    const threshold = alertThresholds[slug];
-    const thresholdBreached = threshold?.thresholdCents != null && priceCents <= threshold.thresholdCents;
+    // Who this observation could notify. Whether it does depends on the previous observation,
+    // since both alert types fire only on a transition.
+    const interested = recipients.filter(
+      (r) =>
+        (onSale && wantsSaleAlerts(r)) || (breachedThreshold(r, slug, priceCents) != null && wantsThresholdAlerts(r)),
+    );
+    if (interested.length === 0) continue;
 
-    const anySaleChannel = notifSettings.saleAlerts && (notifSettings.ticktickAlerts || notifSettings.emailAlerts);
-    const anyThresholdChannel =
-      notifSettings.thresholdAlerts && (notifSettings.ticktickAlerts || notifSettings.emailAlerts);
+    const recent = await db
+      .select({ onSale: priceHistory.onSale, priceCents: priceHistory.priceCents })
+      .from(priceHistory)
+      .where(and(eq(priceHistory.productId, productId), eq(priceHistory.retailer, retailer)))
+      .orderBy(desc(priceHistory.observedAt))
+      .limit(2);
+    const previouslyOnSale = recent[1]?.onSale ?? false;
+    const prevPriceCents = recent[1]?.priceCents;
 
-    if ((onSale && anySaleChannel) || (thresholdBreached && anyThresholdChannel)) {
-      const recent = await db
-        .select({ onSale: priceHistory.onSale, priceCents: priceHistory.priceCents })
-        .from(priceHistory)
-        .where(and(eq(priceHistory.productId, productId), eq(priceHistory.retailer, retailer)))
-        .orderBy(desc(priceHistory.observedAt))
-        .limit(2);
+    const productName = productRows[0].name;
+    const currentPrice = `$${(priceCents / 100).toFixed(2)}`;
+    const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
 
-      const productName = productRows[0].name;
-      const currentPrice = `$${(priceCents / 100).toFixed(2)}`;
-      const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
-
+    for (const recipient of interested) {
       // On-sale alert (transition only)
-      if (onSale && anySaleChannel) {
-        const previouslyOnSale = recent[1]?.onSale ?? false;
-        if (!previouslyOnSale) {
-          const prevCents = recent[1]?.priceCents;
-          const prevLine = prevCents ? `Previous price: $${(prevCents / 100).toFixed(2)}\n` : '';
-          const baseSubject = `🔥 ${productName} on sale at ${retailerName} — ${currentPrice}`;
-          const bodyText = `Current price: ${currentPrice}\n${prevLine}`;
-          sendViaChannel('global', notifSettings, ownerEmail, baseSubject, bodyText);
-        }
+      if (onSale && wantsSaleAlerts(recipient) && !previouslyOnSale) {
+        const prevLine = prevPriceCents ? `Previous price: $${(prevPriceCents / 100).toFixed(2)}\n` : '';
+        const baseSubject = `🔥 ${productName} on sale at ${retailerName} — ${currentPrice}`;
+        const bodyText = `Current price: ${currentPrice}\n${prevLine}`;
+        sendViaChannel('global', recipient, baseSubject, bodyText);
       }
 
       // Threshold alert (transition only — prev price was above threshold)
-      if (thresholdBreached && anyThresholdChannel) {
-        const prevPriceCents = recent[1]?.priceCents;
+      const threshold = breachedThreshold(recipient, slug, priceCents);
+      if (threshold && wantsThresholdAlerts(recipient)) {
         const prevWasAbove = prevPriceCents == null || prevPriceCents > threshold.thresholdCents;
         if (prevWasAbove) {
           const thresholdDollar = `$${(threshold.thresholdCents / 100).toFixed(2)}`;
           const baseSubject = `⬇️ ${productName} below ${thresholdDollar} at ${retailerName} — ${currentPrice}`;
           const bodyText = `Your alert threshold: ${thresholdDollar}\nCurrent price: ${currentPrice}`;
-          const channel = threshold.channel === 'global' ? 'global' : threshold.channel;
-          sendViaChannel(channel, notifSettings, ownerEmail, baseSubject, bodyText);
+          sendViaChannel(threshold.channel, recipient, baseSubject, bodyText);
         }
       }
     }
-
-    inserted++;
   }
 
   return c.json({ inserted, skipped });
@@ -142,33 +145,25 @@ router.post('/prices', async (c) => {
 
 function sendViaChannel(
   channel: 'global' | 'ticktick' | 'email',
-  notifSettings: {
-    ticktickConnected: boolean;
-    ticktickAlerts: boolean;
-    ticktickProjectId: string | null;
-    ticktickTags: string[];
-    ticktickPriority: number;
-    emailAlerts: boolean;
-  },
-  ownerEmail: string,
+  { userId, email, settings }: NotificationRecipient,
   baseSubject: string,
   body: string,
 ): void {
   const sendTT =
-    notifSettings.ticktickAlerts && (channel === 'ticktick' || channel === 'global') && notifSettings.ticktickConnected;
-  const sendEmail = notifSettings.emailAlerts && (channel === 'email' || channel === 'global');
+    settings.ticktickAlerts && (channel === 'ticktick' || channel === 'global') && settings.ticktickConnected;
+  const sendEmail = settings.emailAlerts && (channel === 'email' || channel === 'global');
 
   if (sendTT) {
-    createTickTickTask(ownerEmail, {
+    createTickTickTask(userId, {
       title: baseSubject,
       content: body,
-      projectId: notifSettings.ticktickProjectId ?? '',
-      tags: notifSettings.ticktickTags ?? [],
-      priority: notifSettings.ticktickPriority as 0 | 1 | 3 | 5,
+      projectId: settings.ticktickProjectId ?? '',
+      tags: settings.ticktickTags ?? [],
+      priority: settings.ticktickPriority,
     }).catch(console.error);
   }
   if (sendEmail) {
-    sendDirectEmail(ownerEmail, baseSubject, body).catch(console.error);
+    sendDirectEmail(email, baseSubject, body).catch(console.error);
   }
 }
 

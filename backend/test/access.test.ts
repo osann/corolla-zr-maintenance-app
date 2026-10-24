@@ -128,13 +128,20 @@ describe('TickTick', () => {
     expect((await app.request(path, { method })).status).toBe(401);
   });
 
-  it.each(guarded)('%s %s is admin only', async (method, path) => {
-    expect((await app.request(path, withSession(MEMBER, { method }))).status).toBe(403);
-  });
+  const status = async (session?: string) =>
+    (await (await app.request('/api/ticktick/status', session ? withSession(session) : {})).json()) as {
+      connected: boolean;
+    };
+  const storedTokens = async (email: string) => {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return db
+      .select()
+      .from(userData)
+      .where(and(eq(userData.userId, user.id), eq(userData.key, 'ticktick-oauth-v1')));
+  };
 
-  it('reports not connected to anyone but the admin', async () => {
-    expect(await (await app.request('/api/ticktick/status')).json()).toEqual({ connected: false });
-    expect(await (await app.request('/api/ticktick/status', withSession(MEMBER))).json()).toEqual({ connected: false });
+  it('reports signed-out visitors as not connected', async () => {
+    expect(await status()).toEqual({ connected: false });
   });
 
   it('rejects a callback whose state the app never issued', async () => {
@@ -143,8 +150,8 @@ describe('TickTick', () => {
     expect(res.headers.get('location')).toMatch(/\?ticktick=error$/);
   });
 
-  it('accepts the state it issued, once', async () => {
-    const start = await app.request('/api/ticktick/auth', withSession(ADMIN));
+  it('stores the tokens for whoever started the flow, and accepts each state once', async () => {
+    const start = await app.request('/api/ticktick/auth', withSession(MEMBER));
     expect(start.status).toBe(302);
     const state = new URL(start.headers.get('location')!).searchParams.get('state');
     expect(state).toMatch(/^[0-9a-f]{64}$/);
@@ -163,11 +170,19 @@ describe('TickTick', () => {
       fetchSpy.mockRestore();
     }
 
+    expect(await storedTokens('member@example.com')).toHaveLength(1);
+    expect(await storedTokens('owner@example.com')).toHaveLength(0);
+    expect(await status(MEMBER)).toEqual({ connected: true });
+    expect(await status(ADMIN)).toEqual({ connected: false });
+  });
+
+  it("disconnects only the caller's own TickTick", async () => {
     const [owner] = await db.select().from(users).where(eq(users.email, 'owner@example.com'));
-    const stored = await db
-      .select()
-      .from(userData)
-      .where(and(eq(userData.userId, owner.id), eq(userData.key, 'ticktick-oauth-v1')));
-    expect(stored).toHaveLength(1);
+    await db.insert(userData).values({ userId: owner.id, key: 'ticktick-oauth-v1', valueJson: '{}' });
+
+    const res = await app.request('/api/ticktick/disconnect', withSession(MEMBER, { method: 'DELETE' }));
+    expect(res.status).toBe(200);
+    expect(await status(MEMBER)).toEqual({ connected: false });
+    expect(await status(ADMIN)).toEqual({ connected: true });
   });
 });

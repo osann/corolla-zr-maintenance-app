@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
-import { sessionMiddleware, requireAdmin, generateToken, type AppEnv } from '../lib/auth.js';
+import { sessionMiddleware, generateToken, type AppEnv } from '../lib/auth.js';
 import { storeOAuthTokens, fetchTickTickProjects, isTickTickConnected, disconnectTickTick } from '../lib/ticktick.js';
-import { getOwnerEmail } from '../lib/email.js';
 
 const router = new Hono<AppEnv>();
 
@@ -11,19 +10,23 @@ const REDIRECT_URI = () => `${process.env.BACKEND_PUBLIC_URL}/api/ticktick/callb
 const AUTH_URL = 'https://ticktick.com/oauth/authorize';
 const TOKEN_URL = 'https://ticktick.com/oauth/token';
 
-// OAuth `state` values handed out by /ticktick/auth → expiry (ms epoch). The callback arrives at
-// Render directly, without the session cookie, so this is what proves the flow was started from
-// the app rather than by someone authorising their own TickTick account against our client ID.
-// In-memory like the magic-link cooldowns: a restart mid-flow only costs a retry.
-const pendingStates = new Map<string, number>();
+// OAuth `state` values handed out by /ticktick/auth → who started the flow, and until when. The
+// callback arrives at Render directly, without the session cookie, so this is the only way to know
+// whose tokens they are. It also stops someone authorising their own TickTick account against our
+// client ID and having it stored as someone else's. In-memory like the magic-link cooldowns: a
+// restart mid-flow only costs a retry.
+const pendingStates = new Map<string, { userId: number; expiresAt: number }>();
 const STATE_TTL_MS = 10 * 60_000;
 
-// Redirect to TickTick OAuth. Admin only, since the tokens are stored against the owner account.
-router.get('/ticktick/auth', sessionMiddleware, requireAdmin, (c) => {
+// Redirect to TickTick OAuth for the signed-in user.
+router.get('/ticktick/auth', sessionMiddleware, (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+
   const now = Date.now();
-  for (const [s, expiresAt] of pendingStates) if (expiresAt < now) pendingStates.delete(s);
+  for (const [s, { expiresAt }] of pendingStates) if (expiresAt < now) pendingStates.delete(s);
   const state = generateToken();
-  pendingStates.set(state, now + STATE_TTL_MS);
+  pendingStates.set(state, { userId, expiresAt: now + STATE_TTL_MS });
 
   const url = new URL(AUTH_URL);
   url.searchParams.set('client_id', CLIENT_ID());
@@ -39,9 +42,9 @@ router.get('/ticktick/callback', async (c) => {
   const appUrl = process.env.APP_URL ?? 'https://corolla.jhosan.top';
 
   const state = c.req.query('state') ?? '';
-  const stateExpiresAt = pendingStates.get(state);
+  const pending = pendingStates.get(state);
   pendingStates.delete(state);
-  if (!stateExpiresAt || stateExpiresAt < Date.now()) {
+  if (!pending || pending.expiresAt < Date.now()) {
     console.error('TickTick OAuth callback with a missing, unknown or expired state');
     return c.redirect(`${appUrl}?ticktick=error`);
   }
@@ -70,22 +73,23 @@ router.get('/ticktick/callback', async (c) => {
     refresh_token: string;
     expires_in: number;
   };
-  await storeOAuthTokens(getOwnerEmail(), data.access_token, data.refresh_token, data.expires_in);
+  await storeOAuthTokens(pending.userId, data.access_token, data.refresh_token, data.expires_in);
 
   return c.redirect(`${appUrl}?ticktick=connected`);
 });
 
-// Whether TickTick is connected. Only the admin has a connection, so anyone else sees false.
+// Whether the signed-in user has connected TickTick. Signed out counts as not connected.
 router.get('/ticktick/status', sessionMiddleware, async (c) => {
-  if (!c.var.isAdmin) return c.json({ connected: false });
-  const connected = await isTickTickConnected(getOwnerEmail());
-  return c.json({ connected });
+  const userId = c.var.userId;
+  return c.json({ connected: userId ? await isTickTickConnected(userId) : false });
 });
 
-// Fetch TickTick project list — for the project selector in settings.
-router.get('/ticktick/projects', sessionMiddleware, requireAdmin, async (c) => {
+// Fetch the user's TickTick project list — for the project selector in settings.
+router.get('/ticktick/projects', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
   try {
-    const projects = await fetchTickTickProjects(getOwnerEmail());
+    const projects = await fetchTickTickProjects(userId);
     return c.json(projects);
   } catch (err) {
     console.error('TickTick project fetch error:', err);
@@ -93,9 +97,11 @@ router.get('/ticktick/projects', sessionMiddleware, requireAdmin, async (c) => {
   }
 });
 
-// Disconnect — deletes stored tokens.
-router.delete('/ticktick/disconnect', sessionMiddleware, requireAdmin, async (c) => {
-  await disconnectTickTick(getOwnerEmail());
+// Disconnect — deletes the user's stored tokens.
+router.delete('/ticktick/disconnect', sessionMiddleware, async (c) => {
+  const userId = c.var.userId;
+  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
+  await disconnectTickTick(userId);
   return c.json({ ok: true });
 });
 

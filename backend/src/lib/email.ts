@@ -1,18 +1,10 @@
 import { Resend } from 'resend';
 import { db } from '../db/connection.js';
 import { users, userData } from '../db/schema.js';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { isTickTickConnected } from './ticktick.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-// The single account that receives notifications and owns TickTick tokens. Deliberately no
-// hardcoded fallback — an unset OWNER_EMAIL should fail loudly, not notify a baked-in address.
-export function getOwnerEmail(): string {
-  const email = process.env.OWNER_EMAIL;
-  if (!email) throw new Error('OWNER_EMAIL is not set');
-  return email;
-}
 
 export interface NotificationSettings {
   ticktickConnected: boolean;
@@ -65,21 +57,39 @@ export interface AlertThreshold {
   channel: 'global' | 'ticktick' | 'email';
 }
 
-export async function getOwnerNotificationSettings(ownerEmail: string): Promise<NotificationSettings> {
-  try {
-    const userRows = await db.select({ id: users.id }).from(users).where(eq(users.email, ownerEmail)).limit(1);
-    if (userRows.length === 0) return { ...NOTIF_DEFAULTS };
+// Someone who can receive notifications: any user who has signed in at least once (an invite that
+// hasn't been accepted yet gets nothing).
+export interface NotificationRecipient {
+  userId: number;
+  email: string;
+  settings: NotificationSettings;
+  thresholds: Record<string, AlertThreshold>;
+}
 
+export async function getNotificationRecipients(): Promise<NotificationRecipient[]> {
+  const joined = await db.select({ id: users.id, email: users.email }).from(users).where(isNotNull(users.joinedAt));
+  return Promise.all(
+    joined.map(async ({ id, email }) => ({
+      userId: id,
+      email,
+      settings: await getNotificationSettings(id),
+      thresholds: await getAlertThresholds(id),
+    })),
+  );
+}
+
+export async function getNotificationSettings(userId: number): Promise<NotificationSettings> {
+  try {
     const dataRows = await db
       .select({ valueJson: userData.valueJson })
       .from(userData)
-      .where(and(eq(userData.userId, userRows[0].id), eq(userData.key, 'corolla-settings-v1')))
+      .where(and(eq(userData.userId, userId), eq(userData.key, 'corolla-settings-v1')))
       .limit(1);
     if (dataRows.length === 0) return { ...NOTIF_DEFAULTS };
 
     const parsed = JSON.parse(dataRows[0].valueJson);
     const n = parsed?.notifications;
-    const connected = await isTickTickConnected(ownerEmail);
+    const connected = await isTickTickConnected(userId);
 
     if (!n || typeof n !== 'object') return { ...NOTIF_DEFAULTS, ticktickConnected: connected };
 
@@ -101,15 +111,12 @@ export async function getOwnerNotificationSettings(ownerEmail: string): Promise<
   }
 }
 
-export async function getOwnerAlertThresholds(ownerEmail: string): Promise<Record<string, AlertThreshold>> {
+export async function getAlertThresholds(userId: number): Promise<Record<string, AlertThreshold>> {
   try {
-    const userRows = await db.select({ id: users.id }).from(users).where(eq(users.email, ownerEmail)).limit(1);
-    if (userRows.length === 0) return {};
-
     const dataRows = await db
       .select({ valueJson: userData.valueJson })
       .from(userData)
-      .where(and(eq(userData.userId, userRows[0].id), eq(userData.key, 'corolla-price-alerts-v1')))
+      .where(and(eq(userData.userId, userId), eq(userData.key, 'corolla-price-alerts-v1')))
       .limit(1);
     if (dataRows.length === 0) return {};
 

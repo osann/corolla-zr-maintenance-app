@@ -5,7 +5,7 @@ Agreed 2026-10-21. The work is on branch `feature/multi-user`, one commit per ph
 ## Status
 
 - ☑ Phase 1: admin identity and route guards (backend). Committed on `feature/multi-user` 2026-10-24.
-- ☐ Phase 2: per-user notifications and TickTick (backend)
+- ☑ Phase 2: per-user notifications and TickTick (backend). Committed 2026-10-24.
 - ☐ Phase 3: shared categories and rename propagation
 - ☐ Phase 4: invites and user management (backend)
 - ☐ Phase 5: frontend (admin-only UI, Users section, switching accounts)
@@ -95,6 +95,7 @@ Behaviour stays the same while you're the only user.
 - **TickTick per user** (`routes/ticktick.ts`):
   - The Phase 1 `state` map goes from `state → expiry` to `state → { userId, expiresAt }`, and the callback calls `storeOAuthTokens(userId, …)`. The callback lands on Render directly (`BACKEND_PUBLIC_URL`) without the first-party session cookie, so `state` is the only way to know whose tokens these are.
   - `/ticktick/auth`, `/projects` and `/disconnect` go from `requireAdmin` to any signed-in user, and `/status` reports the caller's own connection.
+- **Tests:** `backend/test/notifications.test.ts` (email sending mocked) covers threshold alerts going only to the user whose threshold was crossed, sale alerts to every joined user who wants them, no repeat alerts without a change, per-user digests, per-user overdue wash reminders, and pending invites getting nothing. `access.test.ts` covers TickTick tokens being stored for whoever started the flow, and disconnect touching only the caller's own.
 
 ## Phase 3: shared categories and rename propagation
 
