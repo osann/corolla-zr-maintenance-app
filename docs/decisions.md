@@ -38,6 +38,14 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 ## Scraping
 
+**Stale-price alerts (2026-10-24).** The Auto Barn runner was offline from 2026-09-19 to 2026-10-21 and nobody noticed. GitHub quietly cancels jobs that no runner picks up, and the app kept showing the last prices it had. Now the 08:00 UTC job emails the admin whenever a retailer with URLs has had no new price for 3 days. Both scrapers run daily, so that allows for a couple of failed runs. The email repeats daily until prices come back.
+- The email is per retailer, because a whole retailer stopping is what went unnoticed.
+- A single product's stale price usually means one broken or discontinued URL. That shows as a ⚠ in the UI instead, since a daily email about it would be noise. The first pass found one: an Auto Barn bucket listing that had returned 404 since June.
+
+**Retailer URLs must be on the retailer's site (2026-10-24).** Two Auto Barn URLs had been saved in Supercheap fields. Supercheap's scraper can't read Auto Barn pages, so they never got a price, and nothing showed it. The product routes now reject a URL that isn't on the retailer's own site. `initDb()` also deletes any such row on boot, the same way it handles retired retailers, because there are no local Turso credentials for a one-off fix.
+
+**Bowden's Own blocks cloud IPs, not home ones (2026-10-24).** Every earlier attempt ran from GitHub Actions or Render. From a home connection, every archived URL tried returned a server-rendered price. Bringing it back is in [tasks.md](tasks.md), and the selector and the size-variant caveat are in [blocked-retailers.md](blocked-retailers.md).
+
 **Blocked retailers removed (2026-10-21).** Repco (Cloudflare, since about 2026-08-16), Autopro (Imperva, since about 2026-09-25) and Bowden's Own (never scrapeable) all block bots, so their scrapers, retailer URLs and price history were deleted rather than left half-working. Supercheap and Auto Barn are the remaining sources. The knowledge and a CSV of every URL are kept in [blocked-retailers.md](blocked-retailers.md). The cleanup runs in `initDb()` on every boot instead of as a one-off script for two reasons: there are no local Turso credentials, and it also catches any rows re-added later. The DB `CHECK` constraint was left permissive so a retailer can come back without a table rebuild.
 
 **Repco disabled (2026-08-27).** From about 2026-08-16, every Repco product page returns 403 with `Cf-Mitigated: challenge`. The same response comes back from a plain curl and from a residential IP using the stealth Playwright context, so it can't be fixed client-side. Removed entirely on 2026-10-21 (see above).
@@ -47,6 +55,12 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 **Auto Barn via a home runner.** Auto Barn returns 403 to all cloud IPs (GitHub-hosted runners and Render alike), so it runs on `debian-server` from a residential IP. About half its product URLs hang server-side whatever the client; Playwright was tried and didn't help. It pushes in batches of 10 so a crash loses at most one batch. If its workflow runs show "cancelled", the runner is offline: GitHub cancels jobs no runner picks up within 24 hours. That happened from 2026-09-19 to 2026-10-21, when the runner service hadn't been restarted.
 
 **Bowden's Own is never scraped.** GitHub Actions gets a Cloudflare JS challenge and Render gets a hard 403. An OzBargain-RSS sale detector was tried briefly in May 2026 and removed. Production still had 20 leftover `bowdens` URLs (never scraped, origin unknown); they were deleted with the other blocked retailers in 2026-10.
+
+## Reminders
+
+**A routine with no types counts only its own sessions (2026-10-24).** A routine's `types` exist to match legacy log entries (`full`/`quick`/`interior`/`both`) from before entries recorded a routine id. The cron treated a routine with no types as matching every entry. So any session, say an interior tidy, reset an exterior routine's timer and suppressed its reminder, while the app correctly showed it overdue. The app's rule was the right one. `test/reminder-matching.test.ts` now runs the real frontend function against the backend's, so the two can't drift again.
+
+**The no-schedule fallback stays.** With no schedules set, the cron still sends a reminder 14 days after the last session, while the app shows no card. That fallback predates schedules. Removing it would quietly stop reminders for anyone relying on it, so the Schedules copy now says how it works instead.
 
 ## Weather
 
@@ -61,6 +75,16 @@ The constraints that shaped the result:
 - Inline `on*=` handlers resolve against `window`, so `main.js` exposes the 118 functions they call.
 - Feature modules import each other in cycles, which is safe only because nothing but leaf-module constants runs at import time.
 - `deploy.yml` stamps module URLs with the commit SHA, because separately cached modules could otherwise mix versions after a deploy.
+
+**Inline handlers stay; delegated listeners declined (2026-10-24).** Replacing the 166 inline `on*=` handlers with delegated listeners would remove the `window` list in `main.js`. That list's real risk, a missing function failing silently, is now caught in CI: `test/inline-handlers.test.ts` reads every handler in the source and checks the list both ways. The rewrite would touch every feature module, most of whose flows have no tests, and would add a dispatch convention, all for no visible change.
+- The assessment turned up one real bug class, now fixed. Text passed as `'${escAttr(x)}'` was decoded back before the handler ran, so an apostrophe broke the button (a routine named "Bob's wash" lost its Send to TickTick button). Text arguments now go through `jsArg()`, and the same test rejects `escAttr(` inside a handler.
+- Revisit if the site ever wants a Content-Security-Policy without `'unsafe-inline'`.
+
+**Frontend tests (2026-10-24).** There are two layers.
+- Pure logic: Vitest imports the frontend modules directly, with `window` stubbed.
+- Browser: `backend/test/e2e/` drives the real backend and frontend in headless Chromium. It uses the `playwright` library the scrapers already install, so there's no `@playwright/test` and no new dependency.
+
+The browser tests run in Sydney time with an optional fixed clock. That's how the reminder cards' off-by-one across DST turned up.
 
 **`BACKEND_URL.startsWith('__')`, not equality.** `deploy.yml` runs a global `sed` on `__BACKEND_URL__`, which would also rewrite the string in an `=== '__BACKEND_URL__'` comparison and break the guard.
 

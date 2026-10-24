@@ -12,7 +12,7 @@ import { CHECKLIST_V3_KEY, INVENTORY_KEY } from './config.js';
 import { CANONICAL_SLUG_MAP, CATALOG, EQUIPMENT_SLUGS, SLUG_FAMILIES } from './data.js';
 import { state } from './state.js';
 import { storageGet, storageSet, syncPush } from './storage.js';
-import { escAttr, escHtml } from './util.js';
+import { escAttr, escHtml, jsArg } from './util.js';
 
 // Sets purchase date and initialises stock to full volume on first check.
 // For bundles, initialises each consumable component. Safe to call repeatedly —
@@ -333,7 +333,7 @@ export function renderInventory() {
     const uid = nextUid();
     const meta = state.inventoryState[slug] ?? {};
     const isEquip = EQUIPMENT_SLUGS.has(slug);
-    const safeSlug = escAttr(slug);
+    const slugArg = jsArg(slug);
     const name = escHtml(catalogItem.name);
 
     if (isEquip) {
@@ -357,7 +357,7 @@ export function renderInventory() {
                 <input class="inv-adjust-input" type="date" id="inv-date-${uid}" value="${dateVal}">
               </div>
               <div class="inv-adjust-actions">
-                <button class="settings-save-btn" onclick="saveInvEquipDate('${safeSlug}', '${uid}')">Update</button>
+                <button class="settings-save-btn" onclick="saveInvEquipDate(${slugArg}, '${uid}')">Update</button>
               </div>
             </div>
           </div>`;
@@ -412,8 +412,8 @@ export function renderInventory() {
               <input class="inv-adjust-input" type="number" id="inv-remain-${uid}" value="${remVal}" min="0" placeholder="e.g. 375">
             </div>
             <div class="inv-adjust-actions">
-              <button class="settings-save-btn" onclick="saveInvAdjust('${safeSlug}', '${uid}')">Update</button>
-              <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="markItemEmpty('${safeSlug}')">Mark empty</button>
+              <button class="settings-save-btn" onclick="saveInvAdjust(${slugArg}, '${uid}')">Update</button>
+              <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="markItemEmpty(${slugArg})">Mark empty</button>
             </div>
           </div>
         </div>`;
@@ -424,7 +424,7 @@ export function renderInventory() {
   function renderComponentCard(comp, bundleSlug, stateKey) {
     const compKey = stateKey ?? comp.slug ?? `${bundleSlug}:${comp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
     const uid = nextUid();
-    const safeKey = escAttr(compKey);
+    const keyArg = jsArg(compKey);
     const name = escHtml(comp.name);
     const isEquip = comp.equipment ?? EQUIPMENT_SLUGS.has(comp.slug ?? '');
 
@@ -456,7 +456,7 @@ export function renderInventory() {
                 <input class="inv-adjust-input" type="date" id="inv-date-${uid}" value="${dateVal}">
               </div>
               <div class="inv-adjust-actions">
-                <button class="settings-save-btn" onclick="saveInvEquipDate('${safeKey}', '${uid}')">Update</button>
+                <button class="settings-save-btn" onclick="saveInvEquipDate(${keyArg}, '${uid}')">Update</button>
               </div>
             </div>
           </div>`;
@@ -511,8 +511,8 @@ export function renderInventory() {
               <input class="inv-adjust-input" type="number" id="inv-remain-${uid}" value="${remVal}" min="0" placeholder="e.g. 375">
             </div>
             <div class="inv-adjust-actions">
-              <button class="settings-save-btn" onclick="saveInvAdjust('${safeKey}', '${uid}')">Update</button>
-              <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="markItemEmpty('${safeKey}')">Mark empty</button>
+              <button class="settings-save-btn" onclick="saveInvAdjust(${keyArg}, '${uid}')">Update</button>
+              <button class="settings-reset-btn" style="color:var(--danger);border-color:var(--danger);" onclick="markItemEmpty(${keyArg})">Mark empty</button>
             </div>
           </div>
         </div>`;

@@ -15,6 +15,7 @@
     "scrape:autobarn": "node --import tsx/esm src/scrapers/run-autobarn.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "lint": "cd .. && eslint -c backend/eslint.config.js .",
     "format": "cd .. && prettier --write .",
     "format:check": "cd .. && prettier --check .",

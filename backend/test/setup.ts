@@ -3,7 +3,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const dir = mkdtempSync(join(tmpdir(), 'corolla-test-'));
+// Inside the run's directory from global-setup.ts, which deletes it afterwards.
+const dir = mkdtempSync(join(process.env.COROLLA_TEST_DIR ?? tmpdir(), 'db-'));
 process.env.TURSO_URL = `file:${join(dir, 'test.sqlite').replace(/\\/g, '/')}`;
 delete process.env.TURSO_TOKEN;
 

@@ -8,6 +8,8 @@ import {
   packComponents,
   deletedProducts,
   isRetailer,
+  isRetailerUrl,
+  RETAILER_HOSTS,
   type Retailer,
 } from '../db/schema.js';
 import { sessionMiddleware, requireAdmin, type AppEnv } from '../lib/auth.js';
@@ -158,6 +160,9 @@ router.post('/products', sessionMiddleware, requireAdmin, async (c) => {
   if (retailer && (!url || !url.startsWith('http'))) {
     return c.json({ error: 'URL required when retailer is specified' }, 400);
   }
+  if (retailer && url && !isRetailerUrl(retailer as Retailer, url)) {
+    return c.json({ error: `The URL must be a page on ${RETAILER_HOSTS[retailer as Retailer]}` }, 400);
+  }
 
   const existing = await db.select({ id: products.id }).from(products).where(eq(products.slug, slug)).limit(1);
   if (existing.length) return c.json({ error: 'A product with that slug already exists' }, 409);
@@ -193,6 +198,9 @@ router.put('/products/:id/url', sessionMiddleware, requireAdmin, async (c) => {
   }
   if (!url || typeof url !== 'string' || !url.startsWith('http')) {
     return c.json({ error: 'Valid URL required' }, 400);
+  }
+  if (!isRetailerUrl(retailer, url)) {
+    return c.json({ error: `The URL must be a page on ${RETAILER_HOSTS[retailer]}` }, 400);
   }
 
   const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);

@@ -1,4 +1,5 @@
 import { createClient } from '@libsql/client';
+import { isRetailer, isRetailerUrl, RETAILER_HOSTS } from './schema.js';
 
 export const RETIRED_RETAILERS = ['repco', 'autopro', 'bowdens'] as const;
 
@@ -166,6 +167,16 @@ export async function initDb() {
       args: [...RETIRED_RETAILERS],
     });
     if (res.rowsAffected) console.log(`Removed ${res.rowsAffected} ${table} rows for retired retailers.`);
+  }
+
+  // URLs on the wrong retailer's site never get a price (see isRetailerUrl in schema.ts). The
+  // product routes reject them now; this clears any saved before that.
+  const { rows: urlRows } = await client.execute('SELECT id, retailer, url FROM retailer_urls');
+  for (const { id, retailer, url } of urlRows) {
+    if (isRetailer(retailer) && !isRetailerUrl(retailer, String(url))) {
+      await client.execute({ sql: 'DELETE FROM retailer_urls WHERE id = ?', args: [id] });
+      console.log(`Removed a ${retailer} URL that isn't on ${RETAILER_HOSTS[retailer]}: ${url}`);
+    }
   }
 
   await client.close();

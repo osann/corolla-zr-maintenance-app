@@ -1,7 +1,7 @@
 import { beforeAll, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '../src/db/connection.js';
-import { products, retailerUrls, deletedProducts } from '../src/db/schema.js';
+import { products, retailerUrls, deletedProducts, isRetailerUrl } from '../src/db/schema.js';
 import { createClient } from '@libsql/client';
 import { initDb, RETIRED_RETAILERS } from '../src/db/init.js';
 import { seed, seedPacks } from '../src/db/seed.js';
@@ -55,6 +55,26 @@ it('initDb removes URLs and price history for retired retailers', async () => {
   expect(await count('price_history')).toBe(0);
   expect((await db.select().from(retailerUrls)).length).toBeGreaterThan(20); // active retailers untouched
   client.close();
+});
+
+it('seeds every URL on its own retailer’s site', async () => {
+  const wrong = (await db.select().from(retailerUrls)).filter((row) => !isRetailerUrl(row.retailer, row.url));
+  expect(wrong).toEqual([]);
+});
+
+// Production cleanup: two Auto Barn URLs had been saved as Supercheap ones and never got a price.
+it('initDb removes URLs on the wrong retailer’s site', async () => {
+  const [p] = await db.select().from(products).where(eq(products.slug, 'foursome-brush-set'));
+  const autobarnPage = 'https://autobarn.com.au/ab/p/CC07299?queryID=abc&indexUsed=autobarnProductIndex';
+  await db.insert(retailerUrls).values({ productId: p.id, retailer: 'supercheap', url: autobarnPage });
+  const before = (await db.select().from(retailerUrls)).length;
+
+  await initDb();
+
+  const after = await db.select().from(retailerUrls);
+  expect(after.length).toBe(before - 1);
+  expect(after.some((row) => row.url === autobarnPage)).toBe(false);
+  expect(after.some((row) => row.productId === p.id && row.retailer === 'autobarn')).toBe(true);
 });
 
 it('is idempotent', async () => {

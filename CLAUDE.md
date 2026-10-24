@@ -12,8 +12,9 @@ Tabs (`index.html`):
 - **maintenance** — mechanical maintenance. Sub-tabs: Upcoming, Schedule, History, Configuration.
 - **inventory** — Sub-tabs: Inventory (stock + depletion), Checklist (kit purchase phases), Prices (read-only price sheet + alerts), Products (admin only: product identity, retailer URLs, categories, packs — never shows prices).
 - **guide** — per-product technique reference (mostly static HTML).
-- **refs** — external links.
 - **settings** — users (admin only), display prefs, vehicle details (postcode, odometer), notifications (TickTick + email), categories (admin only), data management. Most sections are hidden when signed out.
+
+Signed out, only routine (without its sub-tabs), guide and settings show; `renderAuthUI()` hides the rest.
 
 ## Layout
 
@@ -21,14 +22,15 @@ Tabs (`index.html`):
 index.html, styles.css, CNAME, js/     # frontend — the only files deployed to GitHub Pages (js/ = ES modules)
 cloudflare/api-proxy-worker.js          # reference copy of the /api proxy Worker (NOT auto-deployed)
 backend/src/
-  index.ts            # Hono server + node-cron (07:00 wash reminder, 08:00 digest — UTC)
+  index.ts            # Hono server + node-cron (07:00 wash reminder, 08:00 digest + stale-price check — UTC)
   db/                 # schema.ts, init.ts (tables + migration-safe ALTERs), seed.ts (catalogue), connection.ts
   routes/             # products, prices, alerts, auth (+ sync), admin (users + invites), weather, photos, ticktick
   scrapers/           # supercheap, autobarn, fetch-scraper (shared), entry points below
   lib/                # auth (sessions, admin), email (Resend + notification recipients), notifications (cron jobs), ticktick, r2, browser, sale-detector
-backend/test/          # Vitest smoke tests (seed, price ingestion, product routes, access control, per-user notifications)
+backend/test/          # Vitest: backend smoke tests, plus frontend checks that need no browser (inline handlers, reminder matching)
+backend/test/e2e/      # browser smoke tests: harness.ts runs the real backend + frontend in headless Chromium
 .github/workflows/
-  ci.yml                         # typecheck, lint, format check, tests
+  ci.yml                         # typecheck, lint, format check, tests, browser smoke tests
   deploy.yml                     # Pages deploy; injects BACKEND_URL + build date into js/config.js, versions module URLs
   scrape.yml                     # daily Supercheap → run-and-push.ts
   scrape-supercheap-tuesday.yml  # Super Saver Tuesday sale window → run-and-push.ts
@@ -48,9 +50,10 @@ npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint over backend, frontend and the Worker (runs from the repo root)
 npm run format       # Prettier (JS/TS/CSS only — HTML/Markdown/YAML/JSON are hand-formatted)
 npm test             # Vitest, each file against a throwaway SQLite DB
+npm run test:e2e     # browser smoke tests (~15 s): every tab signed out / member / admin, reminders, backup round trip
 ```
 
-Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.yml` runs typecheck, lint, format:check and tests on every push and PR — keep them green. All dev tooling lives in `backend/package.json`; there's no root package. Every scrape workflow runs `npm ci`, so **any dependency change must update `backend/package-lock.json`** or the scrapers break.
+Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.yml` runs typecheck, lint, format:check, tests and the browser smoke tests on every push and PR — keep them green. Frontend modules can be imported straight into a Vitest test (`../../js/…`) as long as `window` is stubbed first (`js/storage.js` reads it at import); see `test/reminder-matching.test.ts`. The browser tests run in Sydney time, and `openApp(app, { now })` fixes the clock. All dev tooling lives in `backend/package.json`; there's no root package. Every scrape workflow runs `npm ci`, so **any dependency change must update `backend/package-lock.json`** or the scrapers break.
 
 ## Hosting
 
@@ -75,7 +78,7 @@ GitHub secrets: `BACKEND_URL` (= `https://corolla.jhosan.top`, i.e. through the 
 Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 
 - `products` — `id, name (unique), slug (unique), phase, is_pack, default_volume_ml, default_usage_per_wash_ml, created_at`. Phase 0 = priced but not in the default checklist. The two `default_*` columns are nullable overrides of the frontend's `INVENTORY_DEFAULTS`.
-- `retailer_urls` — one row per product per retailer, full URL.
+- `retailer_urls` — one row per product per retailer, full HTTPS URL on that retailer's own site (`isRetailerUrl()`, `RETAILER_HOSTS` in `schema.ts`). The product routes reject anything else, and `initDb()` deletes any such row on boot, because a scraper can't read another retailer's pages.
 - `price_history` — append-only `product_id, retailer, price_cents, on_sale, observed_at`.
 - `pack_components` — components of a pack product. `component_product_id` null = free-text component placed by `section_category`/`section_label`. Packs can't contain packs.
 - `deleted_products` — tombstones by slug so `seed()` never resurrects a product deleted in the UI. `POST /api/products` clears a matching tombstone.
@@ -87,6 +90,7 @@ Rules:
 - **Catalogue writes are admin-only.** The admin is whoever signs in as `OWNER_EMAIL` (`isAdminEmail()` in `lib/auth.ts`; it isn't stored in the DB). Any route that changes products, retailer URLs or packs goes behind `sessionMiddleware, requireAdmin`. `sessionMiddleware` alone only identifies the caller; it never rejects anyone.
 - **Deletes are explicit.** `foreign_keys` is never enabled on libSQL, so `ON DELETE CASCADE` isn't relied on: handlers delete `pack_components` → `price_history` → `retailer_urls` → `products` themselves. Do the same in any new delete path.
 - **`seed()` must stay crash-proof.** It looks up by slug, then by name, then inserts, and skips tombstoned slugs. Startup runs it on every Render boot.
+- **`seed.ts` URLs win.** `seed()` upserts every seeded product's retailer URLs on each boot, so a URL for a seeded product fixed in the Products tab reverts on the next deploy unless `seed.ts` is fixed too. Removing a URL from `seed.ts` doesn't delete it from the DB.
 - To add a catalogue product: add it to `CATALOG` in `js/data.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work.
 - Deleting a built-in product removes backend price tracking only; it stays in the static `CATALOG`, default phases, and routines.
 
@@ -98,7 +102,9 @@ Rules:
 | Auto Barn | Self-hosted runner | `run-autobarn.ts` | Blocks all cloud IPs. Pushes in batches of 10. Don't re-enable `playwrightFallback`. If its runs show "cancelled", the runner on `debian-server` is offline (GitHub cancels jobs no runner picks up within 24 h). |
 
 - **Repco, Autopro and Bowden's Own are retired**: they're bot-blocked, and their code, URLs and price history were removed on 2026-10-21. [docs/blocked-retailers.md](docs/blocked-retailers.md) has the selectors, how to check whether a block has lifted, an archive of every URL, and restore steps. `initDb()` deletes any rows for `RETIRED_RETAILERS` on every boot, and `POST /api/prices` skips them. Don't add URLs for them.
-- The accepted retailers live in one list, `RETAILERS` in `backend/src/db/schema.ts`. The frontend mirrors it in `SCRAPED_RETAILERS`/`RETAILER_NAMES` (`js/data.js`).
+- The accepted retailers live in one list, `RETAILERS` in `backend/src/db/schema.ts`, with each one's site in `RETAILER_HOSTS` next to it. The frontend mirrors it in `SCRAPED_RETAILERS`/`RETAILER_NAMES` (`js/data.js`).
+- **Stale prices are flagged.** The 08:00 UTC `runStalePriceCheck()` emails the admin daily while any retailer with URLs has had no price for `STALE_PRICE_DAYS` (3). The Prices tab marks each retailer price that old with a ⚠ whose tooltip gives its age. The Products tab marks those too, plus URLs that have never produced a price, which usually means a broken URL. The constant is mirrored in `js/data.js`.
+- To look for a missing URL, both sites' search pages are server-rendered and work from a home connection: `supercheapauto.com.au/search?q=…` and `autobarn.com.au/ab/search/?text=…`. Check a candidate with the real scraper's `scrapeToArray()` before adding it (see docs/scraper-learnings.md).
 - The ephemeral runners (Actions + self-hosted) have no Turso credentials. They get the product/URL list from the live API via `fetchRowsFromBackend()` and POST results to `POST /api/prices` (Bearer `SCRAPE_SECRET`). Their local SQLite is schema-only, so the workflows run `db/init.ts` and **no seed**.
 - Ingestion matches observations to products by **slug**.
 - Playwright: no named functions inside `page.evaluate()`; use `waitUntil: 'domcontentloaded'`; never select `[itemprop="price"]`. More in docs/scraper-learnings.md.
@@ -119,7 +125,8 @@ Modules:
 Rules:
 - **Shared state lives on `state` (`js/state.js`)**, accessed as `state.routines`, `state.settings` and so on. Importers can't reassign an imported binding, so any module-level variable that gets reassigned belongs on `state`. Constants stay as plain exports.
 - **Nothing runs at import time** except constant initialisers that read only `config`/`data`/`state`. DOM wiring goes in a `setup*()` function called from `main.js` before `init()`. Feature modules import each other in cycles, which is only safe because of this rule.
-- **Inline handlers need `window`.** Rendered HTML uses `onclick="fn(...)"`, which resolves against `window`, not module scope. Any function called from an `on*=` attribute (in `index.html` or a template string) must be added to the `Object.assign(window, { … })` list in `main.js`. A missing entry fails silently until the button is clicked; ESLint can't catch it.
+- **Inline handlers need `window`.** Rendered HTML uses `onclick="fn(...)"`, which resolves against `window`, not module scope. Any function called from an `on*=` attribute (in `index.html` or a template string) must be added to the `Object.assign(window, { … })` list in `main.js`, and nothing else belongs in that list. A missing entry fails silently until the button is clicked. ESLint can't see this, but `test/inline-handlers.test.ts` checks the list both ways.
+- **Text arguments in inline handlers go through `jsArg()`**, written `onclick="fn(${jsArg(name)})"` with no quotes around it. `'${escAttr(x)}'` breaks on an apostrophe, because the browser decodes `&#39;` before the handler runs. The same test rejects `escAttr(` inside a handler. Slugs, numeric ids and fixed words can be interpolated directly.
 
 Conventions:
 - All persistence via `storageGet(key)` / `storageSet(key, val)`; signed-in writes also `syncPush(key, val)`.
@@ -179,7 +186,9 @@ Bump the version suffix on breaking shape changes; `load*()` functions migrate f
 
 - `routines[]` is the source of truth; `saveRoutines()` re-renders the view, config cards, log routine select and schedules.
 - Log step chips come from the selected routine's steps (`renderStepChipsForRoutine`).
-- `entryMatchesSchedule(entry, schedule)` matches by routine id, or by legacy type against the routine's `types`. The backend mirrors this in `routineMatchesLog()` (`lib/notifications.ts`); keep them in sync.
+- `entryMatchesSchedule(entry, schedule)` matches by routine id, or by legacy type against the routine's `types`. A routine with no `types` matches only its own entries. The backend mirrors this in `routineMatchesLog()` (`lib/notifications.ts`). Keep them in sync: `test/reminder-matching.test.ts` runs both over every combination.
+- A routine that's never been logged has no due date: its card says "No sessions logged yet", and the cron sends nothing for it. With no schedules at all there are no cards, but the cron falls back to a reminder 14 days after the last session of any kind (the UI copy says so).
+- Day counts between local midnights use `Math.round`, not `Math.ceil`, because a DST change makes the gap an hour short or long.
 - Streaks hold when it's raining today; reminder cards show the best dry day when rain is forecast within 2 days of the due date.
 - CSV format (routines): `row_type` first; `routine` rows followed by their `step`/`alert` rows. Import appends with fresh ids.
 
@@ -221,14 +230,15 @@ Channels are TickTick (OAuth, per user; tokens in that user's `user_data` under 
 Triggers:
 1. **Sale alert:** the product transitions to on-sale during `POST /api/prices`.
 2. **Threshold alert:** the price crosses at or below the product's threshold during `POST /api/prices`.
-3. **Wash reminder:** 07:00 UTC cron, per `settings.schedules`.
+3. **Wash reminder:** 07:00 UTC cron, per `settings.schedules`. It repeats every morning while a routine stays overdue.
 4. **Daily digest:** 08:00 UTC cron, email only, sent only when there's something to report.
+5. **Stale prices:** 08:00 UTC cron, email to the admin (`OWNER_EMAIL`) only, every day while a retailer has had no new price for 3 days (see Scrapers).
 
-All of them go to each user separately, using that user's own settings, thresholds and TickTick connection. `getNotificationRecipients()` (`lib/email.ts`) returns every user who has signed in at least once (`joined_at` set); pending invites get nothing. The two cron jobs live in `lib/notifications.ts` (`runWashReminders`, `runDailyDigest`). They catch errors per user, and `index.ts` adds a `.catch` because an unhandled rejection would crash Node.
+Triggers 1–4 go to each user separately, using that user's own settings, thresholds and TickTick connection. `getNotificationRecipients()` (`lib/email.ts`) returns every user who has signed in at least once (`joined_at` set); pending invites get nothing. The cron jobs live in `lib/notifications.ts` (`runWashReminders`, `runDailyDigest`, `runStalePriceCheck`). The per-user ones catch errors per user, and `index.ts` adds a `.catch` to each because an unhandled rejection would crash Node.
 
 Testing:
 - **Price alert:** POST a below-average or compare-at price for a product whose previous row wasn't on sale.
-- **Cron:** temporarily set the schedule to `* * * * *`, deploy, wait a minute, revert.
+- **Cron:** temporarily set the schedule to `* * * * *`, deploy, wait a minute, revert. The jobs themselves are covered by `test/notifications.test.ts` and `test/stale-prices.test.ts`, with email mocked.
 
 ## Weather
 

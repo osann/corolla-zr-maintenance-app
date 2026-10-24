@@ -2,13 +2,35 @@
 import { rebuildBundleComponents } from './catalog.js';
 import { recompute, renderChecklist } from './checklist.js';
 import { ALERTS_KEY, BACKEND_URL } from './config.js';
-import { RETAILER_NAMES } from './data.js';
+import { RETAILER_NAMES, STALE_PRICE_DAYS } from './data.js';
 import { renderInventory } from './inventory.js';
 import { renderProductsPage } from './products.js';
 import { applyPrefs } from './settings.js';
 import { state } from './state.js';
 import { storageGet, storageSet, syncPush } from './storage.js';
 import { escAttr } from './util.js';
+
+// Why a retailer's price for this product may be out of date, or '' while it's current: it hasn't
+// updated for STALE_PRICE_DAYS or more, or there's a URL for that retailer that has never produced
+// a price. observedAt is SQLite's CURRENT_TIMESTAMP (UTC, 'YYYY-MM-DD HH:MM:SS').
+export function stalePriceWarning(product, retailer, now = Date.now()) {
+  const name = RETAILER_NAMES[retailer] || retailer;
+  const observedAt = product.latestPrice?.[retailer]?.observedAt;
+  if (!observedAt) return product.urls?.[retailer] ? `No ${name} price recorded yet` : '';
+  const observed = Date.parse(`${observedAt.replace(' ', 'T')}Z`);
+  if (Number.isNaN(observed)) return '';
+  const days = Math.floor((now - observed) / 86400000);
+  if (days < STALE_PRICE_DAYS) return '';
+  const date = new Date(observed).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${name} price not updated for ${days} days (last updated ${date})`;
+}
+
+// The ⚠ shown next to a stale price; hovering it gives the reason.
+export function stalePriceMarker(warning) {
+  return warning
+    ? `<span class="price-stale" title="${escAttr(warning)}" aria-label="${escAttr(warning)}">⚠</span>`
+    : '';
+}
 
 // Pure read-only price display — category-grouped price rows, sparklines, sale badges, buy
 // links, and the price-alert bell. Product identity/management (rename, slug, retailer URLs,
@@ -39,6 +61,7 @@ export function renderPricesTab() {
       for (const [retailer, data] of retailers) {
         const price = `$${(data.priceCents / 100).toFixed(2)}`;
         const saleTag = data.onSale ? '<span class="price-on-sale">🔥 Sale</span>' : '';
+        const staleTag = stalePriceMarker(stalePriceWarning(product, retailer));
         const retailerName = RETAILER_NAMES[retailer] || retailer;
         const url = product.urls?.[retailer] || null;
         const linkEl = url
@@ -56,7 +79,7 @@ export function renderPricesTab() {
             <div class="prices-retailer-row${cheapestClass}">
               <span class="prices-retailer-name">${retailerName}</span>
               <div class="price-row-right">
-                <div class="price-row-amount">${price}${saleTag}</div>
+                <div class="price-row-amount">${price}${saleTag}${staleTag}</div>
                 ${sparkline}
               </div>
               ${linkEl}

@@ -784,7 +784,7 @@
     <!-- ── Schedules sub-panel ── -->
     <div class="routine-sub-panel" id="routine-sub-schedules">
       <div class="settings-section">
-        <div class="settings-section-desc">Set how often each routine should run. A reminder card appears at the top of the wash log for each scheduled routine.</div>
+        <div class="settings-section-desc">Set how often each routine should run. A reminder card appears at the top of the wash log for each scheduled routine, and the TickTick and email wash reminders in Settings follow the same schedules. A routine counts as done only when you log a session of it. With no schedules set, those reminders fall back to 14 days after your last session.</div>
         <div id="schedule-list"></div>
         <div style="margin-top:12px;">
           <button class="settings-reset-btn" onclick="addScheduleEntry()">+ Add schedule</button>
@@ -1266,7 +1266,7 @@
       <div class="settings-row">
         <div class="settings-row-label">
           <strong>Wash reminders</strong>
-          <span>Create a task when a wash is overdue</span>
+          <span>Create a task when a scheduled routine is overdue</span>
         </div>
         <div class="settings-control">
           <label class="toggle-wrap">
@@ -1294,7 +1294,7 @@
       <div class="settings-row">
         <div class="settings-row-label">
           <strong>Wash reminder</strong>
-          <span>Send a direct email when a wash is overdue</span>
+          <span>Send a direct email when a scheduled routine is overdue</span>
         </div>
         <div class="settings-control">
           <label class="toggle-wrap">

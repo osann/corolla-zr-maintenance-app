@@ -22,6 +22,9 @@ What blocked looked like on 2026-10-21:
 - **Autopro:** a 302 that sets `visid_incap_*` / `incap_ses_*` cookies, then a 403.
 - **Bowden's:** 403 or a Cloudflare JS challenge from cloud IPs.
 
+Check log, newest first:
+- **2026-10-24, from home:** Repco still 403 with `Cf-Mitigated: challenge`. Autopro still sets the `incap` cookies and then returns 403. **Bowden's Own returned 200 with real prices** (see its section below).
+
 ## Repco
 
 - **Blocked since:** about 2026-08-16, the last successful scrape. It was disabled in automation on 2026-08-27.
@@ -51,8 +54,12 @@ What blocked looked like on 2026-10-21:
 
 ## Bowden's Own
 
-- **Status:** never successfully scraped.
-- **Block:** GitHub Actions gets a Cloudflare JS challenge on page loads, and Render gets 403 on every request.
+- **Status:** never scraped. It's blocked from cloud IPs only, so it looks scrapeable from the home runner (2026-10-24).
+- **Block:** GitHub Actions gets a Cloudflare JS challenge on page loads, and Render gets 403 on every request. It was never tried from a home connection until 2026-10-24.
+- **From home (2026-10-24):** a plain `curl` with a browser user agent got 200 and a server-rendered price for 7 of 7 archived URLs, spaced a few seconds apart. The page loads Cloudflare's passive `challenge-platform` script, but nothing challenged.
+- **Platform and selector:** Neto (Maropost). The product's price is `.productprice [itemprop="price"]`, e.g. `<span itemprop="price">37.99</span>`. Don't take the first `itemprop="price"` on the page without that parent, because the related-product tiles below also use it, with a `$` in the text. For the same reason, `createFetchScraper()`'s first-`$` regex reads a tile's price (see scraper-learnings.md).
+- **Caveat, size variants:** a page such as `/boss-gloss` covers several sizes and shows the default one's price, so a 770 ml product can't just use the shared page. Check each URL's default variant, or find per-variant URLs, before trusting a price.
+- **To bring it back:** run it alongside Auto Barn on the self-hosted runner with a small fetch scraper, then follow "Restoring a retailer in general" below. It would cover many of the sizes Supercheap and Auto Barn don't stock (see tasks.md).
 - **May 2026 experiment:** an OzBargain-RSS "sale detector" (`scrapers/export-prices.ts`) was tried and later deleted. It matched deal titles against product keywords and couldn't give actual prices.
 - **URLs:** the 20 archived `bowdens` URLs are short product-page links like `https://www.bowdensown.com.au/bead-machine`. They were never scraped, but they did show up as Buy links.
 
@@ -61,6 +68,8 @@ What blocked looked like on 2026-10-21:
 1. Take it out of `RETIRED_RETAILERS` in `backend/src/db/init.ts`, or every boot will delete its rows again.
 2. Add it back to:
    - `RETAILERS` in `backend/src/db/schema.ts`. That one list drives the Drizzle enum, the product/URL route checks, and which retailers `POST /api/prices` accepts.
+   - `RETAILER_HOSTS` next to it, the site its URLs must be on. Without it, the routes reject every URL and `initDb()` deletes them.
+   - `STALE_HINTS` in `backend/src/lib/notifications.ts`: where to look when its prices stop. TypeScript requires both of these once the retailer is in `RETAILERS`.
    - `RETAILER_DISPLAY` in `backend/src/lib/email.ts`
    - `SCRAPED_RETAILERS` in `js/data.js`
    - `RETAILER_NAMES` in `js/data.js`

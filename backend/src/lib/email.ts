@@ -47,7 +47,7 @@ export interface DigestThresholdItem {
   thresholdCents: number;
 }
 
-const RETAILER_DISPLAY: Record<string, string> = {
+export const RETAILER_DISPLAY: Record<string, string> = {
   autobarn: 'Auto Barn',
   supercheap: 'Supercheap Auto',
 };

@@ -36,6 +36,7 @@ npm run db:init && npm run seed
 npm run dev          # http://localhost:3000, SQLite at backend/db.sqlite
 npm run typecheck    # tsc --noEmit
 npm test             # Vitest smoke tests
+npm run test:e2e     # browser smoke tests (headless Chromium, the real backend + frontend)
 ```
 
 Environment variables are listed in [CLAUDE.md](CLAUDE.md#environment-variables).

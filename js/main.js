@@ -124,7 +124,6 @@ import {
   addScheduleEntry,
   goToRoutine,
   removeScheduleEntry,
-  renderWashReminderCards,
   sendWashReminderToTickTick,
   updateScheduleField,
 } from './schedules.js';
@@ -229,7 +228,6 @@ Object.assign(window, {
   removeScheduleEntry,
   removeStepProduct,
   removeUser,
-  renderWashReminderCards,
   requestMagicLink,
   requestSlugRename,
   resendInvite,

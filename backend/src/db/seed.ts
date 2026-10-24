@@ -417,9 +417,10 @@ const EXTRA_ITEMS: Item[] = [
     name: 'Microfibre Bucket With Lid',
     slug: 'microfibre-bucket-lid',
     phase: 0,
-    autobarnSku: 'CC07388',
+    // The old CC07388 listing 404s since mid-2026; 141809 is the same bucket.
+    autobarnSku: '141809',
     autobarnUrl:
-      'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Microfiber-Bucket-With-Lid---BOBMICRO/p/CC07388',
+      'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Microfibre-Bucket/p/141809',
     supercheapUrl: null,
   },
   {
@@ -463,7 +464,9 @@ const EXTRA_ITEMS: Item[] = [
     slug: 'boss-gloss-pack',
     phase: 0,
     autobarnSku: 'CC06449',
-    supercheapUrl: null,
+    autobarnUrl:
+      'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Boss-Gloss-Pack/p/CC06449',
+    supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-boss-gloss-pack/SPO7219105.html',
   },
   {
     name: 'Happy Ending Foam 5L',

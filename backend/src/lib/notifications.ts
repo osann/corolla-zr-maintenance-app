@@ -1,25 +1,29 @@
-// The two scheduled jobs (wash reminders at 07:00 UTC, the price digest at 08:00 UTC), run for every
-// user who has signed in at least once. index.ts schedules them; each user is handled separately so
-// one failure doesn't stop the rest.
+// The scheduled jobs. Wash reminders (07:00 UTC) and the price digest (08:00 UTC) run for every user
+// who has signed in at least once, each user handled separately so one failure doesn't stop the
+// rest. The stale-price check (08:00 UTC) emails only the admin. index.ts schedules them.
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
-import { userData, products, priceHistory } from '../db/schema.js';
+import { userData, products, priceHistory, isRetailer, type Retailer } from '../db/schema.js';
 import {
   getNotificationRecipients,
   sendDirectEmail,
   sendDigestEmail,
+  RETAILER_DISPLAY,
   type DigestThresholdItem,
   type NotificationRecipient,
 } from './email.js';
 import { createTickTickTask } from './ticktick.js';
 
-// Mirrors entryMatchesSchedule() in js/schedules.js — keep them in sync.
+// Whether a wash log entry counts as a session of this routine: one logged against the routine
+// itself, or a legacy entry (full/quick/interior/both) of a type the routine declares. A routine
+// with no types only matches its own entries. Mirrors entryMatchesSchedule() in js/schedules.js;
+// test/reminder-matching.test.ts runs both over the same cases.
 export function routineMatchesLog(types: string[], logType: string, routineId: string): boolean {
   if (logType === routineId) return true;
   if (types.includes('exterior') && ['full', 'quick', 'both'].includes(logType)) return true;
   if (types.includes('interior') && ['interior', 'both'].includes(logType)) return true;
   if (types.includes('maintenance') && ['full', 'both'].includes(logType)) return true;
-  return types.length === 0;
+  return false;
 }
 
 async function readUserJson(userId: number, key: string): Promise<unknown> {
@@ -103,7 +107,7 @@ async function sendWashReminders({ userId, email, settings: notif }: Notificatio
 
       const lastDate = new Date(relevant[0].date);
       const dueDate = new Date(lastDate);
-      dueDate.setDate(dueDate.getDate() + intervalDays);
+      dueDate.setUTCDate(dueDate.getUTCDate() + intervalDays);
 
       if (todayUtc < dueDate) continue;
 
@@ -124,7 +128,7 @@ async function sendWashReminders({ userId, email, settings: notif }: Notificatio
     const lastDate = new Date([...washLog].sort((a, b) => b.date.localeCompare(a.date))[0].date);
     const intervalDays = 14;
     const dueDate = new Date(lastDate);
-    dueDate.setDate(dueDate.getDate() + intervalDays);
+    dueDate.setUTCDate(dueDate.getUTCDate() + intervalDays);
 
     if (todayUtc < dueDate) return;
 
@@ -202,4 +206,65 @@ export async function runDailyDigest(): Promise<void> {
       console.error(`Digest error for user ${userId}:`, err);
     }
   }
+}
+
+// A retailer counts as stale once its newest price is this many days old. Both scrapers run daily,
+// so this allows for a couple of failed runs. js/data.js mirrors it for the Prices tab markers.
+export const STALE_PRICE_DAYS = 3;
+
+// Where to look when a retailer's prices stop. Auto Barn's runner going offline went unnoticed
+// for a month in 2026 (see docs/decisions.md).
+const STALE_HINTS: Record<Retailer, string> = {
+  supercheap: 'Supercheap is scraped by GitHub Actions (scrape.yml). Check its recent runs for failures.',
+  autobarn:
+    'Auto Barn is scraped by the self-hosted runner on debian-server. If its runs in GitHub Actions show "cancelled", the runner is offline.',
+};
+
+export interface StaleRetailer {
+  retailer: Retailer;
+  lastObservedAt: string | null; // SQLite UTC timestamp, null if it has never had a price
+}
+
+// Retailers with at least one product URL whose newest price is older than STALE_PRICE_DAYS, or
+// that have never had one.
+export async function findStaleRetailers(): Promise<StaleRetailer[]> {
+  const rows = await db.all<{ retailer: string; last_observed_at: string | null }>(sql`
+    SELECT retailer, last_observed_at FROM (
+      SELECT r.retailer,
+        (SELECT MAX(ph.observed_at) FROM price_history ph WHERE ph.retailer = r.retailer) AS last_observed_at
+      FROM (SELECT DISTINCT retailer FROM retailer_urls) r
+    )
+    WHERE last_observed_at IS NULL OR last_observed_at < datetime('now', ${`-${STALE_PRICE_DAYS} days`})
+    ORDER BY retailer
+  `);
+  return rows
+    .filter((row) => isRetailer(row.retailer))
+    .map((row) => ({ retailer: row.retailer as Retailer, lastObservedAt: row.last_observed_at }));
+}
+
+// Emails the admin (OWNER_EMAIL) when any retailer has stopped getting prices, every day until it
+// recovers. Nothing is sent while prices are current.
+export async function runStalePriceCheck(): Promise<void> {
+  const stale = await findStaleRetailers();
+  if (stale.length === 0) return;
+
+  const owner = process.env.OWNER_EMAIL;
+  const names = stale.map((s) => RETAILER_DISPLAY[s.retailer] ?? s.retailer);
+  if (!owner) {
+    console.error(`Prices are stale for ${names.join(', ')}, but OWNER_EMAIL is not set, so nobody was told.`);
+    return;
+  }
+
+  const paragraphs = stale.map(({ retailer, lastObservedAt }, i) => {
+    let status = `${names[i]} has product URLs but has never had a price.`;
+    if (lastObservedAt) {
+      const days = Math.floor((Date.now() - Date.parse(`${lastObservedAt.replace(' ', 'T')}Z`)) / 86_400_000);
+      status = `No new ${names[i]} prices since ${lastObservedAt.slice(0, 10)} (${days} days).`;
+    }
+    return `${status}\n${STALE_HINTS[retailer]}`;
+  });
+  const body = `${paragraphs.join('\n\n')}\n\nThis email repeats each day until prices update.`;
+
+  await sendDirectEmail(owner, `⚠️ Prices not updating: ${names.join(', ')}`, body);
+  console.log(`Stale-price alert sent — ${names.join(', ')}`);
 }

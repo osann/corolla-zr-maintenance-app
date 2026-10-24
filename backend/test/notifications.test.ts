@@ -63,6 +63,19 @@ beforeAll(async () => {
     'corolla-routines-v1': routines,
     'corolla-washlog-v1': [{ date: daysAgo(0), type: 'r1' }],
   });
+  // Their scheduled routine has no types and is overdue. A session of a different routine
+  // yesterday doesn't count towards it.
+  await addUser('cal@example.com', true, {
+    'corolla-settings-v1': { notifications: { emailWashReminders: true }, schedules: weekly },
+    'corolla-routines-v1': [
+      { id: 'r1', name: 'Exterior detail', types: [] },
+      { id: 'r2', name: 'Interior tidy', types: [] },
+    ],
+    'corolla-washlog-v1': [
+      { date: daysAgo(30), type: 'r1' },
+      { date: daysAgo(1), type: 'r2' },
+    ],
+  });
   // Invited but never signed in: gets nothing, whatever their data says.
   await addUser('pending@example.com', false, {
     'corolla-settings-v1': { notifications: emailEverything, schedules: weekly },
@@ -119,6 +132,7 @@ describe('wash reminders', () => {
     await runWashReminders();
     expect(vi.mocked(sendDirectEmail).mock.calls).toEqual([
       ['ann@example.com', '🚗 Full wash due', expect.stringContaining('Overdue by')],
+      ['cal@example.com', '🚗 Exterior detail due', expect.stringContaining('Overdue by 23 days')],
     ]);
   });
 });

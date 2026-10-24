@@ -5,25 +5,24 @@ Backlog ranked by usefulness × feasibility. Each item is independently shippabl
 ## Open
 
 ### Wash reminders
-- ☐ **Wash-reminder matching differs between frontend and backend.** For a routine with no `types`, `routineMatchesLog()` (`backend/src/lib/notifications.ts`) counts every log entry as a match, but `entryMatchesSchedule()` (`js/schedules.js`) counts none (only entries logged against that routine's id). So a routine with no types can show as overdue in the app while the cron thinks another routine's session satisfied it, and no reminder is sent. Decide which is right and make the two agree. Found 2026-10-24; this predates the multi-user work.
+- ☐ **Overdue reminders repeat every morning.** The 07:00 UTC cron sends a new TickTick task (or email) each day a routine stays overdue, so a week's lapse leaves seven duplicate tasks. Send one when the routine falls due, then at most weekly, for example by remembering the last reminder per schedule on the server. Found 2026-10-24.
 
 ### Scraping health
-- ☐ **Alert on stale prices.** The Auto Barn runner was offline from 2026-09-19 to 2026-10-21 and nobody noticed for a month. Every daily run was silently cancelled. Add a check, for example in the 08:00 UTC digest cron, that flags any active retailer with no `price_history` rows in the last ~3 days. Also include a flag on the front end, displaying a warning over the product and when hovering over it states how long the products price hasnt been updated.
-- ☐ **Fill price-coverage gaps** left by retiring Repco, Autopro and Bowden's (as of 2026-10-21):
-  - `303-aerospace` has no remaining price source;
-  - 21 products have only one of Supercheap / Auto Barn.
-
-  Find the missing retailer URLs and add them via the Products tab.
-- ☐ Occasionally check whether Repco, Autopro or Bowden's Own have lifted their bot blocks (commands in [blocked-retailers.md](blocked-retailers.md)).
+- ☐ **Bring back Bowden's Own, from the home runner.** On 2026-10-24 bowdensown.com.au served real prices to a plain request from a home connection. It had only ever been tried from cloud IPs. It sells every size and pack, so it would close most of the gaps below. It needs:
+  - a small fetch scraper, run next to Auto Barn on `debian-server`;
+  - a URL per size, because the size-variant pages show the default size's price;
+  - the steps under "Restoring a retailer in general" in [blocked-retailers.md](blocked-retailers.md), which also has the selector.
+- ☐ **Remaining single-retailer products** (as of 2026-10-24). Each was searched for on both retailers, and the missing retailer doesn't stock that size or pack:
+  - **Supercheap only:** `wheely-clean-770ml`, `naked-glass-770ml`, `sweet-rubber-700-ml`, `orange-agent-cleaner-770ml`, `all-sort-applicator-1pk` (Auto Barn only has the 2-pack), `little-chubby-v2`, `karcher-k2`, and the packs `bowden-s-own-claying-rubber-pack-bofcrp`, `bowden-s-own-beautiful-beads-pack-bomachinep`, `nanolicious-shag-pack` and `the-essentials-starters-kit`.
+  - **Auto Barn only:** `wet-dreams-5l`, `happy-ending-5l`, `snow-job-5l`, `big-softie-blue`, `sweet-rubber-500ml`, `wipe-out-1l`, `naked-glass-500ml`, `wheely-clean-500ml`, `fabratection-500ml`, `foursome-brush-set`, `orange-agent-500ml`.
+  - **No source:** `303-aerospace` is the 473 ml bottle, which no tracked retailer sells. Auto Barn has the 946 ml (`CC00692`, $77.99 on 2026-10-24), and it could be added as its own product.
+- ☐ **`little-chubby-v2` looks like a duplicate of `the-chubby-wheel-brush`.** Its only URL, Supercheap `700985`, is titled "The Chubby Wheel Brush V2" and is also The Chubby's Supercheap URL. Bowden's own site has no Little Chubby. Delete it in the Products tab, and from `CATALOG` and `seed.ts`, if it isn't a real product.
+- ☐ Occasionally check whether Repco, Autopro or Bowden's Own have lifted their bot blocks. The commands and a log of past checks are in [blocked-retailers.md](blocked-retailers.md); the last check was 2026-10-24.
 
 ### 10. Community sharing
 Invite-only accounts exist now (2026-10). This is the next step if other people actually use them, and it's a significant rewrite.
 - ☐ Extract static product/technique data from HTML into JSON
 - ☐ Car model + starting kit templating, "use as template" fork flow, shared library
-
-### Architecture (optional)
-- ☐ Replace inline `on*=` handlers with delegated listeners, removing the `window` exposure list in `js/main.js`. A function missing from that list currently fails silently until its button is clicked.
-- ☐ Frontend tests: the headless smoke checks from the 2026-10 cleanup (every tab signed in/out, the inline-handler audit, backup round trip) only exist as throwaway scripts. Adding them to the repo and CI would catch regressions the backend tests can't.
 
 ## Done
 
@@ -53,3 +52,9 @@ Invite-only accounts exist now (2026-10). This is the next step if other people 
     - Categories are shared and admin-edited. Product renames reach every account.
     - Invite, resend and remove users from Settings → Users. Invites are 7-day magic links.
     - Admin-only UI is hidden from regular users, and switching accounts on a device clears the previous account's local data.
+13. **Reminders, scraping health and frontend tests (2026-10-24).**
+    - The app and the cron agree on which sessions count for a routine: one with no types counts only its own. A never-logged routine says so, and day counts are right across DST.
+    - The admin gets a daily email while a retailer has gone 3 days without a price. A ⚠ marks stale prices on the Prices tab, and stale or never-priced URLs on the Products tab.
+    - Price coverage pass: one URL was replaced and one added. A retailer URL must now be on that retailer's site, which removed two wrong ones. What's still missing is listed above.
+    - Frontend tests run in CI: a static inline-handler audit, plus headless browser smoke tests. Text arguments in inline handlers go through `jsArg()`.
+    - Replacing inline handlers with delegated listeners was assessed and declined ([decisions.md](decisions.md#frontend)).

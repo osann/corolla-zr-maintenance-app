@@ -1,7 +1,7 @@
 // Routine reminder schedules and wash reminder cards.
 import { BACKEND_URL } from './config.js';
 import { state } from './state.js';
-import { escAttr, escHtml } from './util.js';
+import { escAttr, escHtml, jsArg } from './util.js';
 import { evalWeatherTriggers } from './weather.js';
 
 // ── Wash schedule helpers ────────────────────────────────────────────────
@@ -11,8 +11,10 @@ export function scheduleIntervalDays({ intervalValue, intervalUnit }) {
   return (intervalValue || 1) * (mul[intervalUnit] || 7);
 }
 
-// Returns true for both new entries (e.type === routineId) and legacy entries
-// matched by the routine's declared types.
+// Returns true for both new entries (e.type === routineId) and legacy entries matched by the
+// routine's declared types; a routine with no types only matches its own entries. Mirrors
+// routineMatchesLog() in backend/src/lib/notifications.ts, and backend/test/reminder-matching.test.ts
+// runs both over the same cases.
 export function entryMatchesSchedule(entry, schedule) {
   if (entry.type === schedule.routineId) return true;
   const routine = state.routines.find((r) => r.id === schedule.routineId);
@@ -50,13 +52,15 @@ export function calcScheduleStreak(schedule, forecast) {
   return streak;
 }
 
+// Null when the routine has never been logged: there's nothing to count from, and the backend
+// sends no reminder for it either.
 export function calcRoutineNextDue(schedule) {
   const routine = state.routines.find((r) => r.id === schedule.routineId);
   if (!routine) return null;
   const relevant = state.washLog
     .filter((e) => entryMatchesSchedule(e, schedule))
     .sort((a, b) => b.date.localeCompare(a.date));
-  if (!relevant.length) return new Date();
+  if (!relevant.length) return null;
   const [y, m, d] = relevant[0].date.split('-').map(Number);
   return new Date(y, m - 1, d + scheduleIntervalDays(schedule));
 }
@@ -67,7 +71,7 @@ export function calcBestWashDay(dueDate, forecast) {
   if (!triggers.rainTomorrow) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  if (Math.ceil((dueDate - today) / 86400000) > 2) return null;
+  if (Math.round((dueDate - today) / 86400000) > 2) return null;
   return triggers.rainDay;
 }
 
@@ -86,7 +90,9 @@ export function renderWashReminderCards() {
     const routine = state.routines.find((r) => r.id === schedule.routineId);
     if (!routine) return;
     const nextDue = calcRoutineNextDue(schedule);
-    const daysUntil = nextDue ? Math.ceil((nextDue - today) / 86400000) : null;
+    // Both are local midnights, so the difference is whole days give or take a DST hour: round, not
+    // ceil, or a 23-day gap across a DST change comes out as 22.
+    const daysUntil = nextDue ? Math.round((nextDue - today) / 86400000) : null;
     const bestDay = state.weatherCache ? calcBestWashDay(nextDue, state.weatherCache) : null;
     const streak = calcScheduleStreak(schedule, state.weatherCache);
     let statusText,
@@ -116,8 +122,8 @@ export function renderWashReminderCards() {
             ${streak > 0 ? `<div class="reminder-streak">🔥 ${streak}-session streak</div>` : ''}
           </div>
           <div class="reminder-actions">
-            <button class="reminder-btn" onclick="goToRoutine('${escAttr(schedule.routineId)}')">View routine</button>
-            ${hasTickTick ? `<button class="reminder-btn reminder-btn--accent" onclick="sendWashReminderToTickTick('${escAttr(schedule.routineId)}','${escAttr(routine.name)}','${dueDateStr}',this)">Send to TickTick</button>` : ''}
+            <button class="reminder-btn" onclick="goToRoutine(${jsArg(schedule.routineId)})">View routine</button>
+            ${hasTickTick ? `<button class="reminder-btn reminder-btn--accent" onclick="sendWashReminderToTickTick(${jsArg(schedule.routineId)},${jsArg(routine.name)},${jsArg(dueDateStr)},this)">Send to TickTick</button>` : ''}
           </div>
         </div>
       `;
