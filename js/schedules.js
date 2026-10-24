@@ -11,8 +11,10 @@ export function scheduleIntervalDays({ intervalValue, intervalUnit }) {
   return (intervalValue || 1) * (mul[intervalUnit] || 7);
 }
 
-// Returns true for both new entries (e.type === routineId) and legacy entries
-// matched by the routine's declared types.
+// Returns true for both new entries (e.type === routineId) and legacy entries matched by the
+// routine's declared types; a routine with no types only matches its own entries. Mirrors
+// routineMatchesLog() in backend/src/lib/notifications.ts, and backend/test/reminder-matching.test.ts
+// runs both over the same cases.
 export function entryMatchesSchedule(entry, schedule) {
   if (entry.type === schedule.routineId) return true;
   const routine = state.routines.find((r) => r.id === schedule.routineId);
@@ -50,13 +52,15 @@ export function calcScheduleStreak(schedule, forecast) {
   return streak;
 }
 
+// Null when the routine has never been logged: there's nothing to count from, and the backend
+// sends no reminder for it either.
 export function calcRoutineNextDue(schedule) {
   const routine = state.routines.find((r) => r.id === schedule.routineId);
   if (!routine) return null;
   const relevant = state.washLog
     .filter((e) => entryMatchesSchedule(e, schedule))
     .sort((a, b) => b.date.localeCompare(a.date));
-  if (!relevant.length) return new Date();
+  if (!relevant.length) return null;
   const [y, m, d] = relevant[0].date.split('-').map(Number);
   return new Date(y, m - 1, d + scheduleIntervalDays(schedule));
 }

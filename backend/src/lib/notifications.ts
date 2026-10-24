@@ -13,13 +13,16 @@ import {
 } from './email.js';
 import { createTickTickTask } from './ticktick.js';
 
-// Mirrors entryMatchesSchedule() in js/schedules.js — keep them in sync.
+// Whether a wash log entry counts as a session of this routine: one logged against the routine
+// itself, or a legacy entry (full/quick/interior/both) of a type the routine declares. A routine
+// with no types only matches its own entries. Mirrors entryMatchesSchedule() in js/schedules.js;
+// test/reminder-matching.test.ts runs both over the same cases.
 export function routineMatchesLog(types: string[], logType: string, routineId: string): boolean {
   if (logType === routineId) return true;
   if (types.includes('exterior') && ['full', 'quick', 'both'].includes(logType)) return true;
   if (types.includes('interior') && ['interior', 'both'].includes(logType)) return true;
   if (types.includes('maintenance') && ['full', 'both'].includes(logType)) return true;
-  return types.length === 0;
+  return false;
 }
 
 async function readUserJson(userId: number, key: string): Promise<unknown> {
@@ -103,7 +106,7 @@ async function sendWashReminders({ userId, email, settings: notif }: Notificatio
 
       const lastDate = new Date(relevant[0].date);
       const dueDate = new Date(lastDate);
-      dueDate.setDate(dueDate.getDate() + intervalDays);
+      dueDate.setUTCDate(dueDate.getUTCDate() + intervalDays);
 
       if (todayUtc < dueDate) continue;
 
@@ -124,7 +127,7 @@ async function sendWashReminders({ userId, email, settings: notif }: Notificatio
     const lastDate = new Date([...washLog].sort((a, b) => b.date.localeCompare(a.date))[0].date);
     const intervalDays = 14;
     const dueDate = new Date(lastDate);
-    dueDate.setDate(dueDate.getDate() + intervalDays);
+    dueDate.setUTCDate(dueDate.getUTCDate() + intervalDays);
 
     if (todayUtc < dueDate) return;
 
