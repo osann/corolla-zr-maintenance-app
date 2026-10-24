@@ -26,6 +26,10 @@ export const INVENTORY_KEY = 'corolla-inventory-v1';
 // simply whichever section's slugs array it's listed in.
 export const CATEGORIES_KEY = 'corolla-categories-v1';
 
+// Synced stores every account shares and only the admin can change. The backend keeps them out of
+// the per-user data (SHARED_KEYS in backend/src/routes/auth.ts) and rejects anyone else's writes.
+export const SHARED_KEYS = [CATEGORIES_KEY];
+
 // Legacy keys, read once during migration into CATEGORIES_KEY then no longer
 // written to. Kept only so existing synced data isn't stranded on old devices.
 export const CATEGORY_OVERRIDES_KEY = 'corolla-category-overrides-v1';

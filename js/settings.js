@@ -14,6 +14,7 @@ import {
   MAINTENANCE_LOG_KEY,
   ROUTINES_KEY,
   SETTINGS_KEY,
+  SHARED_KEYS,
 } from './config.js';
 import { DEFAULT_NOTIFICATIONS, DEFAULT_PREFS, DEFAULT_ROUTINES, FREQ_DEFAULTS } from './data.js';
 import { renderLog, renderStepChipsForRoutine, saveLog } from './log.js';
@@ -309,7 +310,8 @@ export async function resetNotifications() {
 // ─── Backup export / import ──────────────────────
 // Every synced store that's still written to. The legacy budget and category-override keys
 // are deliberately left out. Photos live in R2 and aren't part of a backup; log entries keep
-// their ids, so photos stay attached when restoring into the same account.
+// their ids, so photos stay attached when restoring into the same account. Shared stores
+// (SHARED_KEYS) are only exported and restored by the admin, since nobody else can change them.
 const BACKUP_APP = 'Corolla ZR Detailing Guide';
 const BACKUP_FORMAT = 2;
 const BACKUP_KEYS = {
@@ -327,6 +329,7 @@ const BACKUP_KEYS = {
 export async function exportData() {
   const data = {};
   for (const key of Object.keys(BACKUP_KEYS)) {
+    if (SHARED_KEYS.includes(key) && !state.isAdmin) continue;
     const value = await storageGet(key);
     if (value != null) data[key] = value;
   }
@@ -350,6 +353,7 @@ function parseBackup(json) {
     if (value == null) continue;
     const expected = BACKUP_KEYS[key];
     if (!expected) continue; // unknown or retired store — ignore rather than restore
+    if (SHARED_KEYS.includes(key) && !state.isAdmin) continue; // shared, and only the admin can change it
     const actual = Array.isArray(value) ? 'array' : typeof value;
     if (actual !== expected) throw new Error(`${key} should be an ${expected}, not ${actual}`);
     out[key] = value;
@@ -419,8 +423,14 @@ export async function resetRoutines() {
   await loadRoutines();
 }
 
+// Clears the user's own data. Product categories are shared, so they're left alone.
 export async function resetEverything() {
-  if (!confirm('This will clear ALL data — checklist, wash log, budget, and settings. Are you sure?')) return;
+  if (
+    !confirm(
+      'This will clear ALL your data — checklist, wash log, routines, maintenance, inventory, price alerts and settings. Are you sure?',
+    )
+  )
+    return;
   if (!confirm('Last chance — all your data will be deleted. Continue?')) return;
   // Push empty values to remote first so the reset propagates to all devices
   if (state.syncEnabled) {
@@ -436,7 +446,6 @@ export async function resetEverything() {
       syncPush(INVENTORY_KEY, {}),
       syncPush(CATEGORY_OVERRIDES_KEY, {}),
       syncPush(CUSTOM_CATEGORIES_KEY, []),
-      syncPush(CATEGORIES_KEY, []),
     ]);
     state.syncEnabled = false;
   }
@@ -451,7 +460,6 @@ export async function resetEverything() {
   await storageSet(INVENTORY_KEY, {});
   await storageSet(CATEGORY_OVERRIDES_KEY, {});
   await storageSet(CUSTOM_CATEGORIES_KEY, []);
-  await storageSet(CATEGORIES_KEY, []);
   location.reload();
 }
 

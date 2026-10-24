@@ -62,6 +62,11 @@ const DDL_STATEMENTS = [
     UNIQUE(user_id, key)
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_user_data_key ON user_data(user_id, key)`,
+  `CREATE TABLE IF NOT EXISTS shared_data (
+    key         TEXT PRIMARY KEY,
+    value_json  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS photos (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -126,6 +131,28 @@ export async function initDb() {
     if (!existingCols.get(table)!.has(name)) {
       await client.execute(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`);
       if (backfill) await client.execute(backfill);
+    }
+  }
+
+  // Product categories became shared, admin-edited data. Move the owner's copy from user_data
+  // into shared_data once; after that shared_data already has the row and this does nothing.
+  // The scraper runners have no OWNER_EMAIL, so they skip it.
+  const ownerEmail = (process.env.OWNER_EMAIL ?? '').trim().toLowerCase();
+  if (ownerEmail) {
+    const ownerRow = `SELECT ud.key, ud.value_json, ud.updated_at FROM user_data ud JOIN users u ON u.id = ud.user_id
+      WHERE lower(u.email) = ? AND ud.key = 'corolla-categories-v1'`;
+    const moved = await client.execute({
+      sql: `INSERT INTO shared_data (key, value_json, updated_at) ${ownerRow}
+        AND NOT EXISTS (SELECT 1 FROM shared_data WHERE key = 'corolla-categories-v1')`,
+      args: [ownerEmail],
+    });
+    if (moved.rowsAffected) {
+      await client.execute({
+        sql: `DELETE FROM user_data WHERE key = 'corolla-categories-v1'
+          AND user_id IN (SELECT id FROM users WHERE lower(email) = ?)`,
+        args: [ownerEmail],
+      });
+      console.log("Moved the owner's categories into shared_data.");
     }
   }
 

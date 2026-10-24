@@ -1,5 +1,5 @@
 // Local storage abstraction and sync push.
-import { BACKEND_URL, BUILD_DATE } from './config.js';
+import { BACKEND_URL, BUILD_DATE, SHARED_KEYS } from './config.js';
 import { state } from './state.js';
 
 export const hasStorage = typeof window.storage !== 'undefined';
@@ -36,6 +36,8 @@ export async function storageSet(key, val) {
 
 export async function syncPush(key, value) {
   if (!state.syncEnabled || !BACKEND_URL || BACKEND_URL.startsWith('__')) return;
+  // Shared stores belong to the admin; anyone else's copy is local only (the server would 403).
+  if (SHARED_KEYS.includes(key) && !state.isAdmin) return;
   try {
     await fetch(`${BACKEND_URL}/api/sync/${encodeURIComponent(key)}`, {
       method: 'POST',

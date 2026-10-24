@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { eq, and, isNull } from 'drizzle-orm';
 import { db } from '../db/connection.js';
-import { users, magicTokens, sessions, userData } from '../db/schema.js';
+import { users, magicTokens, sessions, userData, sharedData } from '../db/schema.js';
 import {
   type AppEnv,
   generateToken,
@@ -16,6 +16,7 @@ import { sendMagicLink } from '../lib/email.js';
 
 const router = new Hono<AppEnv>();
 
+// Each user's own synced stores (user_data).
 const ALLOWED_KEYS = [
   'corolla-checklist-v3',
   'corolla-washlog-v1',
@@ -28,8 +29,12 @@ const ALLOWED_KEYS = [
   'corolla-inventory-v1',
   'corolla-category-overrides-v1',
   'corolla-custom-categories-v1',
-  'corolla-categories-v1',
 ];
+
+// Stores every account shares and only the admin can change (shared_data). They sync through the
+// same endpoints: GET /sync merges them in, and POST /sync/:key writes them for the admin only.
+// The frontend mirrors this list as SHARED_KEYS in js/config.js.
+export const SHARED_KEYS = ['corolla-categories-v1'];
 
 // In-memory 60s per-email cooldown (resets on Render restart — acceptable)
 const cooldowns = new Map<string, number>();
@@ -147,9 +152,13 @@ router.get('/sync', sessionMiddleware, async (c) => {
   const userId = c.var.userId;
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
 
-  const rows = await db.select().from(userData).where(eq(userData.userId, userId));
+  const [rows, sharedRows] = await Promise.all([
+    db.select().from(userData).where(eq(userData.userId, userId)),
+    db.select().from(sharedData),
+  ]);
   const result: Record<string, unknown> = {};
-  for (const row of rows) {
+  // Shared rows go last, so they win over any stale per-user copy of the same key.
+  for (const row of [...rows, ...sharedRows]) {
     try {
       result[row.key] = JSON.parse(row.valueJson);
     } catch {}
@@ -163,19 +172,28 @@ router.post('/sync/:key', sessionMiddleware, async (c) => {
   if (!userId) return c.json({ error: 'Unauthorised' }, 401);
 
   const key = c.req.param('key') ?? '';
-  if (!ALLOWED_KEYS.includes(key)) return c.json({ error: 'Unknown key' }, 400);
+  const shared = SHARED_KEYS.includes(key);
+  if (!shared && !ALLOWED_KEYS.includes(key)) return c.json({ error: 'Unknown key' }, 400);
+  if (shared && !c.var.isAdmin) return c.json({ error: 'Admin only' }, 403);
 
   const value = await c.req.json();
   const valueJson = JSON.stringify(value);
   const updatedAt = new Date().toISOString();
 
-  await db
-    .insert(userData)
-    .values({ userId, key, valueJson, updatedAt })
-    .onConflictDoUpdate({
-      target: [userData.userId, userData.key],
-      set: { valueJson, updatedAt },
-    });
+  if (shared) {
+    await db
+      .insert(sharedData)
+      .values({ key, valueJson, updatedAt })
+      .onConflictDoUpdate({ target: sharedData.key, set: { valueJson, updatedAt } });
+  } else {
+    await db
+      .insert(userData)
+      .values({ userId, key, valueJson, updatedAt })
+      .onConflictDoUpdate({
+        target: [userData.userId, userData.key],
+        set: { valueJson, updatedAt },
+      });
+  }
 
   return c.json({ ok: true });
 });

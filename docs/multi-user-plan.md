@@ -6,7 +6,7 @@ Agreed 2026-10-21. The work is on branch `feature/multi-user`, one commit per ph
 
 - ☑ Phase 1: admin identity and route guards (backend). Committed on `feature/multi-user` 2026-10-24.
 - ☑ Phase 2: per-user notifications and TickTick (backend). Committed 2026-10-24.
-- ☐ Phase 3: shared categories and rename propagation
+- ☑ Phase 3: shared categories and rename propagation. Committed 2026-10-24.
 - ☐ Phase 4: invites and user management (backend)
 - ☐ Phase 5: frontend (admin-only UI, Users section, switching accounts)
 - ☐ Tests and docs (added alongside each phase; the CLAUDE.md and decisions.md rewrite lands with Phase 5)
@@ -109,6 +109,7 @@ Behaviour stays the same while you're the only user.
   - `POST /sync/:key` for a shared key returns 403 unless the caller is admin, then upserts `shared_data`. Other keys keep the existing path.
   - Signed-out guests keep seeding categories from `INV_CATEGORIES` locally, as now.
 - **Frontend** (categories still sync through the same `syncPush`/`/api/sync`, so `catalog.js` doesn't change):
+  - **`state.isAdmin`** (moved here from Phase 5, because the guard below needs it, or it would block the admin's own category edits): `js/state.js` adds it; `checkAuthAndSync()` sets it from `/auth/me`, caches `{ email, isAdmin }`, and resets it on both failure paths; `main.js` restores it from the cache; `signOut()` clears it.
   - `js/config.js`: `export const SHARED_KEYS = [CATEGORIES_KEY];`
   - `js/storage.js` `syncPush()`: return early when `SHARED_KEYS.includes(key) && !state.isAdmin`. That one guard covers the seed push in `loadCategories()`, resets, and restores.
   - `js/settings.js`:
@@ -122,6 +123,7 @@ Behaviour stays the same while you're the only user.
     - Comments on both sides say to keep them in sync with the frontend functions.
   - `PATCH /products/:id` reads the old `slug, name` first (it currently selects only `id`) and calls these when either actually changed.
   - The admin's browser keeps its existing local rewrite for instant UI. Its push matches what the server already wrote.
+- **Tests:** `backend/test/shared.test.ts` covers the one-off move (once only, never overwriting), admin-only writes to shared keys, every account pulling the shared categories, per-user stores staying private, and slug and name renames rewriting another user's checklist, inventory (without touching a different slug that shares a prefix), alerts, routines and the shared categories.
 
 ## Phase 4: invites and user management (backend)
 
@@ -144,12 +146,9 @@ Behaviour stays the same while you're the only user.
 
 ## Phase 5: frontend (admin-only UI, Users section, switching accounts)
 
-- **`js/state.js`**: add `isAdmin: false`.
+- **`state.isAdmin`** was already added in Phase 3 (state, `/auth/me`, cache, failure resets, `main.js` restore).
 - **`js/auth.js`**
-  - `checkAuthAndSync()`:
-    - sets `state.isAdmin = !!me.isAdmin` and caches `{ email, isAdmin }` in `corolla-auth-v1`;
-    - both failure early-returns reset `isAdmin = false` along with `syncEnabled`/`syncEmail`;
-    - when signed in as admin, calls `loadUsers()` without waiting for it.
+  - `checkAuthAndSync()`: when signed in as admin, calls `loadUsers()` without waiting for it.
   - **Account-switch guard.**
     - The problem: on a shared device, A's session expires (local data stays), then B signs in. B's remote has no entries for those keys, so A's local stores show under B and get pushed into B's account on B's first save.
     - The fix: add `LAST_USER_KEY = 'corolla-last-user-v1'` to `config.js`. On a successful `/auth/me`, if the stored last user is different from `me.email`:
@@ -162,7 +161,7 @@ Behaviour stays the same while you're the only user.
     - if the Products sub-tab was active and is now hidden, it clicks the Inventory sub-tab;
     - drops the `categoriesSec` `style.display` lines.
   - The sign-in copy says accounts are invite-only. After a request it shows "If that email has an account, a sign-in link is on its way."
-- **`js/main.js`**: restore `state.isAdmin` from the cached auth, and add the new handlers to the `Object.assign(window, …)` list.
+- **`js/main.js`**: add the new handlers to the `Object.assign(window, …)` list.
 - **`index.html`**:
   - Add `data-admin-only` to the Products sub-tab button (`data-inv-tab="products"`), `#inv-sub-products`, `#settings-categories`, and a new `#settings-users` section placed after "Device sync". The pack and retailer modals only open from the Products page.
   - Hiding these is cosmetic. The backend enforces the 403s either way.

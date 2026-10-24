@@ -11,6 +11,7 @@ import {
   type Retailer,
 } from '../db/schema.js';
 import { sessionMiddleware, requireAdmin, type AppEnv } from '../lib/auth.js';
+import { renameSlugInUserData, renameProductInRoutines } from '../lib/rename.js';
 
 const router = new Hono<AppEnv>();
 
@@ -229,8 +230,13 @@ router.patch('/products/:id', sessionMiddleware, requireAdmin, async (c) => {
     return c.json({ error: 'Nothing to update' }, 400);
   }
 
-  const prod = await db.select({ id: products.id }).from(products).where(eq(products.id, id)).limit(1);
+  const prod = await db
+    .select({ id: products.id, name: products.name, slug: products.slug })
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1);
   if (!prod.length) return c.json({ error: 'Product not found' }, 404);
+  const before = prod[0];
 
   const update: {
     name?: string;
@@ -274,6 +280,11 @@ router.patch('/products/:id', sessionMiddleware, requireAdmin, async (c) => {
   }
 
   await db.update(products).set(update).where(eq(products.id, id));
+
+  // Every account's data that refers to the product by slug or name follows the rename.
+  if (update.slug && update.slug !== before.slug) await renameSlugInUserData(before.slug, update.slug);
+  if (update.name && update.name !== before.name) await renameProductInRoutines(before.name, update.name);
+
   const [updated] = await db.select().from(products).where(eq(products.id, id)).limit(1);
   return c.json({ ok: true, ...updated, isPack: Boolean(updated.isPack) });
 });

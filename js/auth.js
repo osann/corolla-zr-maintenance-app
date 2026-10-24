@@ -168,6 +168,7 @@ export async function signOut() {
   } catch {}
   state.syncEnabled = false;
   state.syncEmail = null;
+  state.isAdmin = false;
   state.photosByEntryId = {};
   state.pendingPhotos = [];
   state.pendingEntryId = null;
@@ -223,6 +224,7 @@ export async function checkAuthAndSync() {
     if (!meRes.ok) {
       state.syncEnabled = false;
       state.syncEmail = null;
+      state.isAdmin = false;
       await storageSet(AUTH_CACHE_KEY, null);
       renderAuthUI();
       return;
@@ -231,6 +233,7 @@ export async function checkAuthAndSync() {
     if (!me.authenticated) {
       state.syncEnabled = false;
       state.syncEmail = null;
+      state.isAdmin = false;
       await storageSet(AUTH_CACHE_KEY, null);
       renderAuthUI();
       return;
@@ -238,7 +241,8 @@ export async function checkAuthAndSync() {
 
     state.syncEnabled = true;
     state.syncEmail = me.email;
-    await storageSet(AUTH_CACHE_KEY, { email: me.email });
+    state.isAdmin = !!me.isAdmin;
+    await storageSet(AUTH_CACHE_KEY, { email: me.email, isAdmin: state.isAdmin });
     renderAuthUI();
     renderLogTypeSelect();
 

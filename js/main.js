@@ -314,6 +314,7 @@ export async function init() {
   if (cachedAuth?.email) {
     state.syncEnabled = true;
     state.syncEmail = cachedAuth.email;
+    state.isAdmin = !!cachedAuth.isAdmin;
     renderAuthUI();
   }
   await checkAuthAndSync();

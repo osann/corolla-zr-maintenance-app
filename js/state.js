@@ -6,6 +6,7 @@ export const state = {
   // Auth / sync
   syncEnabled: false,
   syncEmail: null,
+  isAdmin: false, // from /api/auth/me; only the admin can change the product catalogue and categories
   ticktickIsConnected: false,
   lastSyncedAt: null,
 

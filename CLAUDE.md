@@ -81,6 +81,7 @@ Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 - `deleted_products` — tombstones by slug so `seed()` never resurrects a product deleted in the UI. `POST /api/products` clears a matching tombstone.
 - `users` (`joined_at` is set on first sign-in; null means invited but not yet signed in), `magic_tokens` (15-min single-use), `sessions` (30-day), `photos`.
 - `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync. `ticktick-oauth-v1` is deliberately **not** in it — tokens never reach the client.
+- `shared_data` — key/value JSON every account shares and only the admin can change; the keys are listed in `SHARED_KEYS` (`routes/auth.ts`, mirrored in `js/config.js`). Currently only `corolla-categories-v1`. These keys sync through the same endpoints: `GET /api/sync` merges them over the user's rows, and `POST /api/sync/:key` returns 403 to anyone but the admin. `initDb()` moved the owner's categories here once.
 
 Rules:
 - **Catalogue writes are admin-only.** The admin is whoever signs in as `OWNER_EMAIL` (`isAdminEmail()` in `lib/auth.ts`; it isn't stored in the DB). Any route that changes products, retailer URLs or packs goes behind `sessionMiddleware, requireAdmin`. `sessionMiddleware` alone only identifies the caller; it never rejects anyone.
@@ -130,12 +131,13 @@ Conventions:
 Load order:
 - `init()`: `setupChecklist → loadChecklist → loadCategories → (hydrate bundleComponents from cache) → loadInventory → loadLog → loadRoutines → loadMaintenance → loadSettings → loadAlerts → checkAuthAndSync → loadPriceData + loadWeather` (the last two non-blocking).
 - `checkAuthAndSync()` after pulling remote data: `loadRoutines → loadMaintenance → loadChecklist → loadCategories → loadInventory → loadLog → loadSettings → loadAlerts → renderWashReminderCards`. Routines must load before settings (reminder cards need `routines[]`).
-- On a failed `/api/auth/me`, reset **both** `syncEnabled = false` and `syncEmail = null` before `renderAuthUI()`; any new early return must do the same, or the UI shows signed-in controls that 401.
+- On a failed `/api/auth/me`, reset `syncEnabled = false`, `syncEmail = null` **and** `isAdmin = false` before `renderAuthUI()`; any new early return must do the same, or the UI shows signed-in (or admin) controls that 401.
 - `renderInventory()` runs before `liveProducts` arrives, so `loadPriceData()` re-runs `rebuildBundleComponents()`, `renderInventory()` and `renderProductsPage()` once it lands, then `loadPriceHistories()` → `renderPricesTab()`. `priceDataRequestSeq` discards out-of-order responses.
 
 Auth:
 - `renderAuthUI()` is the single place that shows/hides signed-in UI.
-- `corolla-auth-v1` caches auth for an instant signed-in render on reload.
+- `corolla-auth-v1` caches auth (`{ email, isAdmin }`) for an instant signed-in render on reload.
+- `state.isAdmin` comes from `/api/auth/me`. `syncPush()` silently skips `SHARED_KEYS` unless it's true, so a regular user's local edits to shared data never reach the server.
 - `signOut()` clears every synced key plus the auth and pack caches, then reloads.
 
 ### Storage keys
@@ -150,21 +152,21 @@ Auth:
 | `corolla-maintenance-v1` | `[{ id, name, notes, intervalType: 'time'\|'odometer', intervalValue, intervalUnit, intervalKm, lastCompletedDate, lastCompletedOdometer, enabled }]` |
 | `corolla-maintenance-log-v1` | `[{ id, itemId, itemName, date, odometer }]`, newest first |
 | `corolla-inventory-v1` | `{ [slug \| 'packSlug:componentName']: {purchaseDate, volumeMl, remainingMl, manualOverride}, _order: categoryLabel[] }` |
-| `corolla-categories-v1` | `[{ label, sections: [{ label, slugs[] }] }]` |
+| `corolla-categories-v1` | `[{ label, sections: [{ label, slugs[] }] }]` — shared by all accounts, admin-edited (`shared_data`) |
 | `corolla-pack-components-v1` | cache of `bundleComponents` for offline pack expansion |
 | `corolla-budget-v1`, `corolla-category-overrides-v1`, `corolla-custom-categories-v1` | legacy — read once for migration or only cleared; never written |
 
 Bump the version suffix on breaking shape changes; `load*()` functions migrate forward from older keys.
 
-**Adding a new synced store** means updating all of these:
-- `ALLOWED_KEYS` in `backend/src/routes/auth.ts`;
+**Adding a new synced store** means first deciding whether it's personal or shared. A shared store goes in `SHARED_KEYS` (backend `routes/auth.ts` and `js/config.js`), not `ALLOWED_KEYS`, and stays out of `resetEverything()`. Then update all of these:
+- `ALLOWED_KEYS` in `backend/src/routes/auth.ts` (personal stores);
 - the pull list in `checkAuthAndSync()`;
 - the clear lists in `signOut()` and `resetEverything()`;
 - `BACKUP_KEYS` in `js/settings.js`. That's the Settings → Data management export/import, which restores to the server before touching local storage, because on reload the server copy wins. `settings.freq` has no UI any more but `calcNextDue('beadMachine')` still reads it (with defaults) for the heat banner.
 
 ### Categories
 
-`allCategories` (from `corolla-categories-v1`) is the single editable grouping used by Prices, Products, Inventory, the Checklist picker and the routine step picker. A product's category is whichever section's `slugs` contains it. First load seeds from `INV_CATEGORIES` and migrates the two legacy keys; nothing else reads `INV_CATEGORIES`. Helpers: `getCategoryAssignment()`, `changeProductCategory()`, `groupSlugsByCategory()`, `_buildCatalogGroups()` (collapses size variants via `SLUG_FAMILIES` for routine steps, which reference products by name).
+`allCategories` (from `corolla-categories-v1`) is the single editable grouping used by Prices, Products, Inventory, the Checklist picker and the routine step picker. It's shared by every account and only the admin edits it (see `shared_data`); signed-out guests use a local seed. A product's category is whichever section's `slugs` contains it. First load seeds from `INV_CATEGORIES` and migrates the two legacy keys; nothing else reads `INV_CATEGORIES`. Helpers: `getCategoryAssignment()`, `changeProductCategory()`, `groupSlugsByCategory()`, `_buildCatalogGroups()` (collapses size variants via `SLUG_FAMILIES` for routine steps, which reference products by name).
 
 **Prices, Inventory and Products each render a trailing "Other" card** for uncategorised products. Don't remove it from any of the three — without it those products are tracked but invisible (this has regressed twice).
 
@@ -191,7 +193,7 @@ Time- or odometer-based items. `lastCompleted*` is derived from the log: deletin
 
 `renderProductsPage()`. Product CRUD functions call both `renderPricesTab()` and `renderProductsPage()`. Retailer URLs and pack contents are edited in modals (`#retailer-editor-modal`, `#pack-editor-modal`); the pack editor keeps unsaved edits in `packDrafts` until "Save pack".
 
-Slug rename (`confirmSlugRename` → `renameProductSlugEverywhere`) rewrites categories, checklist phases + checked map, inventory keys and alert keys, then refetches products. It writes the checklist with a raw `storageSet`/`syncPush`, **not** `saveChecklist()` — that would rebuild `checked` from the stale `itemData` snapshot and undo the rename.
+Renames reach every account. `PATCH /products/:id` rewrites each user's stored data itself (`backend/src/lib/rename.ts`): a slug change updates the checklist, inventory, price alerts and the shared categories, and a name change updates routine steps. The admin's browser then repeats the same rewrite locally so the screen updates without a reload; keep the two in sync. Slug rename (`confirmSlugRename` → `renameProductSlugEverywhere`) rewrites categories, checklist phases + checked map, inventory keys and alert keys, then refetches products. It writes the checklist with a raw `storageSet`/`syncPush`, **not** `saveChecklist()` — that would rebuild `checked` from the stale `itemData` snapshot and undo the rename.
 
 ### Photos
 
