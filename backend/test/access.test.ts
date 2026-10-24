@@ -115,6 +115,16 @@ describe('product catalogue writes', () => {
   it.each(writes)('%s %s is admin only', async (method, path) => {
     expect((await app.request(path, withSession(MEMBER, { method }))).status).toBe(403);
   });
+
+  // Each scraper only reads its own retailer's pages, so a URL from another site would never price.
+  it.each([
+    ['PUT', '/api/products/1/url', { retailer: 'supercheap', url: 'https://autobarn.com.au/ab/p/CC07299' }],
+    ['POST', '/api/products', { name: 'New', slug: 'new', retailer: 'autobarn', url: 'https://example.com/p/1' }],
+  ])("%s %s rejects a URL on another retailer's site", async (method, path, body) => {
+    const res = await app.request(path, withSession(ADMIN, { method, body: JSON.stringify(body) }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/^The URL must be a page on (supercheapauto|autobarn)\.com\.au$/);
+  });
 });
 
 describe('TickTick', () => {

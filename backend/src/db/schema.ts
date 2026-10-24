@@ -7,6 +7,23 @@ export const RETAILERS = ['supercheap', 'autobarn'] as const;
 export type Retailer = (typeof RETAILERS)[number];
 export const isRetailer = (r: unknown): r is Retailer => RETAILERS.includes(r as Retailer);
 
+// The site each retailer's product URLs must be on. Each scraper only understands its own
+// retailer's pages, so a URL for another site never gets a price (two Auto Barn URLs saved as
+// Supercheap ones sat unpriced until 2026-10).
+export const RETAILER_HOSTS: Record<Retailer, string> = {
+  supercheap: 'supercheapauto.com.au',
+  autobarn: 'autobarn.com.au',
+};
+export function isRetailerUrl(retailer: Retailer, url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    const host = RETAILER_HOSTS[retailer];
+    return protocol === 'https:' && (hostname === host || hostname.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
+}
+
 export const products = sqliteTable('products', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull().unique(),

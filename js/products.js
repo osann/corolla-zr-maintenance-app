@@ -523,6 +523,7 @@ export function retailerFieldCardHtml(product, retailer) {
           <input type="url" class="url-input" id="url-input-${product.id}-${retailer}" value="${escAttr(url)}" placeholder="https://...">
           <button class="alert-set-btn" onclick="saveRetailerUrl(${product.id},'${retailer}')">Save</button>
         </div>
+        <div id="url-error-${product.id}-${retailer}" style="display:none;color:var(--danger);font-size:12px;"></div>
         ${linkedRow}
       </div>`;
 }
@@ -774,11 +775,13 @@ export async function savePackDraft(productId) {
 
 export async function saveRetailerUrl(productId, retailer) {
   const input = document.getElementById(`url-input-${productId}-${retailer}`);
+  const errorEl = document.getElementById(`url-error-${productId}-${retailer}`);
   const url = input?.value?.trim();
   if (!url || !url.startsWith('http')) {
     input?.focus();
     return;
   }
+  if (errorEl) errorEl.style.display = 'none';
   try {
     const res = await fetch(`${BACKEND_URL}/api/products/${productId}/url`, {
       method: 'PUT',
@@ -786,7 +789,15 @@ export async function saveRetailerUrl(productId, retailer) {
       credentials: 'include',
       body: JSON.stringify({ retailer, url }),
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      // e.g. a URL from another retailer's site, which that retailer's scraper can't read
+      const err = await res.json().catch(() => ({}));
+      if (errorEl) {
+        errorEl.textContent = err.error || 'Failed to save.';
+        errorEl.style.display = '';
+      }
+      return;
+    }
     const prod = state.liveProducts.find((p) => p.id === productId);
     if (prod) {
       prod.urls = prod.urls ?? {};
