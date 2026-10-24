@@ -1,6 +1,6 @@
 # Plan: invite-only multi-user accounts with an admin
 
-Agreed 2026-10-21. The work is on branch `feature/multi-user`, one commit per phase, with checks green before each commit. Tick a phase off here when it's committed. Nothing reaches production until it's merged to `main`; see "Rollout order" for the order to deploy in.
+Agreed 2026-10-21; done and live 2026-10-24. It was built on branch `feature/multi-user`, one commit per phase with checks green before each, and merged in PR #6. The rest of this page is the plan as executed, kept for the reasoning behind it.
 
 ## Status
 
@@ -10,7 +10,7 @@ Agreed 2026-10-21. The work is on branch `feature/multi-user`, one commit per ph
 - ☑ Phase 4: invites and user management (backend). Committed 2026-10-24.
 - ☑ Phase 5: frontend (admin-only UI, Users section, switching accounts). Committed 2026-10-24.
 - ☑ Tests and docs, added alongside each phase. Phase 5 was checked with a headless browser instead (no frontend test suite exists; see below).
-- ☐ Deploy: merge `feature/multi-user` to `main`, then work through Verification below.
+- ☑ Deployed 2026-10-24: PR #6 merged as `cd538d3`, and both Render and Pages were confirmed serving it. The manual checks in Verification below passed the same day.
 
 ## Context
 

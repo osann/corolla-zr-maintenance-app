@@ -4,8 +4,7 @@ Backlog ranked by usefulness × feasibility. Each item is independently shippabl
 
 ## Open
 
-### Multi-user accounts
-- ☐ **Deploy it.** All five phases are built on `feature/multi-user` ([multi-user-plan.md](multi-user-plan.md)). Merge to `main`, check Render is serving the new backend, then run the post-deploy checklist in the plan's Verification section before sending a real invite.
+### Wash reminders
 - ☐ **Wash-reminder matching differs between frontend and backend.** For a routine with no `types`, `routineMatchesLog()` (`backend/src/lib/notifications.ts`) counts every log entry as a match, but `entryMatchesSchedule()` (`js/schedules.js`) counts none (only entries logged against that routine's id). So a routine with no types can show as overdue in the app while the cron thinks another routine's session satisfied it, and no reminder is sent. Decide which is right and make the two agree. Found 2026-10-24; this predates the multi-user work.
 
 ### Scraping health
@@ -48,7 +47,7 @@ Invite-only accounts exist now (2026-10). This is the next step if other people 
     - Docs consolidated in `docs/`.
     - Blocked retailers removed, with their details archived.
     - Full backup export plus restore, and corrected Data management copy.
-12. **Invite-only multi-user accounts (2026-10, on `feature/multi-user` until deployed).** Details in [multi-user-plan.md](multi-user-plan.md).
+12. **Invite-only multi-user accounts (live 2026-10-24, PR #6).** Details in [multi-user-plan.md](multi-user-plan.md).
     - The admin is the `OWNER_EMAIL` account. Product, URL and pack writes are admin-only, and the TickTick routes, which were never actually guarded, are fixed.
     - Notifications, the cron jobs and TickTick work per user.
     - Categories are shared and admin-edited. Product renames reach every account.
