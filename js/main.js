@@ -143,6 +143,14 @@ import {
 } from './settings.js';
 import { state } from './state.js';
 import { storageGet, updateFooterVersion } from './storage.js';
+import {
+  cancelRemoveUserConfirm,
+  copyInviteLink,
+  removeUser,
+  resendInvite,
+  sendInvite,
+  showRemoveUserConfirm,
+} from './users.js';
 import { loadWeather } from './weather.js';
 import { setupLog } from './log.js';
 import { setupNav } from './nav.js';
@@ -170,6 +178,7 @@ Object.assign(window, {
   cancelMaintenanceLogDelete,
   cancelPackEdit,
   cancelRemoveRetailerConfirm,
+  cancelRemoveUserConfirm,
   cancelRoutineDelete,
   cancelSlugRenameConfirm,
   cancelUnpackConfirm,
@@ -182,6 +191,7 @@ Object.assign(window, {
   confirmSlugRename,
   confirmUnpack,
   connectTickTick,
+  copyInviteLink,
   deleteCustomCategory,
   deleteMaintenanceItem,
   deleteMaintenanceLogEntry,
@@ -218,9 +228,11 @@ Object.assign(window, {
   removeRoutineStep,
   removeScheduleEntry,
   removeStepProduct,
+  removeUser,
   renderWashReminderCards,
   requestMagicLink,
   requestSlugRename,
+  resendInvite,
   resetEverything,
   resetInventory,
   resetMaintenance,
@@ -242,6 +254,7 @@ Object.assign(window, {
   saveRetailerUrl,
   saveRoutines,
   saveSettings,
+  sendInvite,
   sendWashReminderToTickTick,
   showCustomCategoryDeleteConfirm,
   showDeleteProductConfirm,
@@ -249,6 +262,7 @@ Object.assign(window, {
   showMaintenanceDeleteConfirm,
   showMaintenanceLogDeleteConfirm,
   showRemoveRetailerConfirm,
+  showRemoveUserConfirm,
   showRoutineDeleteConfirm,
   signOut,
   toggleAddProductForm,

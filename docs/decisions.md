@@ -4,6 +4,14 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 ## Hosting and auth
 
+**Invite-only multi-user accounts (2026-10).** The app was built for one person and now has invited users, each with their own data. Plan and per-phase notes are in [multi-user-plan.md](multi-user-plan.md). Choices that aren't obvious from the code:
+- **The admin comes from `OWNER_EMAIL`, not a DB role.** There's one admin and no promotion UI, so a role column would only add a second source of truth that could drift from the env var. Unset means no admin, and existing users can still sign in.
+- **An invite is a 7-day magic-link token.** Accepting one is an ordinary sign-in, so there's no separate sign-up flow. Invites are bound to an email address, and a pending invite is simply a user row with `joined_at` null.
+- **Categories are shared, not per user.** Products are assigned to categories from the Products tab, which only the admin has, so per-user categories would leave every new product in each user's "Other" card. They moved to `shared_data`.
+- **Renames are applied server-side to every account.** Before, a slug or name rename only rewrote the acting browser's checklist, inventory, alerts and routines, which would have quietly broken everyone else's.
+- **Switching accounts clears local data.** Without it, if one person's session expired on a shared device and someone else signed in, the second account would show the first person's local copies of any stores it didn't have yet, and push them into its own account on the first save.
+- Hiding admin-only UI is cosmetic. Every admin action is enforced on the server.
+
 **TickTick routes weren't actually guarded (fixed 2026-10).** `/ticktick/auth`, `/projects` and `/disconnect` ran `sessionMiddleware`, but that only sets `userId` (null for strangers) and never rejects. Nothing checked it, so any visitor could disconnect the owner's TickTick. The OAuth callback also had no `state`, so anyone could authorise their own TickTick account against our client ID and have their tokens stored as the owner's. The routes now use `requireAdmin`, and the callback only accepts a `state` that `/ticktick/auth` issued. This came up while planning multi-user accounts ([multi-user-plan.md](multi-user-plan.md)), where the admin is defined as whoever signs in as `OWNER_EMAIL`.
 
 **Only frontend files are deployed (2026-10).** `deploy.yml` used to upload the repo root, so backend source, docs and `.claude/settings.local.json` were publicly served from `corolla.jhosan.top`. No credentials were exposed. It now publishes an assembled `_site/`.

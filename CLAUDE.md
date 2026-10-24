@@ -4,16 +4,16 @@ Guidance for Claude Code when working in this repository. Why things are the way
 
 ## What this app is
 
-A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus a few exceptions (303 Aerospace Protectant, Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto and Auto Barn) in AUD. One user, one owner account.
+A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus a few exceptions (303 Aerospace Protectant, Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto and Auto Barn) in AUD. Accounts are invite-only (see Accounts). The admin (`OWNER_EMAIL`) manages the shared product catalogue, categories and users, and everyone else has their own log, routines, settings and photos.
 
 Tabs (`index.html`):
 - **log** — wash sessions, streaks, reminder cards, weather hints. Sub-tabs: History, New Session, Edit Session (only while editing).
 - **routine** — customisable wash routines. Sub-tabs: Routines (read-only), Schedules (reminder intervals), Configure (editor cards, CSV import/export, drag reorder).
 - **maintenance** — mechanical maintenance. Sub-tabs: Upcoming, Schedule, History, Configuration.
-- **inventory** — Sub-tabs: Inventory (stock + depletion), Checklist (kit purchase phases), Prices (read-only price sheet + alerts), Products (product identity, retailer URLs, categories, packs — never shows prices).
+- **inventory** — Sub-tabs: Inventory (stock + depletion), Checklist (kit purchase phases), Prices (read-only price sheet + alerts), Products (admin only: product identity, retailer URLs, categories, packs — never shows prices).
 - **guide** — per-product technique reference (mostly static HTML).
 - **refs** — external links.
-- **settings** — display prefs, vehicle details (postcode, odometer), notifications (TickTick + email), categories, data management. Most sections are hidden when signed out.
+- **settings** — users (admin only), display prefs, vehicle details (postcode, odometer), notifications (TickTick + email), categories (admin only), data management. Most sections are hidden when signed out.
 
 ## Layout
 
@@ -113,7 +113,7 @@ Modules:
   - `data.js` holds `CATALOG`, defaults, templates, `INV_CATEGORIES`, `SLUG_FAMILIES` and so on.
   - `state.js` holds all mutable shared state.
 - **Shared modules:** `storage.js`, `util.js`, `catalog.js` (product lookups and the category model).
-- **One module per feature:** `checklist`, `inventory`, `prices`, `products`, `categories` (Settings editor), `log`, `photos`, `routines`, `schedules`, `weather`, `maintenance`, `settings`, `auth`, `nav`.
+- **One module per feature:** `checklist`, `inventory`, `prices`, `products`, `categories` (Settings editor), `log`, `photos`, `routines`, `schedules`, `weather`, `maintenance`, `settings`, `users` (Settings → Users), `auth`, `nav`.
 - **Entry point:** `main.js`.
 
 Rules:
@@ -136,9 +136,12 @@ Load order:
 
 Auth:
 - `renderAuthUI()` is the single place that shows/hides signed-in UI.
+- **Admin-only UI** carries a `data-admin-only` attribute (plus `hidden` in the HTML, so it doesn't flash). `renderAuthUI()` unhides it only when signed in as the admin, and moves off the Products sub-tab if that becomes hidden. Today that's the Products sub-tab and panel, Settings → Categories and Settings → Users. Hiding is cosmetic: the backend enforces it (`requireAdmin`, `SHARED_KEYS`).
 - `corolla-auth-v1` caches auth (`{ email, isAdmin }`) for an instant signed-in render on reload.
 - `state.isAdmin` comes from `/api/auth/me`. `syncPush()` silently skips `SHARED_KEYS` unless it's true, so a regular user's local edits to shared data never reach the server.
-- `signOut()` clears every synced key plus the auth and pack caches, then reloads.
+- `signOut()` calls `clearLocalSyncedData()` (every synced key plus the auth, pack and last-user caches), then reloads.
+- **Switching accounts on one device.** `corolla-last-user-v1` remembers whose data this browser holds, and unlike the auth cache it survives an expired session. If `/api/auth/me` returns someone else, `checkAuthAndSync()` clears the local data and reloads before pulling. Otherwise the previous person's local copies of stores the new account doesn't have yet would show under the new account and be pushed into it.
+- Signed in as the admin, `checkAuthAndSync()` also loads Settings → Users (`loadUsers()`).
 
 ### Storage keys
 
@@ -154,6 +157,8 @@ Auth:
 | `corolla-inventory-v1` | `{ [slug \| 'packSlug:componentName']: {purchaseDate, volumeMl, remainingMl, manualOverride}, _order: categoryLabel[] }` |
 | `corolla-categories-v1` | `[{ label, sections: [{ label, slugs[] }] }]` — shared by all accounts, admin-edited (`shared_data`) |
 | `corolla-pack-components-v1` | cache of `bundleComponents` for offline pack expansion |
+| `corolla-auth-v1` | `{ email, isAdmin }` — cached auth for an instant signed-in render; not synced |
+| `corolla-last-user-v1` | email of the account whose data this browser holds; not synced (see Auth) |
 | `corolla-budget-v1`, `corolla-category-overrides-v1`, `corolla-custom-categories-v1` | legacy — read once for migration or only cleared; never written |
 
 Bump the version suffix on breaking shape changes; `load*()` functions migrate forward from older keys.
@@ -161,7 +166,7 @@ Bump the version suffix on breaking shape changes; `load*()` functions migrate f
 **Adding a new synced store** means first deciding whether it's personal or shared. A shared store goes in `SHARED_KEYS` (backend `routes/auth.ts` and `js/config.js`), not `ALLOWED_KEYS`, and stays out of `resetEverything()`. Then update all of these:
 - `ALLOWED_KEYS` in `backend/src/routes/auth.ts` (personal stores);
 - the pull list in `checkAuthAndSync()`;
-- the clear lists in `signOut()` and `resetEverything()`;
+- the clear lists in `clearLocalSyncedData()` (`js/auth.js`) and `resetEverything()`;
 - `BACKUP_KEYS` in `js/settings.js`. That's the Settings → Data management export/import, which restores to the server before touching local storage, because on reload the server copy wins. `settings.freq` has no UI any more but `calcNextDue('beadMachine')` still reads it (with defaults) for the heat banner.
 
 ### Categories
@@ -206,6 +211,8 @@ Invite-only. The admin is whoever signs in as `OWNER_EMAIL`; everyone else is a 
 - `POST /api/admin/invites { email }` creates a pending user (`joined_at` null) and emails a 7-day magic-link token. The response also carries the link, plus `emailed: false` if Resend rejected the email, so the admin can share it another way. Posting again resends, and the new link replaces the old one. Accepting is an ordinary `?token=` sign-in, and the first sign-in sets `joined_at`.
 - `DELETE /api/admin/users/:id` removes a user and everything they own (R2 photos, then `photos`, `user_data`, `sessions`, `magic_tokens`, `users`). The admin can't be removed.
 - Everything in `routes/admin.ts` sits behind one `router.use('/admin/*', sessionMiddleware, requireAdmin)`, so new admin routes are guarded automatically.
+- The admin's UI is Settings → Users (`js/users.js`): the account list, invite (showing a copyable link), resend, and remove/withdraw through an inline confirm row.
+- Resend's free tier (100 emails a day) covers sign-in links, invites and notifications for a handful of users. Check it before inviting many more.
 
 ## Notifications
 

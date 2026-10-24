@@ -6,6 +6,10 @@ export const BUILD_DATE = '__BUILD_DATE__';
 
 export const AUTH_CACHE_KEY = 'corolla-auth-v1';
 
+// Email of the account whose data this browser last held. Unlike AUTH_CACHE_KEY it survives an
+// expired session, so a different account signing in next can't inherit the local copies.
+export const LAST_USER_KEY = 'corolla-last-user-v1';
+
 export const CHECKLIST_KEY = 'corolla-detailing-app-v4'; // v4: legacy positional IDs
 
 export const CHECKLIST_V2_KEY = 'corolla-checklist-v2'; // v2: slug-keyed, used for migration only

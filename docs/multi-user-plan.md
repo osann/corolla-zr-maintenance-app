@@ -8,8 +8,9 @@ Agreed 2026-10-21. The work is on branch `feature/multi-user`, one commit per ph
 - ☑ Phase 2: per-user notifications and TickTick (backend). Committed 2026-10-24.
 - ☑ Phase 3: shared categories and rename propagation. Committed 2026-10-24.
 - ☑ Phase 4: invites and user management (backend). Committed 2026-10-24.
-- ☐ Phase 5: frontend (admin-only UI, Users section, switching accounts)
-- ☐ Tests and docs (added alongside each phase; the CLAUDE.md and decisions.md rewrite lands with Phase 5)
+- ☑ Phase 5: frontend (admin-only UI, Users section, switching accounts). Committed 2026-10-24.
+- ☑ Tests and docs, added alongside each phase. Phase 5 was checked with a headless browser instead (no frontend test suite exists; see below).
+- ☐ Deploy: merge `feature/multi-user` to `main`, then work through Verification below.
 
 ## Context
 
@@ -171,6 +172,15 @@ Behaviour stays the same while you're the only user.
   - After sending, a line shows the link with a Copy button.
   - Removing a user goes through an inline confirm row, per convention: "Remove name@x.com and delete their history, settings and photos? Remove / Cancel".
   - Nothing runs at import time.
+- **Verified in a headless browser (2026-10-24).** Setup: the real backend on a throwaway SQLite file, a dummy Resend key, and a small same-origin proxy standing in for the Cloudflare Worker. All 34 checks passed:
+  - signed out, the admin UI is hidden;
+  - as admin, the Products tab, Categories and Users are shown, the list shows admin, joined and pending users, an invite returns a copyable link even when the email fails, the new invitee appears, and withdrawing an invite goes through the inline confirm;
+  - as a regular user, the admin UI is hidden, the shared categories arrive, shared categories are never pushed, and the admin API returns 403;
+  - switching accounts clears the previous account's local data;
+  - every inline handler resolves on `window`;
+  - no page errors anywhere.
+
+  The harness was a throwaway script tied to this machine's paths. Making frontend tests permanent is still the Architecture item in tasks.md.
 
 ## Tests (`backend/test/`)
 
@@ -199,7 +209,10 @@ Behaviour stays the same while you're the only user.
 
 ## Rollout order
 
-Merge the phases in order, each with CI green. **Deploy the Phase 1–4 backend to Render before the Phase 5 frontend.** The new frontend treats a missing `isAdmin` as false, so the admin would otherwise lose the Products tab until the backend catches up. Send the first real invite only after Phase 5 is live.
+All five phases are on `feature/multi-user`, so merging it to `main` deploys the backend (Render) and the frontend (Pages) together.
+- If Pages goes live before Render has finished, the admin-only UI stays hidden: the old backend's `/auth/me` has no `isAdmin`, which the frontend reads as false. No data is at risk. Reload once Render is serving the new code. On its first boot the log shows "Moved the owner's categories into shared_data.", as long as you had categories saved.
+- CI only runs on `main` and on pull requests, so merging through a PR gets CI on the whole branch first.
+- Send the first real invite only after the checks below pass.
 
 ## Deliberately left out (to keep it simple)
 
