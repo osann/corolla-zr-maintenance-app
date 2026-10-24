@@ -12,7 +12,7 @@ import ticktickRouter from './routes/ticktick.js';
 import adminRouter from './routes/admin.js';
 import { initDb } from './db/init.js';
 import { seed, seedPacks } from './db/seed.js';
-import { runWashReminders, runDailyDigest } from './lib/notifications.js';
+import { runWashReminders, runDailyDigest, runStalePriceCheck } from './lib/notifications.js';
 
 // Ensure schema and seed data exist on every startup (idempotent).
 // Wrapped in try/catch so a transient Turso 502 on startup doesn't prevent the server
@@ -55,15 +55,21 @@ app.route('/api', adminRouter);
 // No scraping runs on Render: Supercheap and Auto Barn are scraped from GitHub Actions and the
 // self-hosted runner. See docs/blocked-retailers.md for the retired Autopro cron.
 
-// Both jobs run for every user who has signed in (see lib/notifications.ts). They catch per-user
-// errors themselves; the .catch here covers anything else, since an unhandled rejection would
-// crash Node.
+// The reminder and digest jobs run for every user who has signed in (see lib/notifications.ts).
+// They catch per-user errors themselves; the .catch here covers anything else, since an unhandled
+// rejection would crash Node.
 
 // Wash reminders: daily at 07:00 UTC, per settings.schedules.
 cron.schedule('0 7 * * *', () => runWashReminders().catch((err) => console.error('Wash reminder cron error:', err)));
 
 // Daily price digest: 08:00 UTC (after the wash reminder).
 cron.schedule('0 8 * * *', () => runDailyDigest().catch((err) => console.error('Digest cron error:', err)));
+
+// Stale-price check: 08:00 UTC, after both daily scrapes. Emails the admin if a retailer's prices
+// have stopped updating.
+cron.schedule('0 8 * * *', () =>
+  runStalePriceCheck().catch((err) => console.error('Stale-price check cron error:', err)),
+);
 
 const port = Number(process.env.PORT ?? 3000);
 console.log(`Server running on port ${port}`);

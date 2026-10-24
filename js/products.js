@@ -11,7 +11,7 @@ import { recompute, renderChecklist } from './checklist.js';
 import { ALERTS_KEY, BACKEND_URL, CHECKLIST_V3_KEY } from './config.js';
 import { RETAILER_NAMES, SCRAPED_RETAILERS } from './data.js';
 import { renderInventory, saveInventory } from './inventory.js';
-import { loadPriceData, renderPricesTab } from './prices.js';
+import { loadPriceData, renderPricesTab, stalePriceMarker, stalePriceWarning } from './prices.js';
 import { saveRoutines } from './routines.js';
 import { state } from './state.js';
 import { storageSet, syncPush } from './storage.js';
@@ -82,11 +82,14 @@ export function renderProductsPage() {
   // (openRetailerEditor), one bounded field-card per retailer instead of inline rows and
   // toggle-forms scattered across the product card.
   function retailerUrlsHtml(product) {
-    const names = Object.keys(product.urls ?? {}).map((r) => RETAILER_NAMES[r] || r);
+    // A ⚠ after a retailer whose price has stopped updating, which usually means a broken URL.
+    const names = Object.keys(product.urls ?? {}).map(
+      (r) => escHtml(RETAILER_NAMES[r] || r) + stalePriceMarker(stalePriceWarning(product, r)),
+    );
     const summary = names.length ? `${names.join(', ')}. ` : `No retailers linked yet. `;
     return `
         <div class="url-form-row" style="margin-bottom:6px;">
-          <span class="prices-retailer-name">${escHtml(summary)}<a href="#" onclick="openRetailerEditor(${product.id});return false;" style="color:var(--accent);">Edit retailers</a></span>
+          <span class="prices-retailer-name">${summary}<a href="#" onclick="openRetailerEditor(${product.id});return false;" style="color:var(--accent);">Edit retailers</a></span>
         </div>`;
   }
 
@@ -500,8 +503,9 @@ export function renderPackEditorModal() {
 export function retailerFieldCardHtml(product, retailer) {
   const url = product.urls?.[retailer] || '';
   const retailerName = RETAILER_NAMES[retailer] || retailer;
+  const staleWarning = url ? stalePriceWarning(product, retailer) : '';
   const linkedRow = url
-    ? `
+    ? `${staleWarning ? `<div class="url-form-row price-stale-note">⚠ ${escHtml(staleWarning)}</div>` : ''}
       <div class="url-form-row" style="justify-content:flex-end;">
         <a href="${escAttr(url)}" target="_blank" rel="noopener noreferrer" class="price-row-link">Visit →</a>
         <button class="prices-delete-link" onclick="showRemoveRetailerConfirm(${product.id},'${retailer}')">Remove</button>

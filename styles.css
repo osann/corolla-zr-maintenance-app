@@ -2399,6 +2399,17 @@ footer {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+/* A price that has stopped updating (stalePriceWarning() in js/prices.js); the reason is the title. */
+.price-stale {
+  color: var(--warn);
+  font-size: 12px;
+  margin-left: 5px;
+  cursor: help;
+}
+.price-stale-note {
+  font-size: 12px;
+  color: var(--warn);
+}
 .price-row-link {
   font-size: 12px;
   font-weight: 500;

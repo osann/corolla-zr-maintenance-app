@@ -795,6 +795,10 @@ export const DEFAULT_PHASES = [
 // Repco, Autopro and Bowden's Own are retired (bot-blocked) — see docs/blocked-retailers.md.
 export const SCRAPED_RETAILERS = ['supercheap', 'autobarn'];
 
+// A retailer's price is flagged as stale once it's this many days old. Mirrors STALE_PRICE_DAYS in
+// backend/src/lib/notifications.ts, which emails the admin when a whole retailer goes stale.
+export const STALE_PRICE_DAYS = 3;
+
 export const INV_CATEGORIES = [
   {
     label: 'Equipment',
