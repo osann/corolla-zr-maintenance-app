@@ -5,19 +5,13 @@ Backlog ranked by usefulness × feasibility. Each item is independently shippabl
 ## Open
 
 ### Scraping health
-- ☐ **Alert on stale prices.** The Auto Barn runner was offline from 2026-09-19 to 2026-10-21 and nobody noticed for a month. Every daily run was silently cancelled. Add a check, for example in the 08:00 UTC digest cron, that flags any active retailer with no `price_history` rows in the last ~3 days.
+- ☐ **Alert on stale prices.** The Auto Barn runner was offline from 2026-09-19 to 2026-10-21 and nobody noticed for a month. Every daily run was silently cancelled. Add a check, for example in the 08:00 UTC digest cron, that flags any active retailer with no `price_history` rows in the last ~3 days. Also include a flag on the front end, displaying a warning over the product and when hovering over it states how long the products price hasnt been updated.
 - ☐ **Fill price-coverage gaps** left by retiring Repco, Autopro and Bowden's (as of 2026-10-21):
   - `303-aerospace` has no remaining price source;
   - 21 products have only one of Supercheap / Auto Barn.
 
   Find the missing retailer URLs and add them via the Products tab.
 - ☐ Occasionally check whether Repco, Autopro or Bowden's Own have lifted their bot blocks (commands in [blocked-retailers.md](blocked-retailers.md)).
-
-### 8. Product comparison + alternative suggestions
-When a Bowden's product is unavailable, suggest an equivalent.
-- ☐ Static mapping, e.g. `{ "Bead Machine": ["Gyeon Wet Coat", "P&S Bead Maker"] }`
-- ☐ Surface alternatives in the technique guide
-- ☐ (Later) cross-brand price tracking
 
 ### 10. Community sharing
 Only worth it if the app sees use beyond one person; it's a significant rewrite.
