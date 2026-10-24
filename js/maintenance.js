@@ -3,7 +3,7 @@ import { MAINTENANCE_KEY, MAINTENANCE_LOG_KEY, SETTINGS_KEY } from './config.js'
 import { DEFAULT_MAINTENANCE_ITEMS, MAINTENANCE_CSV_TEMPLATE } from './data.js';
 import { state } from './state.js';
 import { storageGet, storageSet, syncPush } from './storage.js';
-import { csvField, escAttr, escHtml, formatDate, parseCSVRow, showSaved, triggerDownload } from './util.js';
+import { csvField, escAttr, escHtml, formatDate, jsArg, parseCSVRow, showSaved, triggerDownload } from './util.js';
 
 export function maintenanceIntervalDays(item) {
   const u = { days: 1, weeks: 7, months: 30.44, years: 365.25 };
@@ -129,7 +129,7 @@ export function renderMaintenanceUpcoming() {
               ${item.notes ? `<div class="reminder-status" style="margin-top:4px;">${escHtml(item.notes)}</div>` : ''}
             </div>
             <div class="reminder-actions">
-              <button class="reminder-btn reminder-btn--accent" onclick="showMaintenanceCompleteForm('${escAttr(item.id)}')">Mark Complete</button>
+              <button class="reminder-btn reminder-btn--accent" onclick="showMaintenanceCompleteForm(${jsArg(item.id)})">Mark Complete</button>
             </div>
           </div>
           <div class="maintenance-complete-form" id="maint-form-${escAttr(item.id)}" hidden>
@@ -146,8 +146,8 @@ export function renderMaintenanceUpcoming() {
               <input class="log-input" type="text" id="maint-desc-${escAttr(item.id)}" placeholder="e.g. used 0W-20, rotated front-to-back">
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button class="settings-save-btn" onclick="saveMaintenanceComplete('${escAttr(item.id)}')">Save</button>
-              <button class="settings-reset-btn" onclick="hideMaintenanceCompleteForm('${escAttr(item.id)}')">Cancel</button>
+              <button class="settings-save-btn" onclick="saveMaintenanceComplete(${jsArg(item.id)})">Save</button>
+              <button class="settings-reset-btn" onclick="hideMaintenanceCompleteForm(${jsArg(item.id)})">Cancel</button>
             </div>
           </div>
         </div>`;

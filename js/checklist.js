@@ -7,7 +7,7 @@ import { renderAlertsPanel } from './prices.js';
 import { applyPrefs } from './settings.js';
 import { state } from './state.js';
 import { storageGet, storageSet, syncPush } from './storage.js';
-import { escAttr, escHtml } from './util.js';
+import { escHtml, jsArg } from './util.js';
 
 export const editingPhases = new Set();
 
@@ -170,7 +170,7 @@ export function renderChecklist() {
           <div class="item-actions">
             <div class="item-price">${priceText}</div>
             <a class="item-buy-btn"${buyUrl ? ` href="${buyUrl}" target="_blank" rel="noopener noreferrer"` : ''} title="Buy at best price"${buyUrl ? '' : ' hidden'}>→</a>
-            ${state.syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="cl-alert-btn-${slug}" data-alert-slug="${slug}" onclick="toggleChecklistAlert('${escAttr(slug)}')" title="${alertBtnTitle}">🔔</button>` : ''}
+            ${state.syncEnabled ? `<button class="alert-btn${hasAlert ? ' active' : ''}" id="cl-alert-btn-${slug}" data-alert-slug="${slug}" onclick="toggleChecklistAlert(${jsArg(slug)})" title="${alertBtnTitle}">🔔</button>` : ''}
           </div>
           <button class="item-remove" type="button" title="Remove from phase">×</button>
         `;
@@ -203,8 +203,8 @@ export function renderChecklist() {
                 </select>
               </div>
               <div class="alert-form-actions">
-                <button class="alert-set-btn" onclick="saveChecklistAlert('${escAttr(slug)}')">Set</button>
-                <button class="alert-clear-btn" onclick="clearChecklistAlert('${escAttr(slug)}')">Clear</button>
+                <button class="alert-set-btn" onclick="saveChecklistAlert(${jsArg(slug)})">Set</button>
+                <button class="alert-clear-btn" onclick="clearChecklistAlert(${jsArg(slug)})">Clear</button>
               </div>
             </div>
           `;

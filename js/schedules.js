@@ -1,7 +1,7 @@
 // Routine reminder schedules and wash reminder cards.
 import { BACKEND_URL } from './config.js';
 import { state } from './state.js';
-import { escAttr, escHtml } from './util.js';
+import { escAttr, escHtml, jsArg } from './util.js';
 import { evalWeatherTriggers } from './weather.js';
 
 // ── Wash schedule helpers ────────────────────────────────────────────────
@@ -122,8 +122,8 @@ export function renderWashReminderCards() {
             ${streak > 0 ? `<div class="reminder-streak">🔥 ${streak}-session streak</div>` : ''}
           </div>
           <div class="reminder-actions">
-            <button class="reminder-btn" onclick="goToRoutine('${escAttr(schedule.routineId)}')">View routine</button>
-            ${hasTickTick ? `<button class="reminder-btn reminder-btn--accent" onclick="sendWashReminderToTickTick('${escAttr(schedule.routineId)}','${escAttr(routine.name)}','${dueDateStr}',this)">Send to TickTick</button>` : ''}
+            <button class="reminder-btn" onclick="goToRoutine(${jsArg(schedule.routineId)})">View routine</button>
+            ${hasTickTick ? `<button class="reminder-btn reminder-btn--accent" onclick="sendWashReminderToTickTick(${jsArg(schedule.routineId)},${jsArg(routine.name)},${jsArg(dueDateStr)},this)">Send to TickTick</button>` : ''}
           </div>
         </div>
       `;

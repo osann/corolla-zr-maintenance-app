@@ -55,6 +55,14 @@ export function escAttr(str) {
     .replace(/'/g, '&#39;');
 }
 
+// A value as a JavaScript literal for an argument in an inline on*= handler, written as
+// `fn(${jsArg(name)})` with no quotes around it. escAttr() isn't enough there: the browser decodes
+// &#39; back to ' before it runs the handler, so a name with an apostrophe would break out of a
+// '…' string.
+export function jsArg(value) {
+  return escHtml(JSON.stringify(value ?? null));
+}
+
 export function showSaved(id) {
   const el = document.getElementById(id);
   if (!el) return;

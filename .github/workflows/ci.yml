@@ -31,7 +31,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Lint (backend, app.js, Worker)
+      - name: Lint (backend, frontend, Worker)
         run: npm run lint
 
       - name: Formatting
@@ -39,3 +39,9 @@ jobs:
 
       - name: Tests
         run: npm test
+
+      # npm ci's postinstall already downloaded Chromium; this adds the system libraries it needs.
+      - name: Browser smoke tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
