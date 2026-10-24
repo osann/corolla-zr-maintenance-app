@@ -105,6 +105,9 @@ export const users = sqliteTable('users', {
   createdAt: text('created_at')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
+  // ISO timestamp of the first successful sign-in. Null means the user was invited but hasn't
+  // signed in yet.
+  joinedAt: text('joined_at'),
 });
 
 export const magicTokens = sqliteTable(

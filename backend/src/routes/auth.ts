@@ -10,12 +10,12 @@ import {
   tokenExpiresAt,
   sessionExpiresAt,
   sessionMiddleware,
+  isAdminEmail,
 } from '../lib/auth.js';
 import { sendMagicLink } from '../lib/email.js';
 
 const router = new Hono<AppEnv>();
 
-const OWNER_EMAIL = process.env.OWNER_EMAIL ?? '';
 const ALLOWED_KEYS = [
   'corolla-checklist-v3',
   'corolla-washlog-v1',
@@ -41,8 +41,8 @@ router.post('/auth/request', async (c) => {
 
   if (!email) return c.json({ error: 'Email required' }, 400);
 
-  // Non-owner emails: silently accept — prevents enumeration
-  if (email !== OWNER_EMAIL.toLowerCase()) return c.json({ ok: true });
+  // Only the admin can sign in for now. Anyone else is silently accepted, to prevent enumeration.
+  if (!isAdminEmail(email)) return c.json({ ok: true });
 
   // 60s cooldown
   const last = cooldowns.get(email) ?? 0;
@@ -90,6 +90,12 @@ router.post('/auth/verify', async (c) => {
   // Mark used before creating session (prevents race on double-click)
   await db.update(magicTokens).set({ usedAt: new Date().toISOString() }).where(eq(magicTokens.id, token.id));
 
+  // The first sign-in is what accepts an invite.
+  await db
+    .update(users)
+    .set({ joinedAt: new Date().toISOString() })
+    .where(and(eq(users.id, token.userId), isNull(users.joinedAt)));
+
   const sessionId = generateToken();
   await db.insert(sessions).values({
     sessionId,
@@ -133,7 +139,7 @@ router.get('/auth/me', sessionMiddleware, async (c) => {
   const user = (await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1))[0];
   if (!user) return c.json({ authenticated: false });
 
-  return c.json({ authenticated: true, email: user.email });
+  return c.json({ authenticated: true, email: user.email, isAdmin: c.var.isAdmin });
 });
 
 // ── GET /sync ─────────────────────────────────────────────────────────────────

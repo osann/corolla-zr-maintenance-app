@@ -4,6 +4,8 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 ## Hosting and auth
 
+**TickTick routes weren't actually guarded (fixed 2026-10).** `/ticktick/auth`, `/projects` and `/disconnect` ran `sessionMiddleware`, but that only sets `userId` (null for strangers) and never rejects. Nothing checked it, so any visitor could disconnect the owner's TickTick. The OAuth callback also had no `state`, so anyone could authorise their own TickTick account against our client ID and have their tokens stored as the owner's. The routes now use `requireAdmin`, and the callback only accepts a `state` that `/ticktick/auth` issued. This came up while planning multi-user accounts ([multi-user-plan.md](multi-user-plan.md)), where the admin is defined as whoever signs in as `OWNER_EMAIL`.
+
 **Only frontend files are deployed (2026-10).** `deploy.yml` used to upload the repo root, so backend source, docs and `.claude/settings.local.json` were publicly served from `corolla.jhosan.top`. No credentials were exposed. It now publishes an assembled `_site/`.
 
 **`/api` goes through a Cloudflare Worker (2026-07).** With the frontend on `corolla.jhosan.top` and the API on Render, the session cookie was third-party. Brave blocks those outright, and Safari does unless cross-site tracking protection is off, so sign-in kept silently dying. Routing `/api/*` through a Worker on the frontend's domain makes the cookie first-party with no CORS involved.

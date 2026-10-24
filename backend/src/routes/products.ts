@@ -10,7 +10,7 @@ import {
   isRetailer,
   type Retailer,
 } from '../db/schema.js';
-import { sessionMiddleware, type AppEnv } from '../lib/auth.js';
+import { sessionMiddleware, requireAdmin, type AppEnv } from '../lib/auth.js';
 
 const router = new Hono<AppEnv>();
 
@@ -141,11 +141,8 @@ router.get('/products/:id/prices', async (c) => {
   return c.json(history);
 });
 
-// POST /products — create a new product (session-protected)
-router.post('/products', sessionMiddleware, async (c) => {
-  const userId = c.var.userId;
-  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
-
+// POST /products — create a new product (admin only)
+router.post('/products', sessionMiddleware, requireAdmin, async (c) => {
   const body = await c.req.json<{ name?: string; slug?: string; retailer?: string; url?: string }>();
   const { name, slug, retailer, url } = body;
 
@@ -182,11 +179,8 @@ router.post('/products', sessionMiddleware, async (c) => {
   return c.json({ id: newProduct.id, name: newProduct.name, slug: newProduct.slug, phase: newProduct.phase });
 });
 
-// PUT /products/:id/url — upsert a retailer URL (session-protected)
-router.put('/products/:id/url', sessionMiddleware, async (c) => {
-  const userId = c.var.userId;
-  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
-
+// PUT /products/:id/url — upsert a retailer URL (admin only)
+router.put('/products/:id/url', sessionMiddleware, requireAdmin, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
@@ -215,12 +209,9 @@ router.put('/products/:id/url', sessionMiddleware, async (c) => {
 });
 
 // PATCH /products/:id — rename a product's name/slug and/or set its default volume/usage
-// overrides (session-protected). defaultVolumeMl/defaultUsagePerWashMl are nullable — sending
+// overrides (admin only). defaultVolumeMl/defaultUsagePerWashMl are nullable — sending
 // an explicit null clears the override back to the frontend's hardcoded fallback, if any.
-router.patch('/products/:id', sessionMiddleware, async (c) => {
-  const userId = c.var.userId;
-  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
-
+router.patch('/products/:id', sessionMiddleware, requireAdmin, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
@@ -288,13 +279,10 @@ router.patch('/products/:id', sessionMiddleware, async (c) => {
 });
 
 // PUT /products/:id/pack — replace a product's whole pack-component list atomically and mark
-// it as a pack (session-protected). Deletes the existing component rows and re-inserts the
+// it as a pack (admin only). Deletes the existing component rows and re-inserts the
 // given list in order, rather than diffing — packs are small (a handful of rows) and the
 // frontend always sends the full current list, so this is simpler and can't drift out of sync.
-router.put('/products/:id/pack', sessionMiddleware, async (c) => {
-  const userId = c.var.userId;
-  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
-
+router.put('/products/:id/pack', sessionMiddleware, requireAdmin, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
@@ -352,12 +340,8 @@ router.put('/products/:id/pack', sessionMiddleware, async (c) => {
   return c.json({ ok: true, isPack: true, components });
 });
 
-// DELETE /products/:id/pack — unmark a product as a pack and discard its component list
-// (session-protected)
-router.delete('/products/:id/pack', sessionMiddleware, async (c) => {
-  const userId = c.var.userId;
-  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
-
+// DELETE /products/:id/pack — unmark a product as a pack and discard its component list (admin only)
+router.delete('/products/:id/pack', sessionMiddleware, requireAdmin, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
@@ -368,11 +352,8 @@ router.delete('/products/:id/pack', sessionMiddleware, async (c) => {
 });
 
 // DELETE /products/:id/url/:retailer — stop tracking one retailer for a product,
-// removing its URL and price history so it no longer appears at all (session-protected)
-router.delete('/products/:id/url/:retailer', sessionMiddleware, async (c) => {
-  const userId = c.var.userId;
-  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
-
+// removing its URL and price history so it no longer appears at all (admin only)
+router.delete('/products/:id/url/:retailer', sessionMiddleware, requireAdmin, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 
@@ -390,15 +371,12 @@ router.delete('/products/:id/url/:retailer', sessionMiddleware, async (c) => {
 
 // DELETE /products/:id — remove a product entirely, including all retailer URLs, price
 // history, its own pack-component definition (if it is a pack), and its entry in any other
-// pack's component list (session-protected). Does not touch the frontend's static CATALOG,
+// pack's component list (admin only). Does not touch the frontend's static CATALOG,
 // checklist phases, routines, or category assignments — those are keyed by slug and
 // independent of backend price tracking. Records a deletedProducts tombstone so that if this
 // slug/name is part of the hardcoded seed.ts catalog, the next Render restart's reseed doesn't
 // silently resurrect it (seed() checks this table before inserting).
-router.delete('/products/:id', sessionMiddleware, async (c) => {
-  const userId = c.var.userId;
-  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
-
+router.delete('/products/:id', sessionMiddleware, requireAdmin, async (c) => {
   const id = parseInt(c.req.param('id') ?? '', 10);
   if (isNaN(id)) return c.json({ error: 'Invalid product id' }, 400);
 

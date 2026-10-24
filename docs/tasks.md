@@ -4,6 +4,9 @@ Backlog ranked by usefulness × feasibility. Each item is independently shippabl
 
 ## Open
 
+### Multi-user accounts (in progress)
+- ☐ Invite-only sign-up, with an admin account and per-user data. It's being built in five phases; the plan and per-phase status are in [multi-user-plan.md](multi-user-plan.md).
+
 ### Scraping health
 - ☐ **Alert on stale prices.** The Auto Barn runner was offline from 2026-09-19 to 2026-10-21 and nobody noticed for a month. Every daily run was silently cancelled. Add a check, for example in the 08:00 UTC digest cron, that flags any active retailer with no `price_history` rows in the last ~3 days. Also include a flag on the front end, displaying a warning over the product and when hovering over it states how long the products price hasnt been updated.
 - ☐ **Fill price-coverage gaps** left by retiring Repco, Autopro and Bowden's (as of 2026-10-21):

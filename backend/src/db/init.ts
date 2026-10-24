@@ -33,7 +33,8 @@ const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS users (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     email      TEXT    NOT NULL UNIQUE,
-    created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    joined_at  TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS magic_tokens (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,19 +102,30 @@ export async function initDb() {
   }
 
   // `CREATE TABLE IF NOT EXISTS` is a no-op against an already-existing table, so it won't
-  // retrofit new columns onto a pre-existing products table (e.g. the live Render/Turso DB).
+  // retrofit new columns onto a pre-existing table (e.g. the live Render/Turso DB).
   // SQLite's ALTER TABLE ADD COLUMN has no IF NOT EXISTS clause and errors if run twice, so
-  // check first.
-  const cols = await client.execute(`PRAGMA table_info(products)`);
-  const existingCols = new Set(cols.rows.map((r) => r.name));
-  const columnsToAdd = [
-    { name: 'is_pack', ddl: 'INTEGER NOT NULL DEFAULT 0' },
-    { name: 'default_volume_ml', ddl: 'INTEGER' },
-    { name: 'default_usage_per_wash_ml', ddl: 'INTEGER' },
+  // check first. `backfill` runs only on the boot that adds the column.
+  const columnsToAdd: { table: string; name: string; ddl: string; backfill?: string }[] = [
+    { table: 'products', name: 'is_pack', ddl: 'INTEGER NOT NULL DEFAULT 0' },
+    { table: 'products', name: 'default_volume_ml', ddl: 'INTEGER' },
+    { table: 'products', name: 'default_usage_per_wash_ml', ddl: 'INTEGER' },
+    // Every account from before invites existed has already signed in, so it counts as joined.
+    {
+      table: 'users',
+      name: 'joined_at',
+      ddl: 'TEXT',
+      backfill: `UPDATE users SET joined_at = strftime('%Y-%m-%dT%H:%M:%fZ', created_at)`,
+    },
   ];
-  for (const { name, ddl } of columnsToAdd) {
-    if (!existingCols.has(name)) {
-      await client.execute(`ALTER TABLE products ADD COLUMN ${name} ${ddl}`);
+  const existingCols = new Map<string, Set<unknown>>();
+  for (const { table, name, ddl, backfill } of columnsToAdd) {
+    if (!existingCols.has(table)) {
+      const cols = await client.execute(`PRAGMA table_info(${table})`);
+      existingCols.set(table, new Set(cols.rows.map((r) => r.name)));
+    }
+    if (!existingCols.get(table)!.has(name)) {
+      await client.execute(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`);
+      if (backfill) await client.execute(backfill);
     }
   }
 

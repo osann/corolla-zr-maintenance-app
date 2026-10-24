@@ -66,7 +66,7 @@ Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.y
 
 ### Environment variables
 
-Render: `TURSO_URL`, `TURSO_TOKEN`, `SCRAPE_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (verified Resend domain), `OWNER_EMAIL` (required — the only address that can sign in or receive notifications; no fallback), `APP_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (no trailing slash), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` (Render URL, builds the OAuth redirect URI).
+Render: `TURSO_URL`, `TURSO_TOKEN`, `SCRAPE_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (verified Resend domain), `OWNER_EMAIL` (required — the admin account, and for now the only address that can sign in or receive notifications; no fallback), `APP_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (no trailing slash), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` (Render URL, builds the OAuth redirect URI).
 
 GitHub secrets: `BACKEND_URL` (= `https://corolla.jhosan.top`, i.e. through the proxy), `SCRAPE_SECRET` (must match Render).
 
@@ -79,10 +79,11 @@ Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 - `price_history` — append-only `product_id, retailer, price_cents, on_sale, observed_at`.
 - `pack_components` — components of a pack product. `component_product_id` null = free-text component placed by `section_category`/`section_label`. Packs can't contain packs.
 - `deleted_products` — tombstones by slug so `seed()` never resurrects a product deleted in the UI. `POST /api/products` clears a matching tombstone.
-- `users`, `magic_tokens` (15-min single-use), `sessions` (30-day), `photos`.
+- `users` (`joined_at` is set on first sign-in; null means invited but not yet signed in), `magic_tokens` (15-min single-use), `sessions` (30-day), `photos`.
 - `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync. `ticktick-oauth-v1` is deliberately **not** in it — tokens never reach the client.
 
 Rules:
+- **Catalogue writes are admin-only.** The admin is whoever signs in as `OWNER_EMAIL` (`isAdminEmail()` in `lib/auth.ts`; it isn't stored in the DB). Any route that changes products, retailer URLs or packs, or acts on the owner's TickTick account, goes behind `sessionMiddleware, requireAdmin`. `sessionMiddleware` alone only identifies the caller; it never rejects anyone.
 - **Deletes are explicit.** `foreign_keys` is never enabled on libSQL, so `ON DELETE CASCADE` isn't relied on: handlers delete `pack_components` → `price_history` → `retailer_urls` → `products` themselves. Do the same in any new delete path.
 - **`seed()` must stay crash-proof.** It looks up by slug, then by name, then inserts, and skips tombstoned slugs. Startup runs it on every Render boot.
 - To add a catalogue product: add it to `CATALOG` in `js/data.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work.
@@ -198,7 +199,7 @@ Slug rename (`confirmSlugRename` → `renameProductSlugEverywhere`) rewrites cat
 
 ## Notifications
 
-Channels are TickTick (OAuth; tokens in `user_data` under `ticktick-oauth-v1`, auto-refreshed) and email (Resend). Settings live in `settings.notifications`, and per-product thresholds in `corolla-price-alerts-v1`.
+Channels are TickTick (OAuth; tokens in `user_data` under `ticktick-oauth-v1`, auto-refreshed) and email (Resend). The TickTick callback lands on Render directly, without the session cookie, so it only accepts a `state` that `/ticktick/auth` issued in the last 10 minutes (held in memory). Settings live in `settings.notifications`, and per-product thresholds in `corolla-price-alerts-v1`.
 
 Triggers:
 1. **Sale alert:** the product transitions to on-sale during `POST /api/prices`.

@@ -2,11 +2,11 @@ import { Hono } from 'hono';
 import { eq, desc, and, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory } from '../db/schema.js';
-import { sessionMiddleware } from '../lib/auth.js';
+import { sessionMiddleware, requireAdmin, type AppEnv } from '../lib/auth.js';
 import { getOwnerEmail, getOwnerNotificationSettings } from '../lib/email.js';
 import { createTickTickTask } from '../lib/ticktick.js';
 
-const router = new Hono();
+const router = new Hono<AppEnv>();
 
 // GET /alerts — products currently on sale (latest observation has on_sale = true)
 router.get('/alerts', async (c) => {
@@ -43,11 +43,9 @@ router.get('/alerts', async (c) => {
   return c.json(alerts);
 });
 
-// POST /notify/wash-reminder — send a TickTick task for a specific routine from the frontend button
-router.post('/notify/wash-reminder', sessionMiddleware, async (c) => {
-  const userId = c.var.userId;
-  if (!userId) return c.json({ error: 'Unauthorised' }, 401);
-
+// POST /notify/wash-reminder — send a TickTick task for a specific routine from the frontend button.
+// Admin only, since it goes to the owner's TickTick account.
+router.post('/notify/wash-reminder', sessionMiddleware, requireAdmin, async (c) => {
   const { routineName, dueDate } = await c.req.json<{ routineName: string; dueDate?: string }>();
   const ownerEmail = getOwnerEmail();
   const notif = await getOwnerNotificationSettings(ownerEmail);
