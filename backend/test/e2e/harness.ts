@@ -2,7 +2,7 @@
 // /api proxied to it on the same origin, the way the Cloudflare Worker does in production, so the
 // session cookie works. Used by the browser smoke tests (npm run test:e2e).
 import { spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createServer, request, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -48,12 +48,14 @@ export interface App {
   origin: string; // the frontend, with /api on the same origin
   db: Client; // the backend's database
   browser: Browser;
+  tmpDir: string; // deleted by stop()
   postPrices(observations: unknown[]): Promise<Response>;
   stop(): Promise<void>;
 }
 
 export async function startApp(): Promise<App> {
-  const dbUrl = `file:${join(mkdtempSync(join(tmpdir(), 'corolla-e2e-')), 'e2e.sqlite').replace(/\\/g, '/')}`;
+  const tmpDir = mkdtempSync(join(tmpdir(), 'corolla-e2e-'));
+  const dbUrl = `file:${join(tmpDir, 'e2e.sqlite').replace(/\\/g, '/')}`;
   const apiPort = await freePort();
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -115,6 +117,7 @@ export async function startApp(): Promise<App> {
     origin,
     db,
     browser,
+    tmpDir,
     postPrices: (observations) =>
       fetch(`${api}/api/prices`, {
         method: 'POST',
@@ -125,7 +128,11 @@ export async function startApp(): Promise<App> {
       await browser.close();
       db.close();
       await new Promise((done) => server.close(done));
+      // Wait for the backend to exit so it lets go of the DB file (Windows won't delete it before).
+      const exited = new Promise((done) => backend.once('exit', done));
       backend.kill();
+      await exited;
+      rmSync(tmpDir, { recursive: true, force: true });
     },
   };
 }

@@ -214,6 +214,24 @@ Multi-size products (e.g. Snow Job) use the Maropost/Neto `/ajax/ajax_template` 
 
 **Do not attempt to scrape bowdensown.com.au from any cloud environment.** Bowden's products are priced via Supercheap and Auto Barn. The `seed.ts` `Item` type has no `bowdensHandle` field — do not add one.
 
+**From a home connection it works (2026-10-24).** A plain request with a browser user agent got 200 and server-rendered HTML for every archived URL tried. So the self-hosted runner could scrape it; that's an open task. Two things to know first:
+- **Don't use `createFetchScraper()`'s first-`$` regex as is.** The product's own price is `$<span itemprop="price">37.99</span>`, with the dollar sign outside the span, so the regex skips it and reads the first related-product tile instead. On the Bead Machine page that's $16.99 for a Big Softie. Read `.productprice [itemprop="price"]` instead.
+- **Size variants:** the page's price is the default size's. Other sizes load through the `/ajax/ajax_template` endpoint above, so each tracked size needs a URL whose default is that size.
+
+---
+
+## Finding a retailer URL for a product
+
+Both active retailers' search pages are server-rendered and work from a home connection (Auto Barn blocks cloud IPs here too):
+
+- Supercheap: `https://www.supercheapauto.com.au/search?q=bowdens+wheely+clean`. Result links are `/p/{slug}/{id}.html`.
+- Auto Barn: `https://autobarn.com.au/ab/search/?text=bowdens+wheely+clean`. Results are full canonical `/ab/…/p/{SKU}` links. Strip the `?queryID=…&indexUsed=…` tracking parameters before saving one.
+
+Before adding a URL:
+- **Confirm it's the same product.** The URL slug can mislead: Supercheap's `little-chubby-brush-v2/700985` page is titled "The Chubby Wheel Brush V2". Compare the page title and the pack contents, and on Auto Barn take the URL from `<link rel="canonical">`.
+- **Run it through the real scraper.** Call `scrapeToArray()` from `scrapers/supercheap.ts` with an external row, or from `scrapers/autobarn.ts` with `AUTOBARN_IGNORE_WINDOW=1`, and check the price it reads.
+- **Save it against the right retailer.** The product routes reject a URL from another retailer's site.
+
 ---
 
 ## Proton Drive sync conflicts corrupt the git index

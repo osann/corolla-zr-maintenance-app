@@ -1,8 +1,7 @@
 // Browser smoke tests: the real backend and frontend in headless Chromium (npm run test:e2e). They
 // check that the app loads and every tab works signed out, as a member and as the admin, that each
 // account sees only its own controls, and the flows the backend tests can't reach.
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -150,7 +149,7 @@ describe('signed in as a member', () => {
     await page.click('.tab[data-tab="settings"]');
 
     const [download] = await Promise.all([page.waitForEvent('download'), page.click('[onclick="exportData()"]')]);
-    const backupPath = join(mkdtempSync(join(tmpdir(), 'corolla-backup-')), 'backup.json');
+    const backupPath = join(app.tmpDir, 'backup.json');
     await download.saveAs(backupPath);
     const backup = JSON.parse(readFileSync(backupPath, 'utf8'));
     expect(backup).toMatchObject({ app: 'Corolla ZR Detailing Guide', format: 2 });
