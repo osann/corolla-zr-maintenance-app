@@ -46,8 +46,10 @@ router.post('/auth/request', async (c) => {
 
   if (!email) return c.json({ error: 'Email required' }, 400);
 
-  // Only the admin can sign in for now. Anyone else is silently accepted, to prevent enumeration.
-  if (!isAdminEmail(email)) return c.json({ ok: true });
+  // Accounts are invite-only: a link goes to the admin and to users the admin has invited. Anyone
+  // else is silently accepted, to prevent enumeration.
+  let user = (await db.select().from(users).where(eq(users.email, email)).limit(1))[0];
+  if (!user && !isAdminEmail(email)) return c.json({ ok: true });
 
   // 60s cooldown
   const last = cooldowns.get(email) ?? 0;
@@ -56,8 +58,7 @@ router.post('/auth/request', async (c) => {
   }
   cooldowns.set(email, Date.now());
 
-  // Upsert user
-  let user = (await db.select().from(users).where(eq(users.email, email)).limit(1))[0];
+  // The admin's row is created on their first sign-in; invited users already have one.
   if (!user) {
     const inserted = await db.insert(users).values({ email }).returning();
     user = inserted[0];

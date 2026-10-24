@@ -7,7 +7,7 @@ Agreed 2026-10-21. The work is on branch `feature/multi-user`, one commit per ph
 - ☑ Phase 1: admin identity and route guards (backend). Committed on `feature/multi-user` 2026-10-24.
 - ☑ Phase 2: per-user notifications and TickTick (backend). Committed 2026-10-24.
 - ☑ Phase 3: shared categories and rename propagation. Committed 2026-10-24.
-- ☐ Phase 4: invites and user management (backend)
+- ☑ Phase 4: invites and user management (backend). Committed 2026-10-24.
 - ☐ Phase 5: frontend (admin-only UI, Users section, switching accounts)
 - ☐ Tests and docs (added alongside each phase; the CLAUDE.md and decisions.md rewrite lands with Phase 5)
 
@@ -131,18 +131,19 @@ Behaviour stays the same while you're the only user.
   - `/auth/request`: replace the owner-only check. Look the email up in `users`. If there's no row and `isAdminEmail(email)`, insert one (bootstrap). If there's no row otherwise, return a silent `{ok:true}` (no enumeration, as now). The rest stays: cooldown, token invalidation, 15-minute token.
   - `/auth/verify` setting `joined_at`, and `isAdmin` in `/auth/me`, were already done in Phase 1.
 - **`lib/email.ts`**: add `sendInvite(to, token)`. Factor the link-email HTML out of `sendMagicLink()` into a shared helper. The invite copy says the link is valid for 7 days.
-- **New `backend/src/routes/admin.ts`**: every route uses `sessionMiddleware, requireAdmin`. It's mounted in `index.ts`. It adds no new HTTP verbs, so CORS doesn't change.
-  - `GET /admin/users` returns `[{ id, email, isAdmin, createdAt, joinedAt }]`.
+- **New `backend/src/routes/admin.ts`**: one `router.use('/admin/*', sessionMiddleware, requireAdmin)` guards every route in it, including any added later. It's mounted in `index.ts`. It adds no new HTTP verbs, so CORS doesn't change.
+  - `GET /admin/users` returns `[{ id, email, isAdmin, createdAt, joinedAt, inviteExpiresAt }]`. `inviteExpiresAt` is when a pending user's latest unused link stops working, so the UI can say an invite has expired. `createdAt` is converted to ISO, because Safari won't parse SQLite's format.
   - `POST /admin/invites { email }`:
     - lowercases the email and validates it;
-    - returns 409 if that user has already joined;
+    - returns 409 if that user has already joined, or is the admin;
     - otherwise creates the `users` row if it's missing;
-    - deletes any unused tokens, inserts a `magic_tokens` row with `tokenExpiresAt(7 * 24 * 60)`, calls `sendInvite`, and returns `{ ok, link }`.
+    - deletes any unused tokens, inserts a `magic_tokens` row with `tokenExpiresAt(7 * 24 * 60)`, calls `sendInvite`, and returns `{ ok, id, link, emailed }`. `emailed` is false when Resend rejected the email. Resend 4.x reports errors in its result rather than throwing, so `sendInvite` turns them into a throw.
 
     Posting again is the resend: it makes a new link and invalidates the old one. An invite is just a long-lived magic token, so accepting it goes through the existing `?token=` → `/auth/verify` flow with no frontend changes.
   - `DELETE /admin/users/:id`:
     - returns 400 for the admin;
     - otherwise deletes explicitly, in this order: R2 objects for each photo (`Promise.allSettled`, as in photos.ts), then `photos`, `user_data`, `sessions`, `magic_tokens` and `users`. FK cascades aren't relied on (CLAUDE.md rule).
+- **Tests:** `backend/test/accounts.test.ts` (email and R2 mocked) covers silent ignoring of unknown addresses, the admin's row being created on first sign-in, 401/403 on every admin route, invite validation (409/400), the 7-day link, `emailed: false` still returning the link, resend replacing the old link, accepting as a regular user, signing in again later, the user list, and removal (all rows, R2 objects and the session gone; the admin can't be removed; cancelling a pending invite).
 
 ## Phase 5: frontend (admin-only UI, Users section, switching accounts)
 

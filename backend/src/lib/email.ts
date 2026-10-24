@@ -239,21 +239,69 @@ export async function sendDigestEmail(
   });
 }
 
-export async function sendMagicLink(to: string, token: string): Promise<void> {
+// The app URL that signs someone in with a magic-link or invite token (checkAuthAndSync() picks
+// up ?token=).
+export function signInLink(token: string): string {
   const appUrl = process.env.APP_URL ?? 'https://corolla.jhosan.top';
-  const link = `${appUrl}?token=${token}`;
-  await resend.emails.send({
+  return `${appUrl}?token=${token}`;
+}
+
+// Sign-in and invite emails share this layout: a heading, one paragraph and a button.
+function sendLinkEmail(
+  to: string,
+  email: {
+    subject: string;
+    heading: string;
+    body: string;
+    button: string;
+    footnote: string;
+    link: string;
+    text: string;
+  },
+) {
+  return resend.emails.send({
     from: process.env.RESEND_FROM ?? 'Corolla Detailing <sync@corolla.jhosan.top>',
     to,
-    subject: 'Sign in to Corolla Detailing',
+    subject: email.subject,
     html: `
 <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;color:#1a1a1a;">
   <p style="font-size:14px;color:#666;margin:0 0 24px;">Corolla Detailing</p>
-  <h2 style="font-size:20px;font-weight:600;margin:0 0 12px;">Sign in</h2>
-  <p style="font-size:15px;color:#444;margin:0 0 24px;">Click the button below to sign in. This link expires in 15 minutes and can only be used once.</p>
-  <a href="${link}" style="display:inline-block;background:#2d7d5a;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;">Sign in →</a>
-  <p style="font-size:13px;color:#999;margin:32px 0 0;">If you didn't request this, you can safely ignore it.<br>Link: ${link}</p>
+  <h2 style="font-size:20px;font-weight:600;margin:0 0 12px;">${email.heading}</h2>
+  <p style="font-size:15px;color:#444;margin:0 0 24px;">${email.body}</p>
+  <a href="${email.link}" style="display:inline-block;background:#2d7d5a;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;font-weight:500;">${email.button} →</a>
+  <p style="font-size:13px;color:#999;margin:32px 0 0;">${email.footnote}<br>Link: ${email.link}</p>
 </div>`,
+    text: email.text,
+  });
+}
+
+export async function sendMagicLink(to: string, token: string): Promise<void> {
+  const link = signInLink(token);
+  await sendLinkEmail(to, {
+    subject: 'Sign in to Corolla Detailing',
+    heading: 'Sign in',
+    body: 'Click the button below to sign in. This link expires in 15 minutes and can only be used once.',
+    button: 'Sign in',
+    footnote: "If you didn't request this, you can safely ignore it.",
+    link,
     text: `Sign in to Corolla Detailing\n\n${link}\n\nExpires in 15 minutes, one-time use. If you didn't request this, ignore it.`,
   });
+}
+
+export const INVITE_DAYS = 7;
+
+// Throws if Resend rejects the email (it reports errors in its result instead of throwing), so the
+// admin can be told to share the link another way.
+export async function sendInvite(to: string, token: string): Promise<void> {
+  const link = signInLink(token);
+  const { error } = await sendLinkEmail(to, {
+    subject: "You're invited to Corolla Detailing",
+    heading: "You're invited",
+    body: `You've been invited to Corolla Detailing, a car-care log and kit guide. Click the button below to set up your account. The link expires in ${INVITE_DAYS} days and can only be used once. After that, sign in from the app with this email address.`,
+    button: 'Accept invite',
+    footnote: "If you weren't expecting this, you can ignore it.",
+    link,
+    text: `You're invited to Corolla Detailing\n\nSet up your account: ${link}\n\nExpires in ${INVITE_DAYS} days, one-time use. After that, sign in from the app with this email address.`,
+  });
+  if (error) throw new Error(`Resend rejected the invite: ${error.message}`);
 }

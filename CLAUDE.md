@@ -23,7 +23,7 @@ cloudflare/api-proxy-worker.js          # reference copy of the /api proxy Worke
 backend/src/
   index.ts            # Hono server + node-cron (07:00 wash reminder, 08:00 digest — UTC)
   db/                 # schema.ts, init.ts (tables + migration-safe ALTERs), seed.ts (catalogue), connection.ts
-  routes/             # products, prices, alerts, auth (+ sync), weather, photos, ticktick
+  routes/             # products, prices, alerts, auth (+ sync), admin (users + invites), weather, photos, ticktick
   scrapers/           # supercheap, autobarn, fetch-scraper (shared), entry points below
   lib/                # auth (sessions, admin), email (Resend + notification recipients), notifications (cron jobs), ticktick, r2, browser, sale-detector
 backend/test/          # Vitest smoke tests (seed, price ingestion, product routes, access control, per-user notifications)
@@ -66,7 +66,7 @@ Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.y
 
 ### Environment variables
 
-Render: `TURSO_URL`, `TURSO_TOKEN`, `SCRAPE_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (verified Resend domain), `OWNER_EMAIL` (required — the admin account, and for now the only address that can sign in; no fallback), `APP_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (no trailing slash), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` (Render URL, builds the OAuth redirect URI).
+Render: `TURSO_URL`, `TURSO_TOKEN`, `SCRAPE_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` (verified Resend domain), `OWNER_EMAIL` (required — the admin account; without it nobody is admin and nobody new can be invited; no fallback), `APP_URL`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (no trailing slash), `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `TICKTICK_CLIENT_ID`, `TICKTICK_CLIENT_SECRET`, `BACKEND_PUBLIC_URL` (Render URL, builds the OAuth redirect URI).
 
 GitHub secrets: `BACKEND_URL` (= `https://corolla.jhosan.top`, i.e. through the proxy), `SCRAPE_SECRET` (must match Render).
 
@@ -79,7 +79,7 @@ Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 - `price_history` — append-only `product_id, retailer, price_cents, on_sale, observed_at`.
 - `pack_components` — components of a pack product. `component_product_id` null = free-text component placed by `section_category`/`section_label`. Packs can't contain packs.
 - `deleted_products` — tombstones by slug so `seed()` never resurrects a product deleted in the UI. `POST /api/products` clears a matching tombstone.
-- `users` (`joined_at` is set on first sign-in; null means invited but not yet signed in), `magic_tokens` (15-min single-use), `sessions` (30-day), `photos`.
+- `users` (`joined_at` is set on first sign-in; null means invited but not yet signed in), `magic_tokens` (single-use; 15 min for a sign-in link, 7 days for an invite), `sessions` (30-day), `photos`.
 - `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync. `ticktick-oauth-v1` is deliberately **not** in it — tokens never reach the client.
 - `shared_data` — key/value JSON every account shares and only the admin can change; the keys are listed in `SHARED_KEYS` (`routes/auth.ts`, mirrored in `js/config.js`). Currently only `corolla-categories-v1`. These keys sync through the same endpoints: `GET /api/sync` merges them over the user's rows, and `POST /api/sync/:key` returns 403 to anyone but the admin. `initDb()` moved the owner's categories here once.
 
@@ -198,6 +198,14 @@ Renames reach every account. `PATCH /products/:id` rewrites each user's stored d
 ### Photos
 
 `POST/GET/DELETE /api/photos`, stored in Cloudflare R2 (public bucket, `R2_PUBLIC_URL/photos/{userId}/{logEntryId}/{uuid}.jpg`), with sharp 400px thumbnails and EXIF stripped. The ✕ remove button only renders on the entry being edited. After saving an edit, photos are re-fetched to catch uploads that finished after the click.
+
+## Accounts
+
+Invite-only. The admin is whoever signs in as `OWNER_EMAIL`; everyone else is a regular user with their own data.
+- `POST /api/auth/request` only sends a link to an existing account, plus the admin (whose row is created on first sign-in). Any other address gets the same silent `{ ok: true }`, so it can't be used to find out who has an account.
+- `POST /api/admin/invites { email }` creates a pending user (`joined_at` null) and emails a 7-day magic-link token. The response also carries the link, plus `emailed: false` if Resend rejected the email, so the admin can share it another way. Posting again resends, and the new link replaces the old one. Accepting is an ordinary `?token=` sign-in, and the first sign-in sets `joined_at`.
+- `DELETE /api/admin/users/:id` removes a user and everything they own (R2 photos, then `photos`, `user_data`, `sessions`, `magic_tokens`, `users`). The admin can't be removed.
+- Everything in `routes/admin.ts` sits behind one `router.use('/admin/*', sessionMiddleware, requireAdmin)`, so new admin routes are guarded automatically.
 
 ## Notifications
 

@@ -9,6 +9,7 @@ import authRouter from './routes/auth.js';
 import weatherRouter from './routes/weather.js';
 import photosRouter from './routes/photos.js';
 import ticktickRouter from './routes/ticktick.js';
+import adminRouter from './routes/admin.js';
 import { initDb } from './db/init.js';
 import { seed, seedPacks } from './db/seed.js';
 import { runWashReminders, runDailyDigest } from './lib/notifications.js';
@@ -49,6 +50,7 @@ app.route('/api', authRouter);
 app.route('/api', weatherRouter);
 app.route('/api', photosRouter);
 app.route('/api', ticktickRouter);
+app.route('/api', adminRouter);
 
 // No scraping runs on Render: Supercheap and Auto Barn are scraped from GitHub Actions and the
 // self-hosted runner. See docs/blocked-retailers.md for the retired Autopro cron.
