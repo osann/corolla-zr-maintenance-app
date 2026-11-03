@@ -158,8 +158,10 @@ router.get('/sync', sessionMiddleware, async (c) => {
     db.select().from(sharedData),
   ]);
   const result: Record<string, unknown> = {};
-  // Shared rows go last, so they win over any stale per-user copy of the same key.
-  for (const row of [...rows, ...sharedRows]) {
+  // Only the synced stores. user_data also holds server-only rows (TickTick tokens, the wash
+  // reminder record) that never go to the browser. Shared rows go last, so they win over any stale
+  // per-user copy of the same key.
+  for (const row of [...rows.filter((r) => ALLOWED_KEYS.includes(r.key)), ...sharedRows]) {
     try {
       result[row.key] = JSON.parse(row.valueJson);
     } catch {}

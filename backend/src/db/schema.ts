@@ -1,9 +1,9 @@
 import { integer, text, sqliteTable, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
-// Retailers that are scraped. Repco, Autopro and Bowden's Own were retired (bot-blocked) —
-// see docs/blocked-retailers.md; the DB CHECK constraint in init.ts still permits them.
-export const RETAILERS = ['supercheap', 'autobarn'] as const;
+// Retailers that are scraped. Repco and Autopro were retired (bot-blocked) — see
+// docs/blocked-retailers.md; the DB CHECK constraint in init.ts still permits them.
+export const RETAILERS = ['supercheap', 'autobarn', 'bowdens'] as const;
 export type Retailer = (typeof RETAILERS)[number];
 export const isRetailer = (r: unknown): r is Retailer => RETAILERS.includes(r as Retailer);
 
@@ -13,6 +13,7 @@ export const isRetailer = (r: unknown): r is Retailer => RETAILERS.includes(r as
 export const RETAILER_HOSTS: Record<Retailer, string> = {
   supercheap: 'supercheapauto.com.au',
   autobarn: 'autobarn.com.au',
+  bowdens: 'bowdensown.com.au',
 };
 export function isRetailerUrl(retailer: Retailer, url: string): boolean {
   try {

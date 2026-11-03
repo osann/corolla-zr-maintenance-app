@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository. Why things are the way
 
 ## What this app is
 
-A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus a few exceptions (303 Aerospace Protectant, Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto and Auto Barn) in AUD. Accounts are invite-only (see Accounts). The admin (`OWNER_EMAIL`) manages the shared product catalogue, categories and users, and everyone else has their own log, routines, settings and photos.
+A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus one exception (the Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto, Auto Barn and Bowden's Own itself) in AUD. Accounts are invite-only (see Accounts). The admin (`OWNER_EMAIL`) manages the shared product catalogue, categories and users, and everyone else has their own log, routines, settings and photos.
 
 Tabs (`index.html`):
 - **log** — wash sessions, streaks, reminder cards, weather hints. Sub-tabs: History, New Session, Edit Session (only while editing).
@@ -25,8 +25,8 @@ backend/src/
   index.ts            # Hono server + node-cron (07:00 wash reminder, 08:00 digest + stale-price check — UTC)
   db/                 # schema.ts, init.ts (tables + migration-safe ALTERs), seed.ts (catalogue), connection.ts
   routes/             # products, prices, alerts, auth (+ sync), admin (users + invites), weather, photos, ticktick
-  scrapers/           # supercheap, autobarn, fetch-scraper (shared), entry points below
-  lib/                # auth (sessions, admin), email (Resend + notification recipients), notifications (cron jobs), ticktick, r2, browser, sale-detector
+  scrapers/           # supercheap, autobarn, bowdens, fetch-scraper (Auto Barn's), push-in-batches (self-hosted runs), entry points below
+  lib/                # auth (sessions, admin), email (Resend + notification recipients), notifications (cron jobs), rename + retire (product changes across every account's data), ticktick, r2, browser, sale-detector
 backend/test/          # Vitest: backend smoke tests, plus frontend checks that need no browser (inline handlers, reminder matching)
 backend/test/e2e/      # browser smoke tests: harness.ts runs the real backend + frontend in headless Chromium
 .github/workflows/
@@ -35,6 +35,7 @@ backend/test/e2e/      # browser smoke tests: harness.ts runs the real backend +
   scrape.yml                     # daily Supercheap → run-and-push.ts
   scrape-supercheap-tuesday.yml  # Super Saver Tuesday sale window → run-and-push.ts
   scrape-autobarn.yml            # daily 05:00 UTC, self-hosted runner → run-autobarn.ts
+  scrape-bowdens.yml             # daily 04:00 UTC, self-hosted runner → run-bowdens.ts
 ```
 
 ## Commands (from `backend/`)
@@ -43,7 +44,7 @@ backend/test/e2e/      # browser smoke tests: harness.ts runs the real backend +
 npm run dev          # tsx watch
 npm run db:init      # create tables (idempotent)
 npm run seed         # upsert catalogue + retailer URLs
-npm run scrape       # Supercheap + Auto Barn → local DB (local only)
+npm run scrape       # Supercheap + Auto Barn + Bowden's Own → local DB (local only)
 npm run scrape:push  # Supercheap → POST to backend (what GitHub Actions runs)
 
 npm run typecheck    # tsc --noEmit
@@ -61,7 +62,7 @@ Locally the DB falls back to `file:./db.sqlite` when `TURSO_URL` is unset. `ci.y
 - **API proxy:** a Cloudflare Worker routed at `corolla.jhosan.top/api/*` forwards to Render, making the session cookie first-party. The deployed Worker is a plain dashboard-created Worker; editing `cloudflare/api-proxy-worker.js` does **not** redeploy it — re-paste into the dashboard. **Never** use Cloudflare's "Import a repository" flow for it (see decisions). Health check: `curl -s https://corolla.jhosan.top/api/health` should return Render's JSON with an `X-Render-Origin-Server: Render` header.
 - **Backend:** Render free tier, `npm start` (init → seed → server). A cron-job.org monitor pings `/api/health` every 10 min so node-cron keeps firing; if reminders or the digest stop, check that first.
 - **Database:** Turso (libSQL). Render needs `TURSO_URL` + `TURSO_TOKEN` or price history is wiped on restart.
-- **Self-hosted runner:** `debian-server` (home machine, user `jhadmin`) runs the Auto Barn scrape from a residential IP. Playwright system libs must be installed there once (see docs/scraper-learnings.md).
+- **Self-hosted runner:** `debian-server` (home machine, user `jhadmin`) runs the Auto Barn and Bowden's Own scrapes from a residential IP. Playwright system libs must be installed there once (see docs/scraper-learnings.md).
 
 ### CORS
 
@@ -83,16 +84,18 @@ Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 - `pack_components` — components of a pack product. `component_product_id` null = free-text component placed by `section_category`/`section_label`. Packs can't contain packs.
 - `deleted_products` — tombstones by slug so `seed()` never resurrects a product deleted in the UI. `POST /api/products` clears a matching tombstone.
 - `users` (`joined_at` is set on first sign-in; null means invited but not yet signed in), `magic_tokens` (single-use; 15 min for a sign-in link, 7 days for an invite), `sessions` (30-day), `photos`.
-- `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync. `ticktick-oauth-v1` is deliberately **not** in it — tokens never reach the client.
+- `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync, and `GET /api/sync` returns only those keys. The server-only rows, `ticktick-oauth-v1` (tokens) and `wash-reminders-sent-v1` (see Notifications), are deliberately **not** in it, so they never reach the client.
 - `shared_data` — key/value JSON every account shares and only the admin can change; the keys are listed in `SHARED_KEYS` (`routes/auth.ts`, mirrored in `js/config.js`). Currently only `corolla-categories-v1`. These keys sync through the same endpoints: `GET /api/sync` merges them over the user's rows, and `POST /api/sync/:key` returns 403 to anyone but the admin. `initDb()` moved the owner's categories here once.
 
 Rules:
 - **Catalogue writes are admin-only.** The admin is whoever signs in as `OWNER_EMAIL` (`isAdminEmail()` in `lib/auth.ts`; it isn't stored in the DB). Any route that changes products, retailer URLs or packs goes behind `sessionMiddleware, requireAdmin`. `sessionMiddleware` alone only identifies the caller; it never rejects anyone.
 - **Deletes are explicit.** `foreign_keys` is never enabled on libSQL, so `ON DELETE CASCADE` isn't relied on: handlers delete `pack_components` → `price_history` → `retailer_urls` → `products` themselves. Do the same in any new delete path.
 - **`seed()` must stay crash-proof.** It looks up by slug, then by name, then inserts, and skips tombstoned slugs. Startup runs it on every Render boot.
-- **`seed.ts` URLs win.** `seed()` upserts every seeded product's retailer URLs on each boot, so a URL for a seeded product fixed in the Products tab reverts on the next deploy unless `seed.ts` is fixed too. Removing a URL from `seed.ts` doesn't delete it from the DB.
-- To add a catalogue product: add it to `CATALOG` in `js/data.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work.
+- **`seed.ts` mirrors production.** Every live product has an entry with its live slug, name and URLs, including ones added in the Products tab (synced 2026-11-03). `seed()` matches by slug, then name, so an entry whose product was renamed in the app stops matching, and its URLs silently stop applying. Rename the entry too.
+- **`seed.ts` URLs win.** `seed()` upserts every seeded product's retailer URLs on each boot, so a URL for a seeded product fixed in the Products tab reverts on the next deploy unless `seed.ts` is fixed too. Removing a URL from `seed.ts` doesn't delete it from the DB; for that, add it to `RETIRED_URLS` (`lib/retire.ts`), which `initDb()` removes, with that retailer's price history for the product, before seeding.
+- To add a catalogue product: add it to `CATALOG` in `js/data.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work. Add those to `seed.ts` too, so they keep the guarantees above.
 - Deleting a built-in product removes backend price tracking only; it stays in the static `CATALOG`, default phases, and routines.
+- **Retiring a product for good** is different: add it to `RETIRED_PRODUCTS` (`lib/retire.ts`) and remove it from `CATALOG`, `seed.ts` and the other `js/data.js` lists. On every boot `initDb()` (via `retireCatalogueData()`) deletes it, tombstones it, and takes it out of every account's checklist, inventory, alerts, routines and the shared categories (`removeProductFromUserData()` in `lib/rename.ts`). A duplicate's references move to the product named in `duplicateOf`. Retired so far: `303-aerospace`, and `little-chubby-v2` (a duplicate of `the-chubby-wheel-brush`).
 
 ## Scrapers
 
@@ -100,12 +103,14 @@ Rules:
 |---|---|---|---|
 | Supercheap | GitHub Actions (hosted) | `run-and-push.ts` | Playwright. Daily + Tuesday sale window. |
 | Auto Barn | Self-hosted runner | `run-autobarn.ts` | Blocks all cloud IPs. Pushes in batches of 10. Don't re-enable `playwrightFallback`. If its runs show "cancelled", the runner on `debian-server` is offline (GitHub cancels jobs no runner picks up within 24 h). |
+| Bowden's Own | Self-hosted runner | `run-bowdens.ts` | Blocks cloud IPs, not home ones. Plain fetch; stops and fails the run after 5 blocked responses in a row. A URL for a page that sells several sizes or options names one after `#`: a size from its size buttons (`…/boss-gloss#5L`) or a SKU from its "Buying Options" table (`…/all-sorts#BOASORTS__`). |
 
-- **Repco, Autopro and Bowden's Own are retired**: they're bot-blocked, and their code, URLs and price history were removed on 2026-10-21. [docs/blocked-retailers.md](docs/blocked-retailers.md) has the selectors, how to check whether a block has lifted, an archive of every URL, and restore steps. `initDb()` deletes any rows for `RETIRED_RETAILERS` on every boot, and `POST /api/prices` skips them. Don't add URLs for them.
+- **Bowden's Own prices** come from the page's own price (`.productprice [itemprop="price"]`, never a related-product tile). Any other size is fetched the way the site's size buttons do it, through `/ajax/variations` and `/ajax/ajax_template`. Name the size even when it's the page's default, so a change of default can't quietly switch which size is priced. It reads no was-price; sales are caught by the rolling-average check in `POST /api/prices`.
+- **Repco and Autopro are retired**: they're bot-blocked, and their code, URLs and price history were removed on 2026-10-21 (Bowden's Own was retired with them and came back on 2026-11-03). [docs/blocked-retailers.md](docs/blocked-retailers.md) has the selectors, how to check whether a block has lifted, an archive of every URL, and restore steps. `initDb()` deletes any rows for `RETIRED_RETAILERS` on every boot, and `POST /api/prices` skips them. Don't add URLs for them.
 - The accepted retailers live in one list, `RETAILERS` in `backend/src/db/schema.ts`, with each one's site in `RETAILER_HOSTS` next to it. The frontend mirrors it in `SCRAPED_RETAILERS`/`RETAILER_NAMES` (`js/data.js`).
 - **Stale prices are flagged.** The 08:00 UTC `runStalePriceCheck()` emails the admin daily while any retailer with URLs has had no price for `STALE_PRICE_DAYS` (3). The Prices tab marks each retailer price that old with a ⚠ whose tooltip gives its age. The Products tab marks those too, plus URLs that have never produced a price, which usually means a broken URL. The constant is mirrored in `js/data.js`.
-- To look for a missing URL, both sites' search pages are server-rendered and work from a home connection: `supercheapauto.com.au/search?q=…` and `autobarn.com.au/ab/search/?text=…`. Check a candidate with the real scraper's `scrapeToArray()` before adding it (see docs/scraper-learnings.md).
-- The ephemeral runners (Actions + self-hosted) have no Turso credentials. They get the product/URL list from the live API via `fetchRowsFromBackend()` and POST results to `POST /api/prices` (Bearer `SCRAPE_SECRET`). Their local SQLite is schema-only, so the workflows run `db/init.ts` and **no seed**.
+- To look for a missing URL, the retailers' search pages are server-rendered and work from a home connection: `supercheapauto.com.au/search?q=…` and `autobarn.com.au/ab/search/?text=…`. Bowden's own search is off limits (`robots.txt` disallows `?rf=`); use its category pages or `sitemap_1.xml.gz`. Check a candidate with the real scraper before adding it (see docs/scraper-learnings.md).
+- The ephemeral runners (Actions + self-hosted) have no Turso credentials. They get the product/URL list from the live API via `fetchRowsFromBackend()` and POST results to `POST /api/prices` (Bearer `SCRAPE_SECRET`). Their local SQLite is schema-only, so the workflows run `db/init.ts` (Bowden's needs no local DB at all) and **no seed**.
 - Ingestion matches observations to products by **slug**.
 - Playwright: no named functions inside `page.evaluate()`; use `waitUntil: 'domcontentloaded'`; never select `[itemprop="price"]`. More in docs/scraper-learnings.md.
 
@@ -230,7 +235,7 @@ Channels are TickTick (OAuth, per user; tokens in that user's `user_data` under 
 Triggers:
 1. **Sale alert:** the product transitions to on-sale during `POST /api/prices`.
 2. **Threshold alert:** the price crosses at or below the product's threshold during `POST /api/prices`.
-3. **Wash reminder:** 07:00 UTC cron, per `settings.schedules`. It repeats every morning while a routine stays overdue.
+3. **Wash reminder:** 07:00 UTC cron, per `settings.schedules`. It's sent the first morning a routine is overdue, then every 7 days (`REMINDER_REPEAT_DAYS`) while it stays overdue. A new session that moves the due date starts over. The last reminder per routine is kept in that user's `user_data` under `wash-reminders-sent-v1`, which never syncs.
 4. **Daily digest:** 08:00 UTC cron, email only, sent only when there's something to report.
 5. **Stale prices:** 08:00 UTC cron, email to the admin (`OWNER_EMAIL`) only, every day while a retailer has had no new price for 3 days (see Scrapers).
 

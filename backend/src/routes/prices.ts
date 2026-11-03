@@ -3,7 +3,12 @@ import { and, desc, eq, gt, sql } from 'drizzle-orm';
 import { db } from '../db/connection.js';
 import { products, priceHistory, isRetailer } from '../db/schema.js';
 import { isOnSale } from '../lib/sale-detector.js';
-import { sendDirectEmail, getNotificationRecipients, type NotificationRecipient } from '../lib/email.js';
+import {
+  sendDirectEmail,
+  getNotificationRecipients,
+  RETAILER_DISPLAY,
+  type NotificationRecipient,
+} from '../lib/email.js';
 import { createTickTickTask } from '../lib/ticktick.js';
 
 const router = new Hono();
@@ -115,7 +120,7 @@ router.post('/prices', async (c) => {
 
     const productName = productRows[0].name;
     const currentPrice = `$${(priceCents / 100).toFixed(2)}`;
-    const retailerName = retailer.charAt(0).toUpperCase() + retailer.slice(1);
+    const retailerName = RETAILER_DISPLAY[retailer];
 
     for (const recipient of interested) {
       // On-sale alert (transition only)

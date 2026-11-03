@@ -2,7 +2,7 @@
 
 Hard-won notes from building the price scrapers. Read this before touching any scraper code.
 
-> **Active scrapers: Supercheap and Auto Barn only.** Repco, Autopro and Bowden's Own were retired on 2026-10-21 because they block bots. Their sections below are kept as reference for if a block ever lifts; see [blocked-retailers.md](blocked-retailers.md) for the current state and restore steps.
+> **Active scrapers: Supercheap, Auto Barn and Bowden's Own** (Bowden's from the home runner, since 2026-11-03). Repco and Autopro were retired on 2026-10-21 because they block bots. Their sections below are kept as reference for if a block ever lifts; see [blocked-retailers.md](blocked-retailers.md) for the current state and restore steps.
 
 ---
 
@@ -199,7 +199,7 @@ function httpsGet(url, opts, maxRedirects = 5, deadline = Date.now() + REQUEST_T
 
 **Problem:** `run-autobarn.ts` used to accumulate all ~51 observations in memory across the entire run and do a single `POST /api/prices` at the very end. The self-hosted runner lives on a home machine (`debian-server`) whose uptime and network are less reliable than a GitHub-hosted runner — it has been observed to die mid-run (SIGHUP, exit 129) after only a handful of products. Because the push only happened at the end, a mid-run death discarded every product scraped that day, including ones that had already succeeded.
 
-**Fix:** `scrapeToArray()` in `fetch-scraper.ts` now accepts an optional `onProduct` callback invoked after each successful fetch. `run-autobarn.ts` uses it to buffer results and push a batch of 10 to `/api/prices` as it goes, flushing the remainder at the end. A failed batch push is left in the buffer (not cleared) so it merges with the next batch and gets retried, rather than being silently dropped. This bounds data loss from a mid-run crash to at most one partial batch instead of the whole run.
+**Fix:** `scrapeToArray()` in `fetch-scraper.ts` now accepts an optional `onProduct` callback invoked after each successful fetch. `scrapeAndPushInBatches()` (`push-in-batches.ts`, used by `run-autobarn.ts` and `run-bowdens.ts`) uses it to buffer results and push a batch of 10 to `/api/prices` as it goes, flushing the remainder at the end, or when the scraper throws. A failed batch push is left in the buffer (not cleared) so it merges with the next batch and gets retried, rather than being silently dropped. This bounds data loss from a mid-run crash to at most one partial batch instead of the whole run.
 
 ---
 
@@ -212,24 +212,37 @@ Bowden's Own blocks all datacenter IPs at two levels:
 
 Multi-size products (e.g. Snow Job) use the Maropost/Neto `/ajax/ajax_template` endpoint to load variant prices client-side. That endpoint also returns 403 from both GitHub Actions and Render IPs, even when session cookies are forwarded from a prior page request.
 
-**Do not attempt to scrape bowdensown.com.au from any cloud environment.** Bowden's products are priced via Supercheap and Auto Barn. The `seed.ts` `Item` type has no `bowdensHandle` field — do not add one.
+**Do not attempt to scrape bowdensown.com.au from any cloud environment.**
 
-**From a home connection it works (2026-10-24).** A plain request with a browser user agent got 200 and server-rendered HTML for every archived URL tried. So the self-hosted runner could scrape it; that's an open task. Two things to know first:
-- **Don't use `createFetchScraper()`'s first-`$` regex as is.** The product's own price is `$<span itemprop="price">37.99</span>`, with the dollar sign outside the span, so the regex skips it and reads the first related-product tile instead. On the Bead Machine page that's $16.99 for a Big Softie. Read `.productprice [itemprop="price"]` instead.
-- **Size variants:** the page's price is the default size's. Other sizes load through the `/ajax/ajax_template` endpoint above, so each tracked size needs a URL whose default is that size.
+## Bowden's Own from home: three page layouts, and sizes via the site's own AJAX
+
+From a home connection a plain request with a browser user agent gets 200 and server-rendered HTML, `/ajax/` included, so `scrapers/bowdens.ts` is a plain fetch on the self-hosted runner. It's a Neto (Maropost) store, and its product pages come in three layouts:
+- **One price:** `$<span itemprop="price">37.99</span>` inside `.productprice`. The dollar sign is outside the span, so `createFetchScraper()`'s first-`$` regex skips it and reads a related-product tile instead (a $16.99 Big Softie on the Bead Machine page). Always read `.productprice [itemprop="price"]`.
+- **Size buttons** (`_itmspec_radio` inputs, one `checked`): the page shows only the checked size's price. Neto has no per-size URL; `?sku=…` and friends are ignored.
+- **A "Buying Options" table** (`#buy-child-list`): one row per option, each with its own SKU and `.child-price`. There's no main price on these pages, e.g. `/all-sorts` (single and twin pack) and `/snow-blow-cannon` (one row per pressure-washer adapter).
+
+**Other sizes:** clicking a size button makes two requests, and the scraper replays them. Neto serialises their objects with its own NSD1 encoding (`create_netosd_data` in its storefront `main.js`), e.g. `{1: '4'}` is `NSD1;#1|$1|1$1|4`. No CSRF token was needed.
+1. `POST /ajax/variations` with `proc=change_variation`, `specid`, the parent `sku` (`#_itmspec_sku`) and `variations={specid: valueId}`. The reply holds the size's SKU, e.g. `BOSNOWV25L`.
+2. `GET /ajax/ajax_template?proc=load&docid=_jstl__header&type=…&template=…&fields=…`. The `type`, `template` and the other `fields` are the page's hidden `_jstl__header_k*`/`_v*` inputs, with `sku` replaced. The reply is the price block, `escape()`d.
+
+**Stored URLs** therefore name the option after `#`: a size label (`/boss-gloss#5L`, case and spaces ignored) or a buying-option SKU (`/all-sorts#BOASORTS__`). Name the size even when it's the default. A page with options but no `#option`, or one the page doesn't offer, is a miss, so it shows as a ⚠ in the Products tab rather than as another size's price.
+
+**Finding URLs:** Bowden's search (`?rf=kw`) is disallowed by `robots.txt`. The category pages (`/products/exterior`, `/products/interior`, `/products/microfibre`, `/products/value-packs`, `/products/car-cleaning-kits`, `/detailing-tools`) and `sitemap_1.xml.gz` list the products, though the sitemap lacks some, under `/products/…/` paths. Use the page's `<link rel="canonical">`. Bowden's doesn't sell Supercheap's exclusive 770ml sizes or the 5L Wet Dreams and Happy Ending.
+
+**No was-price yet:** nothing was on sale to check the markup against (2026-11), so sales rely on the rolling average in `POST /api/prices`.
 
 ---
 
 ## Finding a retailer URL for a product
 
-Both active retailers' search pages are server-rendered and work from a home connection (Auto Barn blocks cloud IPs here too):
+Supercheap's and Auto Barn's search pages are server-rendered and work from a home connection (Auto Barn blocks cloud IPs here too). For Bowden's Own, see its section above.
 
 - Supercheap: `https://www.supercheapauto.com.au/search?q=bowdens+wheely+clean`. Result links are `/p/{slug}/{id}.html`.
 - Auto Barn: `https://autobarn.com.au/ab/search/?text=bowdens+wheely+clean`. Results are full canonical `/ab/…/p/{SKU}` links. Strip the `?queryID=…&indexUsed=…` tracking parameters before saving one.
 
 Before adding a URL:
-- **Confirm it's the same product.** The URL slug can mislead: Supercheap's `little-chubby-brush-v2/700985` page is titled "The Chubby Wheel Brush V2". Compare the page title and the pack contents, and on Auto Barn take the URL from `<link rel="canonical">`.
-- **Run it through the real scraper.** Call `scrapeToArray()` from `scrapers/supercheap.ts` with an external row, or from `scrapers/autobarn.ts` with `AUTOBARN_IGNORE_WINDOW=1`, and check the price it reads.
+- **Confirm it's the same product and size.** The URL slug can mislead: Supercheap's `little-chubby-brush-v2/700985` page is titled "The Chubby Wheel Brush V2", and it was the same brush as The Chubby. Compare the page title, the size and the pack contents, and on Auto Barn take the URL from `<link rel="canonical">`. Supercheap sells 770ml sizes nobody else does; one was attached to a 500ml product until 2026-11.
+- **Run it through the real scraper.** Call `scrapeToArray()` from `scrapers/supercheap.ts` with an external row, from `scrapers/autobarn.ts` with `AUTOBARN_IGNORE_WINDOW=1`, or `fetchPrice()` from `scrapers/bowdens.ts`, and check the price it reads against the other retailers'.
 - **Save it against the right retailer.** The product routes reject a URL from another retailer's site.
 
 ---

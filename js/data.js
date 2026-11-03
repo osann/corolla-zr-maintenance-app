@@ -84,12 +84,6 @@ export const CATALOG = [
     desc: 'Water-based protector for Ultrasuede seats, carpet floor mats, fabric headlining — apply while new',
     price: 47,
   },
-  {
-    slug: '303-aerospace',
-    name: '303 Aerospace Protectant 473ml',
-    desc: 'UV protection for interior plastics, dashboard, rubber/all-weather floor mats — SPF 40 equivalent. From BCF, Detailing Shed',
-    price: 30,
-  },
   // Phase 3
   { slug: 'pumpy-pump', name: 'Pumpy Pump', desc: "Screws into any Bowden's 5L bottle — 25ml per pump", price: 14 },
   {
@@ -212,12 +206,6 @@ export const CATALOG = [
   { slug: 'wheely-clean-770ml', name: 'Wheely Clean 770ml', desc: 'Wheel cleaner 770ml (Supercheap size)', price: 0 },
   { slug: 'naked-glass-770ml', name: 'Naked Glass 770ml', desc: 'Glass cleaner 770ml (Supercheap size)', price: 0 },
   {
-    slug: 'little-chubby-v2',
-    name: 'Little Chubby Brush V2',
-    desc: 'Small barrel and spoke detailing brush',
-    price: 0,
-  },
-  {
     slug: 'nanolicious-shag-pack',
     name: 'Nanolicious Shag Pack',
     desc: 'Nanolicious Wash + Shagtastic wash pad bundle',
@@ -274,7 +262,6 @@ export const PRODUCT_ACTIONS = {
   'leather-guard-500ml': 'Apply thin layer after Leather Love. Buff gently when tacky',
   'plush-daddy': 'Wipe hard plastics, console, door pulls, climate controls with damp cloth',
   fabratection: 'Apply to Ultrasuede after Fabra Cadabra. Buff when dry. Reapply annually or when bead test fails',
-  '303-aerospace': 'Spray on dashboard, plastic trim, rubber mats. Buff lightly. Reapply every 4–8 weeks',
   'bead-machine-500ml': 'Apply after Flash Prep. Spread thin, buff to haze, wipe off with clean microfibre',
   'flash-prep-500ml': 'Wipe panel by panel to strip old sealant and contamination before Bead Machine',
   'orange-agent-500ml': 'Dilute 1:10, spray on soiled surfaces, agitate, rinse thoroughly',
@@ -393,7 +380,7 @@ export const DEFAULT_ROUTINES = [
       {
         name: 'Trim & rubber',
         action: 'UV protection on dashboard, plastic trim, rubber mats',
-        products: [{ name: '303 Aerospace Protectant 473ml', ml: 10 }],
+        products: [],
       },
       {
         name: 'Fabric protect',
@@ -438,7 +425,7 @@ export const DEFAULT_ROUTINES = [
       {
         name: 'Trim & rubber',
         action: 'Interior plastics + rubber mats. More frequent in summer',
-        products: [{ name: '303 Aerospace Protectant 473ml', ml: 10 }],
+        products: [],
       },
       { name: 'Tyre pressure check', action: 'More critical for tyre life than any cleaning product', products: [] },
       {
@@ -635,7 +622,6 @@ export const EQUIPMENT_SLUGS = new Set([
   'twisted-pro-sucker',
   'the-big-green-sucker',
   'the-chubby-wheel-brush-v2',
-  'little-chubby-v2',
   'microfibre-bucket-lid',
   'happy-ending-cannon-bottle',
   'the-essentials-starters-kit',
@@ -664,7 +650,6 @@ export const INVENTORY_DEFAULTS = {
   'wheely-clean-770ml': { volumeMl: 770, usagePerWashMl: 20 },
   'fabra-cadabra-500ml': { volumeMl: 500, usagePerWashMl: 15 },
   fabratection: { volumeMl: 500, usagePerWashMl: 15 },
-  '303-aerospace': { volumeMl: 473, usagePerWashMl: 10 },
   'microfibre-wash-1l': { volumeMl: 1000, usagePerWashMl: 30 },
   'flash-prep-500ml': { volumeMl: 500, usagePerWashMl: 50 },
   'bead-machine-500ml': { volumeMl: 500, usagePerWashMl: 50 },
@@ -766,7 +751,6 @@ export const DEFAULT_PHASES = [
       'fabra-cadabra-500ml',
       'bolp-leather-care-pack',
       'fabratection',
-      '303-aerospace',
     ],
   },
   {
@@ -792,8 +776,9 @@ export const DEFAULT_PHASES = [
   },
 ].map(({ tag2, ...p }) => p); // strip the dummy tag2 field (alignment hack)
 
-// Repco, Autopro and Bowden's Own are retired (bot-blocked) — see docs/blocked-retailers.md.
-export const SCRAPED_RETAILERS = ['supercheap', 'autobarn'];
+// In display order. Mirrors RETAILERS in backend/src/db/schema.ts. Repco and Autopro are retired
+// (bot-blocked) — see docs/blocked-retailers.md.
+export const SCRAPED_RETAILERS = ['supercheap', 'autobarn', 'bowdens'];
 
 // A retailer's price is flagged as stale once it's this many days old. Mirrors STALE_PRICE_DAYS in
 // backend/src/lib/notifications.ts, which emails the admin when a whole retailer goes stale.
@@ -862,7 +847,6 @@ export const INV_CATEGORIES = [
     sections: [
       { label: 'Leather', slugs: ['leather-guard-500ml'] },
       { label: 'Fabric & Suede', slugs: ['fabratection'] },
-      { label: 'Plastic, Vinyl & Rubber', slugs: ['303-aerospace'] },
     ],
   },
   {
@@ -870,7 +854,7 @@ export const INV_CATEGORIES = [
     sections: [
       {
         label: 'Equipment',
-        slugs: ['little-chubby-v2', 'the-little-stiffy', 'the-flat-head', 'the-chubby-wheel-brush-v2'],
+        slugs: ['the-little-stiffy', 'the-flat-head', 'the-chubby-wheel-brush-v2'],
       },
       { label: 'Clean', slugs: ['wheely-clean-v2-500ml', 'wheely-clean-770ml', 'wheely-clean-v2-5l'] },
     ],
@@ -882,7 +866,6 @@ export const FREQ_OPTIONS = {
   fullWash: ['Every 3 days', 'Twice a week', 'Weekly', 'Fortnightly', 'Monthly'],
   interiorDetail: ['Weekly', 'Fortnightly', 'Monthly', 'Every 6 weeks', 'Every 3 months'],
   beadMachine: ['Every 6 weeks', 'Every 2 months', 'Every 3 months', 'Every 4 months', 'Every 6 months'],
-  aerospace: ['Every 2 weeks', 'Every 4 weeks', 'Every 6 weeks', 'Every 2 months', 'Every 3 months'],
   leatherGuard: ['Monthly', 'Every 6 weeks', 'Every 2 months', 'Every 3 months', 'Every 6 months'],
 };
 
@@ -890,7 +873,6 @@ export const FREQ_DEFAULTS = {
   fullWash: 2,
   interiorDetail: 2,
   beadMachine: 2,
-  aerospace: 2,
   leatherGuard: 3,
 };
 
@@ -981,7 +963,7 @@ alert,bead_machine_apply,,,,,,,warn,Timing,Do not apply in direct sun or on a ho
 
 ## Available products (use exact names for best auto-fill in the app)
 
-Nanolicious Wash Pack Ultimate, Wet Dreams Pack, Boss Gloss 770ml, Boss Gloss 5L, Naked Glass 500ml, Naked Glass 770ml, Inta-Mitt, Kärcher K2 Premium Pressure Washer, Bowden's Own Snow Blow Cannon, Snow Job 1L, Snow Job 5L, Wheely Clean V2 500ml, Wheely Clean V2 5L, Wheely Clean 770ml, The Little Stiffy, The Flat Head, Fabra Cadabra 500ml, BOLP — Leather Care Pack, Leather Love V2 500ml, Leather Guard 500ml, Fabratection, 303 Aerospace Protectant 473ml, Pumpy Pump, Nanolicious Wash 5L, Microfibre Wash 1L, Plush Brush, Flash Prep 500ml, Bead Machine 500ml, Big Softie pair (blue + orange), Shagtastic Wash Pad, Happy Ending Cannon Bottle, The Chubby Wheel Brush V2, Naked Inta-Mitt Glass Cleaning Pack, Twisted Pro Sucker Drying Towel, The Square Bear Interior Applicator, The Big Green Sucker Drying Towel, Plush Daddy Interior Microfibre, Wet Dreams Sealant 770ml, Happy Ending Foam 1L, Little Chubby Brush V2, Orange Agent 500ml, Wet Dreams Sealant 5L, Happy Ending Foam 5L
+Nanolicious Wash Pack Ultimate, Wet Dreams Pack, Boss Gloss 770ml, Boss Gloss 5L, Naked Glass 500ml, Naked Glass 770ml, Inta-Mitt, Kärcher K2 Premium Pressure Washer, Bowden's Own Snow Blow Cannon, Snow Job 1L, Snow Job 5L, Wheely Clean V2 500ml, Wheely Clean V2 5L, Wheely Clean 770ml, The Little Stiffy, The Flat Head, Fabra Cadabra 500ml, BOLP — Leather Care Pack, Leather Love V2 500ml, Leather Guard 500ml, Fabratection, Pumpy Pump, Nanolicious Wash 5L, Microfibre Wash 1L, Plush Brush, Flash Prep 500ml, Bead Machine 500ml, Big Softie pair (blue + orange), Shagtastic Wash Pad, Happy Ending Cannon Bottle, The Chubby Wheel Brush V2, Naked Inta-Mitt Glass Cleaning Pack, Twisted Pro Sucker Drying Towel, The Square Bear Interior Applicator, The Big Green Sucker Drying Towel, Plush Daddy Interior Microfibre, Wet Dreams Sealant 770ml, Happy Ending Foam 1L, Orange Agent 500ml, Wet Dreams Sealant 5L, Happy Ending Foam 5L
 
 ## Your task
 
@@ -994,4 +976,11 @@ Output only the CSV starting with the header row.`;
 export const RETAILER_NAMES = {
   autobarn: 'Auto Barn',
   supercheap: 'Supercheap Auto',
+  bowdens: "Bowden's Own",
+};
+
+// Shown under a retailer's URL field in the Products tab.
+export const RETAILER_URL_HINTS = {
+  bowdens:
+    'For a page with several sizes or options, add the one to price after #, e.g. …/boss-gloss#5L or …/all-sorts#BOASORTS__.',
 };

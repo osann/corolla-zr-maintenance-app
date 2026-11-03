@@ -2,7 +2,7 @@
 import { rebuildBundleComponents } from './catalog.js';
 import { recompute, renderChecklist } from './checklist.js';
 import { ALERTS_KEY, BACKEND_URL } from './config.js';
-import { RETAILER_NAMES, STALE_PRICE_DAYS } from './data.js';
+import { RETAILER_NAMES, SCRAPED_RETAILERS, STALE_PRICE_DAYS } from './data.js';
 import { renderInventory } from './inventory.js';
 import { renderProductsPage } from './products.js';
 import { applyPrefs } from './settings.js';
@@ -47,10 +47,9 @@ export function renderPricesTab() {
     for (const slug of slugs) {
       const product = productBySlug[slug];
       if (!product) continue;
-      const RETAILER_ORDER = ['supercheap', 'autobarn'];
       const retailers = Object.entries(product.latestPrice ?? {}).sort(([a], [b]) => {
-        const ai = RETAILER_ORDER.indexOf(a),
-          bi = RETAILER_ORDER.indexOf(b);
+        const ai = SCRAPED_RETAILERS.indexOf(a),
+          bi = SCRAPED_RETAILERS.indexOf(b);
         return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
       });
       if (retailers.length === 0) continue; // nothing scraped yet — nothing to display here
