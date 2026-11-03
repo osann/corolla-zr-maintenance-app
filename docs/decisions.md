@@ -26,6 +26,11 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 ## Data
 
+**Retired products are removed on boot (2026-11).** 303 Aerospace left the kit, and `little-chubby-v2` turned out to duplicate The Chubby Wheel Brush. Deleting a product in the Products tab only stops price tracking, and removing it from `seed.ts` doesn't touch the database. Either way, accounts would keep it in their checklists, inventories, alerts and routines. So `retireProducts()` (`lib/retire.ts`) runs on every boot, like the retired-retailer cleanup: it deletes the product, tombstones it, and rewrites every account's data and the shared categories. There are no local Turso credentials for a one-off script.
+- A duplicate is merged, not dropped: owning or alerting on it carries over to the product it duplicated, unless that account already has it.
+- A routine step that used a retired product keeps the step, minus the product, because the technique still applies. The default routines' two "Trim & rubber" steps now list no product.
+- It repeats every boot, so a browser still holding an old copy can't bring it back for long.
+
 **Tombstones for deleted products (2026-07).** `seed()` runs on every Render boot and used to resurrect products deleted from the UI. `deleted_products` records the slug, and `seed()` skips it.
 
 **`seed()` crash on renamed slugs (fixed 2026-07-14).** `products.name` and `products.slug` are both unique. After a slug rename, the old `onConflictDoNothing()` upsert hit a name conflict while the slug lookup found nothing, and the throw took down the whole `npm start` chain in production. `seed()` now looks up by slug, then by name, then inserts.

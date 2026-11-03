@@ -13,12 +13,14 @@ import adminRouter from './routes/admin.js';
 import { initDb } from './db/init.js';
 import { seed, seedPacks } from './db/seed.js';
 import { runWashReminders, runDailyDigest, runStalePriceCheck } from './lib/notifications.js';
+import { retireProducts } from './lib/retire.js';
 
-// Ensure schema and seed data exist on every startup (idempotent).
+// Ensure schema and seed data exist on every startup (idempotent), and retired products are gone.
 // Wrapped in try/catch so a transient Turso 502 on startup doesn't prevent the server
 // from binding — npm start already runs init+seed as separate steps before this file.
 try {
   await initDb();
+  await retireProducts();
   await seed();
   await seedPacks();
 } catch (e) {

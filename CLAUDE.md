@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository. Why things are the way
 
 ## What this app is
 
-A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus a few exceptions (303 Aerospace Protectant, Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto and Auto Barn) in AUD. Accounts are invite-only (see Accounts). The admin (`OWNER_EMAIL`) manages the shared product catalogue, categories and users, and everyone else has their own log, routines, settings and photos.
+A personal detailing kit-and-technique guide for a 2025 Toyota Corolla Hatch Hybrid ZR (Australian market), built around the Bowden's Own range plus one exception (the Kärcher pressure washer). Prices are tracked at Australian retailers (Supercheap Auto and Auto Barn) in AUD. Accounts are invite-only (see Accounts). The admin (`OWNER_EMAIL`) manages the shared product catalogue, categories and users, and everyone else has their own log, routines, settings and photos.
 
 Tabs (`index.html`):
 - **log** — wash sessions, streaks, reminder cards, weather hints. Sub-tabs: History, New Session, Edit Session (only while editing).
@@ -26,7 +26,7 @@ backend/src/
   db/                 # schema.ts, init.ts (tables + migration-safe ALTERs), seed.ts (catalogue), connection.ts
   routes/             # products, prices, alerts, auth (+ sync), admin (users + invites), weather, photos, ticktick
   scrapers/           # supercheap, autobarn, fetch-scraper (shared), entry points below
-  lib/                # auth (sessions, admin), email (Resend + notification recipients), notifications (cron jobs), ticktick, r2, browser, sale-detector
+  lib/                # auth (sessions, admin), email (Resend + notification recipients), notifications (cron jobs), rename + retire (product changes across every account's data), ticktick, r2, browser, sale-detector
 backend/test/          # Vitest: backend smoke tests, plus frontend checks that need no browser (inline handlers, reminder matching)
 backend/test/e2e/      # browser smoke tests: harness.ts runs the real backend + frontend in headless Chromium
 .github/workflows/
@@ -93,6 +93,7 @@ Rules:
 - **`seed.ts` URLs win.** `seed()` upserts every seeded product's retailer URLs on each boot, so a URL for a seeded product fixed in the Products tab reverts on the next deploy unless `seed.ts` is fixed too. Removing a URL from `seed.ts` doesn't delete it from the DB.
 - To add a catalogue product: add it to `CATALOG` in `js/data.js` **and** `seed.ts`. Products can also be added at runtime from the Products tab (backend-only, no `CATALOG` entry) — all frontend lookups go through `getAllProductSlugs()` / `resolveProductName()` / `resolveCatalogEntry()` so both kinds work.
 - Deleting a built-in product removes backend price tracking only; it stays in the static `CATALOG`, default phases, and routines.
+- **Retiring a product for good** is different: add it to `RETIRED_PRODUCTS` (`lib/retire.ts`) and remove it from `CATALOG`, `seed.ts` and the other `js/data.js` lists. On every boot `retireProducts()` deletes it, tombstones it, and takes it out of every account's checklist, inventory, alerts, routines and the shared categories (`removeProductFromUserData()` in `lib/rename.ts`). A duplicate's references move to the product named in `duplicateOf`. Retired so far: `303-aerospace`, and `little-chubby-v2` (a duplicate of `the-chubby-wheel-brush`).
 
 ## Scrapers
 

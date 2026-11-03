@@ -10,10 +10,8 @@ Backlog ranked by usefulness × feasibility. Each item is independently shippabl
   - a URL per size, because the size-variant pages show the default size's price;
   - the steps under "Restoring a retailer in general" in [blocked-retailers.md](blocked-retailers.md), which also has the selector.
 - ☐ **Remaining single-retailer products** (as of 2026-10-24). Each was searched for on both retailers, and the missing retailer doesn't stock that size or pack:
-  - **Supercheap only:** `wheely-clean-770ml`, `naked-glass-770ml`, `sweet-rubber-700-ml`, `orange-agent-cleaner-770ml`, `all-sort-applicator-1pk` (Auto Barn only has the 2-pack), `little-chubby-v2`, `karcher-k2`, and the packs `bowden-s-own-claying-rubber-pack-bofcrp`, `bowden-s-own-beautiful-beads-pack-bomachinep`, `nanolicious-shag-pack` and `the-essentials-starters-kit`.
+  - **Supercheap only:** `wheely-clean-770ml`, `naked-glass-770ml`, `sweet-rubber-700-ml`, `orange-agent-cleaner-770ml`, `all-sort-applicator-1pk` (Auto Barn only has the 2-pack), `karcher-k2`, and the packs `bowden-s-own-claying-rubber-pack-bofcrp`, `bowden-s-own-beautiful-beads-pack-bomachinep`, `nanolicious-shag-pack` and `the-essentials-starters-kit`.
   - **Auto Barn only:** `wet-dreams-5l`, `happy-ending-5l`, `snow-job-5l`, `big-softie-blue`, `sweet-rubber-500ml`, `wipe-out-1l`, `naked-glass-500ml`, `wheely-clean-500ml`, `fabratection-500ml`, `foursome-brush-set`, `orange-agent-500ml`.
-  - **No source:** `303-aerospace` is the 473 ml bottle, which no tracked retailer sells. Auto Barn has the 946 ml (`CC00692`, $77.99 on 2026-10-24), and it could be added as its own product.
-- ☐ **`little-chubby-v2` looks like a duplicate of `the-chubby-wheel-brush`.** Its only URL, Supercheap `700985`, is titled "The Chubby Wheel Brush V2" and is also The Chubby's Supercheap URL. Bowden's own site has no Little Chubby. Delete it in the Products tab, and from `CATALOG` and `seed.ts`, if it isn't a real product.
 - ☐ Occasionally check whether Repco, Autopro or Bowden's Own have lifted their bot blocks. The commands and a log of past checks are in [blocked-retailers.md](blocked-retailers.md); the last check was 2026-10-24.
 
 ### 10. Community sharing
@@ -57,3 +55,4 @@ Invite-only accounts exist now (2026-10). This is the next step if other people 
     - Replacing inline handlers with delegated listeners was assessed and declined ([decisions.md](decisions.md#frontend)).
 14. **Backlog pass (2026-11).**
     - An overdue routine is reminded the first morning it's due, then weekly, instead of every morning. `GET /api/sync` no longer sends server-only rows such as TickTick tokens.
+    - 303 Aerospace is gone from the kit, the guide and every account. `little-chubby-v2` was a duplicate and is merged into `the-chubby-wheel-brush`. Both are retired on boot by `retireProducts()`.

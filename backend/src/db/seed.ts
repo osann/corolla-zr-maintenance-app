@@ -166,13 +166,6 @@ const KIT_ITEMS: Item[] = [
       'https://autobarn.com.au/ab/Autobarn-Category/Shop-our-Full-Range-by-Brand-at-Autobarn/Bowdens-Own/Bowden%27s-Own-Pro-grade-Super-Hydrophobic-Fabric-Protectant-500ml/p/CC07353',
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-fabratection-500ml/SPO7089159.html',
   },
-  {
-    name: '303 Aerospace Protectant',
-    slug: '303-aerospace',
-    phase: 2,
-    autobarnSku: null,
-    supercheapUrl: null,
-  },
 
   // Phase 3 — Daily-use bulk
   {
@@ -389,13 +382,6 @@ const EXTRA_ITEMS: Item[] = [
     phase: 0,
     autobarnSku: null,
     supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-naked-glass-cleaner-770ml/588682.html',
-  },
-  {
-    name: 'Little Chubby Brush V2',
-    slug: 'little-chubby-v2',
-    phase: 0,
-    autobarnSku: null,
-    supercheapUrl: 'https://www.supercheapauto.com.au/p/bowdens-own-bowdens-own-little-chubby-brush-v2/700985.html',
   },
   {
     name: 'Nanolicious Shag Pack',
