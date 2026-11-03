@@ -9,7 +9,7 @@ import {
 } from './catalog.js';
 import { recompute, renderChecklist } from './checklist.js';
 import { ALERTS_KEY, BACKEND_URL, CHECKLIST_V3_KEY } from './config.js';
-import { RETAILER_NAMES, SCRAPED_RETAILERS } from './data.js';
+import { RETAILER_NAMES, RETAILER_URL_HINTS, SCRAPED_RETAILERS } from './data.js';
 import { renderInventory, saveInventory } from './inventory.js';
 import { loadPriceData, renderPricesTab, stalePriceMarker, stalePriceWarning } from './prices.js';
 import { saveRoutines } from './routines.js';
@@ -219,8 +219,7 @@ export function renderProductsPage() {
         <div class="url-form-row" style="margin-top:6px">
           <select class="url-retailer-select" id="add-product-retailer">
             <option value="">No URL yet</option>
-            <option value="supercheap">Supercheap Auto</option>
-            <option value="autobarn">Auto Barn</option>
+            ${SCRAPED_RETAILERS.map((r) => `<option value="${r}">${escHtml(RETAILER_NAMES[r])}</option>`).join('')}
           </select>
           <input type="url" class="url-input" id="add-product-url" placeholder="https://...">
           <button class="alert-set-btn" onclick="saveNewProduct()">Add</button>
@@ -523,6 +522,7 @@ export function retailerFieldCardHtml(product, retailer) {
           <input type="url" class="url-input" id="url-input-${product.id}-${retailer}" value="${escAttr(url)}" placeholder="https://...">
           <button class="alert-set-btn" onclick="saveRetailerUrl(${product.id},'${retailer}')">Save</button>
         </div>
+        ${RETAILER_URL_HINTS[retailer] ? `<p class="settings-hint">${escHtml(RETAILER_URL_HINTS[retailer])}</p>` : ''}
         <div id="url-error-${product.id}-${retailer}" style="display:none;color:var(--danger);font-size:12px;"></div>
         ${linkedRow}
       </div>`;

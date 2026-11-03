@@ -1,7 +1,7 @@
 import { beforeAll, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '../src/db/connection.js';
-import { products, retailerUrls, deletedProducts, isRetailerUrl } from '../src/db/schema.js';
+import { products, retailerUrls, deletedProducts, isRetailer, isRetailerUrl } from '../src/db/schema.js';
 import { createClient } from '@libsql/client';
 import { initDb, RETIRED_RETAILERS } from '../src/db/init.js';
 import { seed, seedPacks } from '../src/db/seed.js';
@@ -22,9 +22,9 @@ it('seeds the catalogue with retailer URLs', async () => {
   expect((await db.select().from(retailerUrls)).length).toBeGreaterThan(20);
 });
 
-it('seeds no URLs for retired retailers', async () => {
+it('seeds URLs only for active retailers', async () => {
   const retailers = new Set((await db.select({ r: retailerUrls.retailer }).from(retailerUrls)).map((x) => x.r));
-  expect([...retailers].sort()).toEqual(['autobarn', 'supercheap']);
+  expect([...retailers].filter((r) => !isRetailer(r))).toEqual([]);
 });
 
 // Production cleanup: rows for retired retailers left over in Turso are deleted on boot.
@@ -43,11 +43,15 @@ it('initDb removes URLs and price history for retired retailers', async () => {
   }
   const count = async (table: string) =>
     Number(
-      (await client.execute(`SELECT COUNT(*) AS n FROM ${table} WHERE retailer IN ('repco','autopro','bowdens')`))
-        .rows[0].n,
+      (
+        await client.execute({
+          sql: `SELECT COUNT(*) AS n FROM ${table} WHERE retailer IN (${RETIRED_RETAILERS.map(() => '?').join(',')})`,
+          args: [...RETIRED_RETAILERS],
+        })
+      ).rows[0].n,
     );
-  expect(await count('retailer_urls')).toBe(3);
-  expect(await count('price_history')).toBe(3);
+  expect(await count('retailer_urls')).toBe(RETIRED_RETAILERS.length);
+  expect(await count('price_history')).toBe(RETIRED_RETAILERS.length);
 
   await initDb();
 

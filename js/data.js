@@ -776,8 +776,9 @@ export const DEFAULT_PHASES = [
   },
 ].map(({ tag2, ...p }) => p); // strip the dummy tag2 field (alignment hack)
 
-// Repco, Autopro and Bowden's Own are retired (bot-blocked) — see docs/blocked-retailers.md.
-export const SCRAPED_RETAILERS = ['supercheap', 'autobarn'];
+// In display order. Mirrors RETAILERS in backend/src/db/schema.ts. Repco and Autopro are retired
+// (bot-blocked) — see docs/blocked-retailers.md.
+export const SCRAPED_RETAILERS = ['supercheap', 'autobarn', 'bowdens'];
 
 // A retailer's price is flagged as stale once it's this many days old. Mirrors STALE_PRICE_DAYS in
 // backend/src/lib/notifications.ts, which emails the admin when a whole retailer goes stale.
@@ -975,4 +976,11 @@ Output only the CSV starting with the header row.`;
 export const RETAILER_NAMES = {
   autobarn: 'Auto Barn',
   supercheap: 'Supercheap Auto',
+  bowdens: "Bowden's Own",
+};
+
+// Shown under a retailer's URL field in the Products tab.
+export const RETAILER_URL_HINTS = {
+  bowdens:
+    'For a page with several sizes or options, add the one to price after #, e.g. …/boss-gloss#5L or …/all-sorts#BOASORTS__.',
 };

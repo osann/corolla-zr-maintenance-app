@@ -12,7 +12,7 @@ import {
 } from '../src/db/schema.js';
 import { initDb } from '../src/db/init.js';
 import { seed } from '../src/db/seed.js';
-import { retireProducts } from '../src/lib/retire.js';
+import { retireCatalogueData, RETIRED_URLS } from '../src/lib/retire.js';
 
 const CHUBBY = 'the-chubby-wheel-brush';
 const LITTLE = 'little-chubby-v2';
@@ -20,6 +20,10 @@ const AEROSPACE = '303-aerospace';
 
 let annId: number;
 let benId: number;
+let chubbyId: number;
+let retiredIds: number[];
+const idOf = async (slug: string) =>
+  (await db.select({ id: products.id }).from(products).where(eq(products.slug, slug)))[0].id;
 const stored = async (userId: number, key: string) => {
   const [row] = await db
     .select()
@@ -40,20 +44,22 @@ const step = (...names: string[]) => ({ name: 'Step', products: names.map((name)
 beforeAll(async () => {
   await initDb();
   await seed();
-  // As in production: the Chubby was renamed in the app, and the two retired products exist.
+  // As in production before the deploy: the two retired products still exist.
   const inserted = await db
     .insert(products)
     .values([
-      { name: 'The Chubby Wheel Brush', slug: CHUBBY, phase: 0 },
       { name: 'Little Chubby Brush V2', slug: LITTLE, phase: 0 },
       { name: '303 Aerospace Protectant', slug: AEROSPACE, phase: 2 },
     ])
     .returning();
-  for (const p of inserted) {
+  retiredIds = inserted.map((p) => p.id);
+  chubbyId = await idOf(CHUBBY);
+  for (const id of [...retiredIds, chubbyId]) {
     await db
       .insert(retailerUrls)
-      .values({ productId: p.id, retailer: 'supercheap', url: `https://www.supercheapauto.com.au/p/${p.slug}.html` });
-    await db.insert(priceHistory).values({ productId: p.id, retailer: 'supercheap', priceCents: 2999 });
+      .values({ productId: id, retailer: 'supercheap', url: `https://www.supercheapauto.com.au/p/${id}.html` })
+      .onConflictDoNothing();
+    await db.insert(priceHistory).values({ productId: id, retailer: 'supercheap', priceCents: 2999 });
   }
 
   [{ id: annId }, { id: benId }] = await db
@@ -96,7 +102,7 @@ beforeAll(async () => {
     ]),
   });
 
-  await retireProducts();
+  await retireCatalogueData();
 });
 
 describe('retiring products', () => {
@@ -105,11 +111,8 @@ describe('retiring products', () => {
     expect(slugs).toContain(CHUBBY);
     expect(slugs).not.toContain(LITTLE);
     expect(slugs).not.toContain(AEROSPACE);
-    expect(
-      (await db.select().from(retailerUrls)).every((u) => !u.url.includes(LITTLE) && !u.url.includes(AEROSPACE)),
-    ).toBe(true);
-    const [chubby] = await db.select({ id: products.id }).from(products).where(eq(products.slug, CHUBBY));
-    expect((await db.select().from(priceHistory)).map((p) => p.productId)).toEqual([chubby.id]);
+    expect((await db.select().from(retailerUrls)).filter((u) => retiredIds.includes(u.productId))).toEqual([]);
+    expect((await db.select().from(priceHistory)).map((p) => p.productId)).toEqual([chubbyId]);
     const tombstones = await db
       .select()
       .from(deletedProducts)
@@ -160,11 +163,51 @@ describe('retiring products', () => {
 
   it('changes nothing on later boots, and seed() leaves them retired', async () => {
     const before = await db.select().from(userData);
-    await retireProducts();
+    await retireCatalogueData();
     await seed();
     expect(await db.select().from(userData)).toEqual(before);
     const slugs = (await db.select({ slug: products.slug }).from(products)).map((p) => p.slug);
     expect(slugs).not.toContain(LITTLE);
     expect(slugs).not.toContain(AEROSPACE);
+  });
+});
+
+describe('retiring URLs', () => {
+  const urlsOf = async (productId: number) =>
+    (await db.select().from(retailerUrls).where(eq(retailerUrls.productId, productId))).map((u) => u.retailer).sort();
+  const pricesOf = async (productId: number) =>
+    (await db.select().from(priceHistory).where(eq(priceHistory.productId, productId))).map((p) => p.retailer).sort();
+
+  it("removes each one with that retailer's prices, then seed() puts in the corrected URL", async () => {
+    const ids = await Promise.all(RETIRED_URLS.map(({ slug }) => idOf(slug)));
+    // As in production before the deploy, with a price from every retailer.
+    for (const [i, { retailer, url }] of RETIRED_URLS.entries()) {
+      await db
+        .insert(retailerUrls)
+        .values({ productId: ids[i], retailer, url })
+        .onConflictDoUpdate({ target: [retailerUrls.productId, retailerUrls.retailer], set: { url } });
+      for (const r of ['supercheap', 'autobarn', 'bowdens'] as const) {
+        await db.insert(priceHistory).values({ productId: ids[i], retailer: r, priceCents: 1999 });
+      }
+    }
+
+    await retireCatalogueData();
+    for (const [i, { retailer }] of RETIRED_URLS.entries()) {
+      expect(await urlsOf(ids[i])).not.toContain(retailer);
+      expect(await pricesOf(ids[i])).toEqual(['autobarn', 'bowdens', 'supercheap'].filter((r) => r !== retailer));
+    }
+
+    await seed();
+    const wipeOutId = await idOf('wipe-out-500ml');
+    const [wipeOutAutobarn] = await db
+      .select()
+      .from(retailerUrls)
+      .where(and(eq(retailerUrls.productId, wipeOutId), eq(retailerUrls.retailer, 'autobarn')));
+    expect(wipeOutAutobarn.url).toMatch(/Wipe-Out-500ml\/p\/210236$/);
+
+    // The corrected URL isn't touched on later boots.
+    await db.insert(priceHistory).values({ productId: wipeOutId, retailer: 'autobarn', priceCents: 1699 });
+    await retireCatalogueData();
+    expect(await pricesOf(wipeOutId)).toEqual(['autobarn', 'bowdens', 'supercheap']);
   });
 });

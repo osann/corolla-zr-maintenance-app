@@ -1,6 +1,6 @@
 # Blocked retailers (removed 2026-10-21)
 
-Repco, Autopro and Bowden's Own all block automated requests, so their scrapers, retailer URLs and price history were removed. This page keeps what's needed to bring one back if a block lifts.
+Repco, Autopro and Bowden's Own all block automated requests, so their scrapers, retailer URLs and price history were removed. This page keeps what's needed to bring one back if a block lifts. **Bowden's Own came back on 2026-11-03**, scraped from the home runner (see its section).
 
 - **Code as it last existed:** commit `e4f5670` (the last commit before removal).
 - **Every retailer URL that was live in production:** [archive/blocked-retailer-urls.csv](archive/blocked-retailer-urls.csv), with columns `retailer, slug, name, url`. It has 56 Repco, 63 Autopro and 20 Bowden's rows. Some were added in the app and were never in `seed.ts`.
@@ -23,6 +23,7 @@ What blocked looked like on 2026-10-21:
 - **Bowden's:** 403 or a Cloudflare JS challenge from cloud IPs.
 
 Check log, newest first:
+- **2026-11-03, from home:** no change. Repco 403 with `Cf-Mitigated: challenge`; Autopro sets the `incap` cookies, then 403; Bowden's 200.
 - **2026-10-24, from home:** Repco still 403 with `Cf-Mitigated: challenge`. Autopro still sets the `incap` cookies and then returns 403. **Bowden's Own returned 200 with real prices** (see its section below).
 
 ## Repco
@@ -54,14 +55,10 @@ Check log, newest first:
 
 ## Bowden's Own
 
-- **Status:** never scraped. It's blocked from cloud IPs only, so it looks scrapeable from the home runner (2026-10-24).
-- **Block:** GitHub Actions gets a Cloudflare JS challenge on page loads, and Render gets 403 on every request. It was never tried from a home connection until 2026-10-24.
-- **From home (2026-10-24):** a plain `curl` with a browser user agent got 200 and a server-rendered price for 7 of 7 archived URLs, spaced a few seconds apart. The page loads Cloudflare's passive `challenge-platform` script, but nothing challenged.
-- **Platform and selector:** Neto (Maropost). The product's price is `.productprice [itemprop="price"]`, e.g. `<span itemprop="price">37.99</span>`. Don't take the first `itemprop="price"` on the page without that parent, because the related-product tiles below also use it, with a `$` in the text. For the same reason, `createFetchScraper()`'s first-`$` regex reads a tile's price (see scraper-learnings.md).
-- **Caveat, size variants:** a page such as `/boss-gloss` covers several sizes and shows the default one's price, so a 770 ml product can't just use the shared page. Check each URL's default variant, or find per-variant URLs, before trusting a price.
-- **To bring it back:** run it alongside Auto Barn on the self-hosted runner with a small fetch scraper, then follow "Restoring a retailer in general" below. It would cover many of the sizes Supercheap and Auto Barn don't stock (see tasks.md).
+- **Status: active again since 2026-11-03**, scraped by `scrapers/bowdens.ts` from the self-hosted runner (`scrape-bowdens.yml`). How it reads prices, including sizes that aren't a page's default, is in scraper-learnings.md. Its URLs are in `seed.ts`.
+- **Block:** GitHub Actions gets a Cloudflare JS challenge on page loads, and Render gets 403 on every request. A home connection isn't blocked (first tried 2026-10-24). If it starts blocking the runner too, the scraper stops after 5 blocked responses in a row and fails the run.
 - **May 2026 experiment:** an OzBargain-RSS "sale detector" (`scrapers/export-prices.ts`) was tried and later deleted. It matched deal titles against product keywords and couldn't give actual prices.
-- **URLs:** the 20 archived `bowdens` URLs are short product-page links like `https://www.bowdensown.com.au/bead-machine`. They were never scraped, but they did show up as Buy links.
+- **Archived URLs:** the 20 `bowdens` rows in the CSV are short product-page links like `https://www.bowdensown.com.au/bead-machine`. They were never scraped. The 2026-11 URLs were found again from scratch.
 
 ## Restoring a retailer in general
 
@@ -71,11 +68,9 @@ Check log, newest first:
    - `RETAILER_HOSTS` next to it, the site its URLs must be on. Without it, the routes reject every URL and `initDb()` deletes them.
    - `STALE_HINTS` in `backend/src/lib/notifications.ts`: where to look when its prices stop. TypeScript requires both of these once the retailer is in `RETAILERS`.
    - `RETAILER_DISPLAY` in `backend/src/lib/email.ts`
-   - `SCRAPED_RETAILERS` in `js/data.js`
+   - `SCRAPED_RETAILERS` in `js/data.js`, which also sets the Prices tab's order and the add-product retailer list
    - `RETAILER_NAMES` in `js/data.js`
-   - `RETAILER_ORDER` in `js/prices.js`
-   - the add-product retailer `<select>` in `js/products.js`
-3. Restore the scraper from `e4f5670` and wire it into a workflow or cron.
-4. Re-import URLs from the CSV via the Products tab, or add them to `seed.ts`.
+3. Restore the scraper from `e4f5670` and wire it into a workflow or cron. On the self-hosted runner, `scrapeAndPushInBatches()` (`scrapers/push-in-batches.ts`) does the pushing.
+4. Add the URLs to `seed.ts` (the CSV has the old ones), after checking each with the real scraper.
 
 The database `CHECK` constraint on `retailer` still allows all five retailers, so none of this needs a table rebuild.

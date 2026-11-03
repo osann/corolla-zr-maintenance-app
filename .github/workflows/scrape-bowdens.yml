@@ -1,0 +1,37 @@
+name: Bowden's Own price scrape (self-hosted)
+
+# Runs on the home PC via the self-hosted runner, like the Auto Barn scrape: bowdensown.com.au
+# blocks cloud IPs (GitHub Actions hosted runners and Render) but serves a home connection.
+# robots.txt asks for a 1 s crawl delay and sets no crawl window. 04:00 UTC is an hour before
+# Auto Barn, and this takes about 10 minutes, so the two don't queue behind each other.
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 04:00 UTC = 2 PM AEST / 3 PM AEDT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      # No local database step: the product/retailer-URL list comes from the live backend (see
+      # fetch-backend-rows.ts), and nothing else is read locally.
+      - name: Run Bowden's Own scraper and push to Render
+        working-directory: backend
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SCRAPE_SECRET: ${{ secrets.SCRAPE_SECRET }}
+        run: node --import tsx/esm src/scrapers/run-bowdens.ts

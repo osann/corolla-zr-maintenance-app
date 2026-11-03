@@ -1,7 +1,8 @@
 import { createClient } from '@libsql/client';
 import { isRetailer, isRetailerUrl, RETAILER_HOSTS } from './schema.js';
+import { retireCatalogueData } from '../lib/retire.js';
 
-export const RETIRED_RETAILERS = ['repco', 'autopro', 'bowdens'] as const;
+export const RETIRED_RETAILERS = ['repco', 'autopro'] as const;
 
 const DDL_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS products (
@@ -180,6 +181,10 @@ export async function initDb() {
   }
 
   await client.close();
+
+  // Retired products and URLs (lib/retire.ts). Here rather than at server start so it runs before
+  // `npm start`'s seed step, which would otherwise overwrite a retired URL before it was matched.
+  await retireCatalogueData();
 }
 
 // Allow running directly: npm run db:init

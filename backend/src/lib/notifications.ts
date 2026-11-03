@@ -250,6 +250,8 @@ const STALE_HINTS: Record<Retailer, string> = {
   supercheap: 'Supercheap is scraped by GitHub Actions (scrape.yml). Check its recent runs for failures.',
   autobarn:
     'Auto Barn is scraped by the self-hosted runner on debian-server. If its runs in GitHub Actions show "cancelled", the runner is offline.',
+  bowdens:
+    'Bowden\'s Own is scraped by the self-hosted runner on debian-server (scrape-bowdens.yml). If its runs show "cancelled", the runner is offline; if they fail, the site may be blocking it again.',
 };
 
 export interface StaleRetailer {

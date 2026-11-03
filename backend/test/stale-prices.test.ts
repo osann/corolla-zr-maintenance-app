@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '../src/db/connection.js';
-import { priceHistory, products, retailerUrls } from '../src/db/schema.js';
+import { priceHistory, products, retailerUrls, type Retailer } from '../src/db/schema.js';
 import { initDb } from '../src/db/init.js';
 import { seed } from '../src/db/seed.js';
 import { sendDirectEmail } from '../src/lib/email.js';
@@ -21,7 +21,7 @@ const timestampDaysAgo = (days: number) =>
   new Date(Date.now() - days * 86_400_000).toISOString().replace('T', ' ').slice(0, 19);
 
 let productId: number;
-const addPrice = (retailer: 'supercheap' | 'autobarn', daysAgo: number) =>
+const addPrice = (retailer: Retailer, daysAgo: number) =>
   db.insert(priceHistory).values({ productId, retailer, priceCents: 1999, observedAt: timestampDaysAgo(daysAgo) });
 
 beforeAll(async () => {
@@ -36,16 +36,22 @@ describe('stale-price check', () => {
   it('flags retailers whose URLs have never produced a price', async () => {
     expect(await findStaleRetailers()).toEqual([
       { retailer: 'autobarn', lastObservedAt: null },
+      { retailer: 'bowdens', lastObservedAt: null },
       { retailer: 'supercheap', lastObservedAt: null },
     ]);
     await runStalePriceCheck();
     expect(vi.mocked(sendDirectEmail).mock.calls).toEqual([
-      ['owner@example.com', '⚠️ Prices not updating: Auto Barn, Supercheap Auto', expect.stringContaining('never')],
+      [
+        'owner@example.com',
+        "⚠️ Prices not updating: Auto Barn, Bowden's Own, Supercheap Auto",
+        expect.stringContaining('never'),
+      ],
     ]);
   });
 
   it('flags only the retailer that has stopped, and says where to look', async () => {
     await addPrice('supercheap', 0);
+    await addPrice('bowdens', 0);
     await addPrice('autobarn', 5);
     expect((await findStaleRetailers()).map((s) => s.retailer)).toEqual(['autobarn']);
     await runStalePriceCheck();

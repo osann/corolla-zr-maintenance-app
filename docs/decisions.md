@@ -26,10 +26,17 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 ## Data
 
-**Retired products are removed on boot (2026-11).** 303 Aerospace left the kit, and `little-chubby-v2` turned out to duplicate The Chubby Wheel Brush. Deleting a product in the Products tab only stops price tracking, and removing it from `seed.ts` doesn't touch the database. Either way, accounts would keep it in their checklists, inventories, alerts and routines. So `retireProducts()` (`lib/retire.ts`) runs on every boot, like the retired-retailer cleanup: it deletes the product, tombstones it, and rewrites every account's data and the shared categories. There are no local Turso credentials for a one-off script.
+**Retired products are removed on boot (2026-11).** 303 Aerospace left the kit, and `little-chubby-v2` turned out to duplicate The Chubby Wheel Brush. Deleting a product in the Products tab only stops price tracking, and removing it from `seed.ts` doesn't touch the database. Either way, accounts would keep it in their checklists, inventories, alerts and routines. So `initDb()` runs `retireCatalogueData()` (`lib/retire.ts`) on every boot, like the retired-retailer cleanup: it deletes the product, tombstones it, and rewrites every account's data and the shared categories. There are no local Turso credentials for a one-off script.
 - A duplicate is merged, not dropped: owning or alerting on it carries over to the product it duplicated, unless that account already has it.
 - A routine step that used a retired product keeps the step, minus the product, because the technique still applies. The default routines' two "Trim & rubber" steps now list no product.
 - It repeats every boot, so a browser still holding an old copy can't bring it back for long.
+
+**Wrong or dead URLs are retired on boot too (2026-11-03).** Three URLs were wrong: Supercheap's Flash Prep 500ml page was gone (410), `wipe-out-500ml` had Auto Barn's 1L listing, and `tyre-sheen-500ml` had Supercheap's 770ml. Removing a URL from `seed.ts` doesn't delete it, and the wrong-size price history would have made the right price look like a sale and sent false alerts. So `RETIRED_URLS` removes each URL with that retailer's history for the product.
+- It's matched by the exact URL, so a corrected one saved later is left alone.
+- It runs inside `initDb()`, not at server start, because `npm start` seeds before the server starts, and a corrected URL in `seed.ts` would replace the wrong one before it could be matched.
+
+**`seed.ts` mirrors production (2026-11-03).** It had drifted. Seven entries still had the slugs and names of products renamed in the app, which were tombstoned, so `seed()` skipped them. About twenty products added in the Products tab had no entry. Their URLs could only be changed by hand in the UI, and adding Bowden's URLs from code needed every product reachable. The entries now use the live slugs, names and URLs, copied from `GET /api/products`, with Auto Barn's tracking parameters stripped.
+- The frontend `CATALOG` still has the old slugs (see tasks.md).
 
 **Tombstones for deleted products (2026-07).** `seed()` runs on every Render boot and used to resurrect products deleted from the UI. `deleted_products` records the slug, and `seed()` skips it.
 
@@ -43,13 +50,20 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 ## Scraping
 
+**Bowden's Own is back, from the home runner (2026-11-03).** It blocks cloud IPs but serves a home connection, so it runs on `debian-server` next to Auto Barn, an hour earlier. It prices 67 products, closing most single-retailer gaps.
+- **A URL per option.** Its pages sell several sizes or options and show only the default's price, and Neto has no per-size URLs: `?sku=` and the like are ignored. A stored URL names the option after `#` instead, which the browser never sends, so the Buy link still opens the page.
+- **Other sizes come from the site's own size buttons.** The scraper replays the two requests those buttons make (`/ajax/variations`, then `/ajax/ajax_template`), which is the same thing a visitor's browser does. The alternatives were reading the store's Algolia search index with its public key, or only tracking default sizes, which would have missed Snow Job 5L and Wipe Out 1L among others.
+- **No was-price.** Nothing was on sale on the site to check the markup against, so sales rely on the rolling-average check.
+- **Failing loudly.** Five blocked responses in a row stop the run and fail it, rather than letting it finish quietly with nothing. The stale-price email covers the rest.
+- Its search is off limits (`robots.txt` disallows `?rf=`). Products were matched through its category pages and sitemap, then each URL was priced with the real scraper and compared with Supercheap and Auto Barn.
+
 **Stale-price alerts (2026-10-24).** The Auto Barn runner was offline from 2026-09-19 to 2026-10-21 and nobody noticed. GitHub quietly cancels jobs that no runner picks up, and the app kept showing the last prices it had. Now the 08:00 UTC job emails the admin whenever a retailer with URLs has had no new price for 3 days. Both scrapers run daily, so that allows for a couple of failed runs. The email repeats daily until prices come back.
 - The email is per retailer, because a whole retailer stopping is what went unnoticed.
 - A single product's stale price usually means one broken or discontinued URL. That shows as a ⚠ in the UI instead, since a daily email about it would be noise. The first pass found one: an Auto Barn bucket listing that had returned 404 since June.
 
 **Retailer URLs must be on the retailer's site (2026-10-24).** Two Auto Barn URLs had been saved in Supercheap fields. Supercheap's scraper can't read Auto Barn pages, so they never got a price, and nothing showed it. The product routes now reject a URL that isn't on the retailer's own site. `initDb()` also deletes any such row on boot, the same way it handles retired retailers, because there are no local Turso credentials for a one-off fix.
 
-**Bowden's Own blocks cloud IPs, not home ones (2026-10-24).** Every earlier attempt ran from GitHub Actions or Render. From a home connection, every archived URL tried returned a server-rendered price. Bringing it back is in [tasks.md](tasks.md), and the selector and the size-variant caveat are in [blocked-retailers.md](blocked-retailers.md).
+**Bowden's Own blocks cloud IPs, not home ones (2026-10-24).** Every earlier attempt ran from GitHub Actions or Render. From a home connection, every archived URL tried returned a server-rendered price. It came back on 2026-11-03 (above).
 
 **Blocked retailers removed (2026-10-21).** Repco (Cloudflare, since about 2026-08-16), Autopro (Imperva, since about 2026-09-25) and Bowden's Own (never scrapeable) all block bots, so their scrapers, retailer URLs and price history were deleted rather than left half-working. Supercheap and Auto Barn are the remaining sources. The knowledge and a CSV of every URL are kept in [blocked-retailers.md](blocked-retailers.md). The cleanup runs in `initDb()` on every boot instead of as a one-off script for two reasons: there are no local Turso credentials, and it also catches any rows re-added later. The DB `CHECK` constraint was left permissive so a retailer can come back without a table rebuild.
 
@@ -59,7 +73,7 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 **Auto Barn via a home runner.** Auto Barn returns 403 to all cloud IPs (GitHub-hosted runners and Render alike), so it runs on `debian-server` from a residential IP. About half its product URLs hang server-side whatever the client; Playwright was tried and didn't help. It pushes in batches of 10 so a crash loses at most one batch. If its workflow runs show "cancelled", the runner is offline: GitHub cancels jobs no runner picks up within 24 hours. That happened from 2026-09-19 to 2026-10-21, when the runner service hadn't been restarted.
 
-**Bowden's Own is never scraped.** GitHub Actions gets a Cloudflare JS challenge and Render gets a hard 403. An OzBargain-RSS sale detector was tried briefly in May 2026 and removed. Production still had 20 leftover `bowdens` URLs (never scraped, origin unknown); they were deleted with the other blocked retailers in 2026-10.
+**Bowden's Own can't be scraped from the cloud.** GitHub Actions gets a Cloudflare JS challenge and Render gets a hard 403. (It's scraped from the home runner since 2026-11-03, above.) An OzBargain-RSS sale detector was tried briefly in May 2026 and removed. Production still had 20 leftover `bowdens` URLs (never scraped, origin unknown); they were deleted with the other blocked retailers in 2026-10.
 
 ## Reminders
 
