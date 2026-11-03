@@ -35,8 +35,30 @@ async function readUserJson(userId: number, key: string): Promise<unknown> {
   return rows.length > 0 ? JSON.parse(rows[0].valueJson) : null;
 }
 
+async function writeUserJson(userId: number, key: string, value: unknown): Promise<void> {
+  const valueJson = JSON.stringify(value);
+  const updatedAt = new Date().toISOString();
+  await db
+    .insert(userData)
+    .values({ userId, key, valueJson, updatedAt })
+    .onConflictDoUpdate({ target: [userData.userId, userData.key], set: { valueJson, updatedAt } });
+}
+
+// The last wash reminder sent for each overdue routine ('_legacy' for the no-schedule fallback), so
+// an overdue routine is reminded when it falls due and then every REMINDER_REPEAT_DAYS, not every
+// morning. Server-only: it isn't in ALLOWED_KEYS (routes/auth.ts), so it never syncs to the app.
+export const REMINDER_STATE_KEY = 'wash-reminders-sent-v1';
+export const REMINDER_REPEAT_DAYS = 7;
+type ReminderState = Record<string, { dueOn: string; sentOn: string }>; // UTC YYYY-MM-DD dates
+
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+
+// TickTick wants e.g. 2026-11-03T00:00:00+0000.
+const ticktickDate = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, '+0000');
+
 // Wash reminders: one notification per overdue routine in the user's settings.schedules, or the
-// legacy fixed 14-day check when they have no schedules.
+// legacy fixed 14-day check when they have no schedules. Each is sent on the first morning it's
+// overdue, then again only every REMINDER_REPEAT_DAYS while it stays overdue.
 export async function runWashReminders(): Promise<void> {
   for (const recipient of await getNotificationRecipients()) {
     try {
@@ -51,10 +73,11 @@ async function sendWashReminders({ userId, email, settings: notif }: Notificatio
   const viaTickTick = notif.washReminders && notif.ticktickConnected;
   if (!viaTickTick && !notif.emailWashReminders) return;
 
-  const [savedLog, savedSettings, savedRoutines] = await Promise.all([
+  const [savedLog, savedSettings, savedRoutines, savedState] = await Promise.all([
     readUserJson(userId, 'corolla-washlog-v1'),
     readUserJson(userId, 'corolla-settings-v1'),
     readUserJson(userId, 'corolla-routines-v1'),
+    readUserJson(userId, REMINDER_STATE_KEY),
   ]);
 
   type WashEntry = { date: string; type: string };
@@ -63,6 +86,7 @@ async function sendWashReminders({ userId, email, settings: notif }: Notificatio
 
   const todayUtc = new Date();
   todayUtc.setUTCHours(0, 0, 0, 0);
+  const today = todayUtc.toISOString().slice(0, 10);
 
   const scheduleList = (savedSettings as { schedules?: unknown } | null)?.schedules;
   const schedules: Array<{ routineId: string; intervalValue: number; intervalUnit: string }> = Array.isArray(
@@ -71,24 +95,10 @@ async function sendWashReminders({ userId, email, settings: notif }: Notificatio
     ? scheduleList
     : [];
 
-  const send = async (title: string, body: string, dueDate: string) => {
-    if (viaTickTick) {
-      await createTickTickTask(userId, {
-        title,
-        content: body,
-        projectId: notif.ticktickProjectId ?? '',
-        tags: notif.ticktickTags ?? [],
-        priority: notif.ticktickPriority,
-        dueDate,
-      });
-    }
-    if (notif.emailWashReminders) {
-      await sendDirectEmail(email, title, body);
-    }
-  };
-
+  // Everything overdue today, keyed for the reminder state.
+  const overdue: Array<{ key: string; name: string; lastLabel: string; lastDate: Date; dueDate: Date }> = [];
   if (schedules.length > 0) {
-    // Schedule-aware path: send one notification per overdue routine
+    // Schedule-aware path: one per overdue routine
     type RoutineEntry = { id: string; name: string; types: string[] };
     const routineList = Array.isArray(savedRoutines) ? (savedRoutines as RoutineEntry[]) : [];
 
@@ -108,39 +118,61 @@ async function sendWashReminders({ userId, email, settings: notif }: Notificatio
       const lastDate = new Date(relevant[0].date);
       const dueDate = new Date(lastDate);
       dueDate.setUTCDate(dueDate.getUTCDate() + intervalDays);
-
-      if (todayUtc < dueDate) continue;
-
-      const overdueDays = Math.floor((todayUtc.getTime() - dueDate.getTime()) / 86_400_000);
-      const lastDateStr = lastDate.toISOString().slice(0, 10);
-      const washBody =
-        overdueDays > 0
-          ? `Last session: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
-          : `Last session: ${lastDateStr}\nDue today`;
-
-      await send(`🚗 ${routine.name} due`, washBody, dueDate.toISOString().replace(/\.\d{3}Z$/, '+0000'));
-      console.log(
-        `Wash reminder sent to user ${userId} — ${routine.name}, last: ${lastDateStr}, overdue: ${overdueDays}d`,
-      );
+      if (todayUtc >= dueDate) {
+        overdue.push({ key: schedule.routineId, name: routine.name, lastLabel: 'Last session', lastDate, dueDate });
+      }
     }
   } else {
     // Legacy fallback: check most recent log entry against fullWash interval
     const lastDate = new Date([...washLog].sort((a, b) => b.date.localeCompare(a.date))[0].date);
-    const intervalDays = 14;
     const dueDate = new Date(lastDate);
-    dueDate.setUTCDate(dueDate.getUTCDate() + intervalDays);
+    dueDate.setUTCDate(dueDate.getUTCDate() + 14);
+    if (todayUtc >= dueDate) {
+      overdue.push({ key: '_legacy', name: 'Corolla wash', lastLabel: 'Last wash', lastDate, dueDate });
+    }
+  }
 
-    if (todayUtc < dueDate) return;
+  // Carry over the record for whatever is still overdue; a routine that's been done drops out, so
+  // the next time it falls due is reminded straight away.
+  const before = (savedState && typeof savedState === 'object' ? savedState : {}) as ReminderState;
+  const sent: ReminderState = {};
+  for (const { key } of overdue) if (before[key]) sent[key] = before[key];
 
-    const overdueDays = Math.floor((todayUtc.getTime() - dueDate.getTime()) / 86_400_000);
-    const lastDateStr = lastDate.toISOString().slice(0, 10);
-    const washBody =
-      overdueDays > 0
-        ? `Last wash: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
-        : `Last wash: ${lastDateStr}\nDue today`;
+  try {
+    for (const { key, name, lastLabel, lastDate, dueDate } of overdue) {
+      const dueOn = dueDate.toISOString().slice(0, 10);
+      const prev = sent[key];
+      // Already reminded for this due date, and recently enough. A new session that moves the due
+      // date starts over.
+      if (prev?.dueOn === dueOn && daysBetween(prev.sentOn, today) < REMINDER_REPEAT_DAYS) continue;
 
-    await send('🚗 Corolla wash due', washBody, dueDate.toISOString());
-    console.log(`Wash reminder sent to user ${userId} (legacy) — last wash: ${lastDateStr}, overdue: ${overdueDays}d`);
+      const overdueDays = daysBetween(dueOn, today);
+      const lastDateStr = lastDate.toISOString().slice(0, 10);
+      const title = `🚗 ${name} due`;
+      const body =
+        overdueDays > 0
+          ? `${lastLabel}: ${lastDateStr}\nOverdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
+          : `${lastLabel}: ${lastDateStr}\nDue today`;
+
+      if (viaTickTick) {
+        await createTickTickTask(userId, {
+          title,
+          content: body,
+          projectId: notif.ticktickProjectId ?? '',
+          tags: notif.ticktickTags ?? [],
+          priority: notif.ticktickPriority,
+          dueDate: ticktickDate(dueDate),
+        });
+      }
+      if (notif.emailWashReminders) {
+        await sendDirectEmail(email, title, body);
+      }
+      sent[key] = { dueOn, sentOn: today };
+      console.log(`Wash reminder sent to user ${userId} — ${name}, last: ${lastDateStr}, overdue: ${overdueDays}d`);
+    }
+  } finally {
+    // Saved even if a send failed part-way, so the reminders that did go out aren't repeated.
+    if (JSON.stringify(sent) !== JSON.stringify(before)) await writeUserJson(userId, REMINDER_STATE_KEY, sent);
   }
 }
 

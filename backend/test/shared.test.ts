@@ -90,6 +90,17 @@ describe('sync', () => {
     expect((await pull(MEMBER))['corolla-washlog-v1']).toEqual(log);
     expect((await pull(ADMIN))['corolla-washlog-v1']).toBeUndefined();
   });
+
+  it('never sends the server-only rows to the browser', async () => {
+    await db.insert(userData).values([
+      { userId: memberId, key: 'ticktick-oauth-v1', valueJson: '{"access_token":"secret"}' },
+      { userId: memberId, key: 'wash-reminders-sent-v1', valueJson: '{}' },
+    ]);
+    const remote = await pull(MEMBER);
+    expect(remote).not.toHaveProperty('ticktick-oauth-v1');
+    expect(remote).not.toHaveProperty('wash-reminders-sent-v1');
+    expect(remote).toHaveProperty('corolla-washlog-v1');
+  });
 });
 
 describe('renaming a product', () => {

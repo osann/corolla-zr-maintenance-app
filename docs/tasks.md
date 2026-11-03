@@ -4,9 +4,6 @@ Backlog ranked by usefulness × feasibility. Each item is independently shippabl
 
 ## Open
 
-### Wash reminders
-- ☐ **Overdue reminders repeat every morning.** The 07:00 UTC cron sends a new TickTick task (or email) each day a routine stays overdue, so a week's lapse leaves seven duplicate tasks. Send one when the routine falls due, then at most weekly, for example by remembering the last reminder per schedule on the server. Found 2026-10-24.
-
 ### Scraping health
 - ☐ **Bring back Bowden's Own, from the home runner.** On 2026-10-24 bowdensown.com.au served real prices to a plain request from a home connection. It had only ever been tried from cloud IPs. It sells every size and pack, so it would close most of the gaps below. It needs:
   - a small fetch scraper, run next to Auto Barn on `debian-server`;
@@ -58,3 +55,5 @@ Invite-only accounts exist now (2026-10). This is the next step if other people 
     - Price coverage pass: one URL was replaced and one added. A retailer URL must now be on that retailer's site, which removed two wrong ones. What's still missing is listed above.
     - Frontend tests run in CI: a static inline-handler audit, plus headless browser smoke tests. Text arguments in inline handlers go through `jsArg()`.
     - Replacing inline handlers with delegated listeners was assessed and declined ([decisions.md](decisions.md#frontend)).
+14. **Backlog pass (2026-11).**
+    - An overdue routine is reminded the first morning it's due, then weekly, instead of every morning. `GET /api/sync` no longer sends server-only rows such as TickTick tokens.

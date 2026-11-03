@@ -83,7 +83,7 @@ Drizzle + `@libsql/client`. Tables (`backend/src/db/schema.ts`):
 - `pack_components` — components of a pack product. `component_product_id` null = free-text component placed by `section_category`/`section_label`. Packs can't contain packs.
 - `deleted_products` — tombstones by slug so `seed()` never resurrects a product deleted in the UI. `POST /api/products` clears a matching tombstone.
 - `users` (`joined_at` is set on first sign-in; null means invited but not yet signed in), `magic_tokens` (single-use; 15 min for a sign-in link, 7 days for an invite), `sessions` (30-day), `photos`.
-- `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync. `ticktick-oauth-v1` is deliberately **not** in it — tokens never reach the client.
+- `user_data` — per-user key/value JSON for all synced app state. A key must be in `ALLOWED_KEYS` (`routes/auth.ts`) to sync, and `GET /api/sync` returns only those keys. The server-only rows, `ticktick-oauth-v1` (tokens) and `wash-reminders-sent-v1` (see Notifications), are deliberately **not** in it, so they never reach the client.
 - `shared_data` — key/value JSON every account shares and only the admin can change; the keys are listed in `SHARED_KEYS` (`routes/auth.ts`, mirrored in `js/config.js`). Currently only `corolla-categories-v1`. These keys sync through the same endpoints: `GET /api/sync` merges them over the user's rows, and `POST /api/sync/:key` returns 403 to anyone but the admin. `initDb()` moved the owner's categories here once.
 
 Rules:
@@ -230,7 +230,7 @@ Channels are TickTick (OAuth, per user; tokens in that user's `user_data` under 
 Triggers:
 1. **Sale alert:** the product transitions to on-sale during `POST /api/prices`.
 2. **Threshold alert:** the price crosses at or below the product's threshold during `POST /api/prices`.
-3. **Wash reminder:** 07:00 UTC cron, per `settings.schedules`. It repeats every morning while a routine stays overdue.
+3. **Wash reminder:** 07:00 UTC cron, per `settings.schedules`. It's sent the first morning a routine is overdue, then every 7 days (`REMINDER_REPEAT_DAYS`) while it stays overdue. A new session that moves the due date starts over. The last reminder per routine is kept in that user's `user_data` under `wash-reminders-sent-v1`, which never syncs.
 4. **Daily digest:** 08:00 UTC cron, email only, sent only when there's something to report.
 5. **Stale prices:** 08:00 UTC cron, email to the admin (`OWNER_EMAIL`) only, every day while a retailer has had no new price for 3 days (see Scrapers).
 

@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Hono } from 'hono';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../src/db/connection.js';
 import { users, userData, products } from '../src/db/schema.js';
 import { initDb } from '../src/db/init.js';
@@ -128,11 +128,48 @@ describe('daily digest', () => {
 });
 
 describe('wash reminders', () => {
+  // Runs the cron as if it were `days` from now.
+  const runInDays = async (days: number) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + days * 86_400_000);
+    try {
+      await runWashReminders();
+    } finally {
+      vi.useRealTimers();
+    }
+  };
+
   it('reminds each user whose own routine is overdue', async () => {
     await runWashReminders();
     expect(vi.mocked(sendDirectEmail).mock.calls).toEqual([
       ['ann@example.com', '🚗 Full wash due', expect.stringContaining('Overdue by')],
       ['cal@example.com', '🚗 Exterior detail due', expect.stringContaining('Overdue by 23 days')],
+    ]);
+  });
+
+  it("doesn't repeat a reminder within a week while the routine stays overdue", async () => {
+    await runWashReminders();
+    await runInDays(6);
+    expect(sendDirectEmail).not.toHaveBeenCalled();
+  });
+
+  it('repeats it a week later', async () => {
+    await runInDays(7);
+    // Ann and Cal again, and Ben for the first time: he washed today, on a weekly schedule.
+    expect(recipientsOf(sendDirectEmail).sort()).toEqual(['ann@example.com', 'ben@example.com', 'cal@example.com']);
+  });
+
+  it('reminds again as soon as a new session makes the routine due again', async () => {
+    // Ann logs a wash today, so her weekly routine is next due in 7 days. Her last reminder (8 days'
+    // run below minus one) was for the old due date, so it doesn't hold this one back.
+    const [ann] = await db.select().from(users).where(eq(users.email, 'ann@example.com'));
+    await db
+      .update(userData)
+      .set({ valueJson: JSON.stringify([{ date: daysAgo(0), type: 'r1' }]) })
+      .where(and(eq(userData.userId, ann.id), eq(userData.key, 'corolla-washlog-v1')));
+    await runInDays(8);
+    expect(vi.mocked(sendDirectEmail).mock.calls).toEqual([
+      ['ann@example.com', '🚗 Full wash due', expect.stringContaining('Overdue by 1 day')],
     ]);
   });
 });

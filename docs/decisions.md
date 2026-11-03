@@ -58,6 +58,10 @@ Why the non-obvious parts of this app are the way they are. Rules derived from t
 
 ## Reminders
 
+**Overdue reminders repeat weekly, not daily (2026-11-03).** The 07:00 UTC cron sent a new TickTick task or email every morning a routine stayed overdue, so a week's lapse left seven duplicate tasks. Now each user's `user_data` keeps the last reminder per routine (`wash-reminders-sent-v1`): one goes out the first morning a routine is overdue, then every 7 days while it stays overdue.
+- The record holds the due date it was sent for. A new session that moves the due date starts over, so the next time the routine falls due is reminded at once.
+- It's server-side because the cron decides. `GET /api/sync` used to return every `user_data` row, TickTick tokens included, so it now returns only the synced keys.
+
 **A routine with no types counts only its own sessions (2026-10-24).** A routine's `types` exist to match legacy log entries (`full`/`quick`/`interior`/`both`) from before entries recorded a routine id. The cron treated a routine with no types as matching every entry. So any session, say an interior tidy, reset an exterior routine's timer and suppressed its reminder, while the app correctly showed it overdue. The app's rule was the right one. `test/reminder-matching.test.ts` now runs the real frontend function against the backend's, so the two can't drift again.
 
 **The no-schedule fallback stays.** With no schedules set, the cron still sends a reminder 14 days after the last session, while the app shows no card. That fallback predates schedules. Removing it would quietly stop reminders for anyone relying on it, so the Schedules copy now says how it works instead.
